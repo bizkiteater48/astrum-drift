@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { 
   useGetMe, 
+  getGetMeQueryKey,
   useLogin, 
   useRegister,
   ApiError
@@ -11,6 +12,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, TerminalSquare } from "lucide-react";
 
+import { extractErrorMessage } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -43,6 +45,7 @@ export default function AuthPage() {
   const [, setLocation] = useLocation();
   const { data: player, isLoading: meLoading } = useGetMe({ 
     query: { 
+      queryKey: getGetMeQueryKey(),
       retry: false,
     } 
   });
@@ -74,11 +77,11 @@ export default function AuthPage() {
     try {
       await loginMutation.mutateAsync({ data });
       setLocation("/play");
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof ApiError && error.status === 403) {
-        setAuthError("This network is already in use by another commander.");
+        setAuthError(extractErrorMessage(error) ?? "This network is already in use by another commander.");
       } else {
-        setAuthError(error?.data?.error || "Failed to authenticate connection");
+        setAuthError(extractErrorMessage(error) ?? "Failed to authenticate connection");
       }
     }
   };
@@ -88,8 +91,8 @@ export default function AuthPage() {
     try {
       await registerMutation.mutateAsync({ data });
       setLocation("/play");
-    } catch (error: any) {
-      setAuthError(error?.data?.error || "Failed to initialize new commander profile");
+    } catch (error: unknown) {
+      setAuthError(extractErrorMessage(error) ?? "Failed to initialize new commander profile");
     }
   };
 

@@ -1,18 +1,18 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
-import { db, playersTable } from "@workspace/db";
+import { db, playersTable, userSessionsTable } from "@workspace/db";
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
 import { serializePlayer } from "../lib/player";
 import { requireAuth, getClientIp } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
-const ACTIVE_IP_UNIQUE_INDEX = "players_active_ip_unique";
+const IP_UNIQUE_INDEX = "user_sessions_ip_unique";
 const IP_CONFLICT_MESSAGE =
   "This network is already in use by another commander.";
 
-function isActiveIpConflict(err: unknown): boolean {
+function isIpConflict(err: unknown): boolean {
   if (typeof err !== "object" || err === null) return false;
   const e = err as {
     code?: string;
@@ -20,16 +20,32 @@ function isActiveIpConflict(err: unknown): boolean {
     cause?: { code?: string; constraint?: string };
     message?: string;
   };
-  if (e.code === "23505" && e.constraint === ACTIVE_IP_UNIQUE_INDEX) {
-    return true;
-  }
+  if (e.code === "23505" && e.constraint === IP_UNIQUE_INDEX) return true;
   if (
     e.cause?.code === "23505" &&
-    e.cause.constraint === ACTIVE_IP_UNIQUE_INDEX
+    e.cause.constraint === IP_UNIQUE_INDEX
   ) {
     return true;
   }
-  return Boolean(e.message?.includes(ACTIVE_IP_UNIQUE_INDEX));
+  return Boolean(e.message?.includes(IP_UNIQUE_INDEX));
+}
+
+function isUsernameConflict(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  const e = err as {
+    code?: string;
+    constraint?: string;
+    cause?: { code?: string; constraint?: string };
+    message?: string;
+  };
+  if (e.code === "23505" && e.constraint?.includes("username")) return true;
+  if (
+    e.cause?.code === "23505" &&
+    e.cause.constraint?.includes("username")
+  ) {
+    return true;
+  }
+  return Boolean(e.message?.toLowerCase().includes("username"));
 }
 
 function saveSession(req: import("express").Request): Promise<void> {
@@ -42,6 +58,16 @@ function destroySession(req: import("express").Request): Promise<void> {
   return new Promise((resolve) => {
     req.session.destroy(() => resolve());
   });
+}
+
+async function claimIpForPlayer(playerId: number, ip: string): Promise<void> {
+  await db
+    .insert(userSessionsTable)
+    .values({ playerId, ip })
+    .onConflictDoUpdate({
+      target: userSessionsTable.playerId,
+      set: { ip, createdAt: new Date() },
+    });
 }
 
 router.post("/auth/register", async (req, res): Promise<void> => {
@@ -63,8 +89,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
       .returning();
     player = inserted[0];
   } catch (err: unknown) {
-    const e = err as { code?: string; constraint?: string };
-    if (e.code === "23505" && e.constraint?.includes("username")) {
+    if (isUsernameConflict(err)) {
       res.status(409).json({ error: "Username already taken" });
       return;
     }
@@ -88,16 +113,10 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     return;
   }
 
-  let claimed;
   try {
-    const updated = await db
-      .update(playersTable)
-      .set({ activeIp: ip })
-      .where(eq(playersTable.id, player.id))
-      .returning();
-    claimed = updated[0];
+    await claimIpForPlayer(player.id, ip);
   } catch (err) {
-    if (isActiveIpConflict(err)) {
+    if (isIpConflict(err)) {
       await destroySession(req);
       await db.delete(playersTable).where(eq(playersTable.id, player.id));
       res.status(403).json({ error: IP_CONFLICT_MESSAGE });
@@ -110,12 +129,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     return;
   }
 
-  if (!claimed) {
-    res.status(500).json({ error: "Failed to register" });
-    return;
-  }
-
-  res.status(201).json(serializePlayer(claimed));
+  res.status(201).json(serializePlayer(player));
 });
 
 router.post("/auth/login", async (req, res): Promise<void> => {
@@ -153,16 +167,10 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
-  let claimed;
   try {
-    const updated = await db
-      .update(playersTable)
-      .set({ activeIp: ip })
-      .where(eq(playersTable.id, player.id))
-      .returning();
-    claimed = updated[0];
+    await claimIpForPlayer(player.id, ip);
   } catch (err) {
-    if (isActiveIpConflict(err)) {
+    if (isIpConflict(err)) {
       await destroySession(req);
       res.status(403).json({ error: IP_CONFLICT_MESSAGE });
       return;
@@ -173,12 +181,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
-  if (!claimed) {
-    res.status(500).json({ error: "Failed to log in" });
-    return;
-  }
-
-  res.status(200).json(serializePlayer(claimed));
+  res.status(200).json(serializePlayer(player));
 });
 
 router.post("/auth/logout", async (req, res): Promise<void> => {
@@ -186,11 +189,10 @@ router.post("/auth/logout", async (req, res): Promise<void> => {
   if (playerId) {
     try {
       await db
-        .update(playersTable)
-        .set({ activeIp: null })
-        .where(eq(playersTable.id, playerId));
+        .delete(userSessionsTable)
+        .where(eq(userSessionsTable.playerId, playerId));
     } catch (err) {
-      req.log.error({ err }, "Failed to clear active IP on logout");
+      req.log.error({ err }, "Failed to release session lock on logout");
     }
   }
   req.session.destroy((err) => {

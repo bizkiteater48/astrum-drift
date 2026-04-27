@@ -10,6 +10,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Power, Terminal, Pickaxe, Battery, MapPin, Award, Zap } from "lucide-react";
 import earthOrbitImg from "@/assets/earth-orbit.png";
+import { extractErrorMessage } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useMiningTimer } from "@/hooks/use-mining-timer";
@@ -22,6 +23,7 @@ export default function PlayPage() {
 
   const { data: player, isLoading: meLoading, error: meError } = useGetMe({ 
     query: { 
+      queryKey: getGetMeQueryKey(),
       retry: false,
     } 
   });
@@ -91,8 +93,8 @@ export default function PlayPage() {
       await startMiningMutation.mutateAsync();
       queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
       addMessage(`[SYSTEM] Mining cycle added to queue.`);
-    } catch (error: any) {
-      addMessage(`[ERROR] ${error?.data?.error || "Failed to queue mining cycle"}`);
+    } catch (error: unknown) {
+      addMessage(`[ERROR] ${extractErrorMessage(error) ?? "Failed to queue mining cycle"}`);
     }
   };
 

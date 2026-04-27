@@ -6,6 +6,7 @@ import {
   useCollectMining,
   Player
 } from "@workspace/api-client-react";
+import { extractErrorMessage } from "@/lib/utils";
 
 export function useMiningTimer(player: Player | null, onMessage: (msg: string) => void) {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
@@ -68,8 +69,8 @@ export function useMiningTimer(player: Player | null, onMessage: (msg: string) =
       }
       
       queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-    } catch (error: any) {
-      onMessage(`[ERROR] Collection failed: ${error.data?.error || error.message}`);
+    } catch (error: unknown) {
+      onMessage(`[ERROR] Collection failed: ${extractErrorMessage(error) ?? "Unknown error"}`);
     }
   };
 

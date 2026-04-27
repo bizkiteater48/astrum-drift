@@ -41,13 +41,14 @@ A web-based, text-focused space mining MMORPG built on this monorepo.
 - `artifacts/api-server/src/lib/constants.ts` — game constants: `CYCLE_DURATION_SEC=30`, `MAX_MINING_QUEUE=20`, `CREDITS_PER_CYCLE=25`, `XP_PER_CYCLE=10`, `xpForLevel(level) = level*100`.
 - `artifacts/api-server/src/lib/player.ts` — `serializePlayer()` shapes the DB row to the OpenAPI `Player` schema (including derived `cycleDurationSec` / `maxQueue`).
 - `artifacts/api-server/src/middlewares/auth.ts` — `requireAuth` and `getClientIp`.
-- `artifacts/api-server/src/routes/auth.ts` — register/login/logout/me. **Session is saved BEFORE `activeIp` is claimed**, and `activeIp` is rolled back if the IP claim fails. Anti-cheat is enforced atomically by a Postgres unique partial index `players_active_ip_unique` (no application-level race).
+- `artifacts/api-server/src/routes/auth.ts` — register/login/logout/me. **Session is saved BEFORE the IP is claimed**, and the player + session are rolled back if the IP claim fails. Anti-cheat is enforced atomically via `INSERT … ON CONFLICT (player_id) DO UPDATE` on `user_sessions`, with a unique index on `ip` providing race-free same-IP rejection (23505 → 403).
 - `artifacts/api-server/src/routes/mining.ts` — start/collect. Both wrap their read-modify-write in a `db.transaction` with `SELECT ... FOR UPDATE` on the player row to prevent lost updates under concurrent requests.
 
 ### DB schema (`lib/db/src/schema/`)
 
-- `players` — id, username (unique), hashed_password, credits, experience, current_location (default `Earth Orbit`), mining_level, mining_queued, mining_started_at, active_ip, created_at. Includes a unique partial index on `active_ip` where `active_ip IS NOT NULL` — this is the atomic anti-cheat.
-- `session` — `connect-pg-simple`'s sid/sess/expire table.
+- `players` — id, username (unique), hashed_password, credits, experience, current_location (default `Earth Orbit`), mining_level, mining_queued, mining_started_at, created_at.
+- `user_sessions` — id, player_id (unique, FK → players, ON DELETE CASCADE), ip, created_at, with a unique index on `ip`. This table provides the atomic IP-based anti-cheat lock.
+- `session` — `connect-pg-simple`'s sid/sess/expire table (cookie storage, separate from `user_sessions`).
 
 ### Frontend
 
