@@ -1,84 +1,170 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { 
-  useGetMe, 
+import {
   getGetMeQueryKey,
   useCollectMining,
-  Player
+  useStartMining,
+  useStopMining,
+  Player,
 } from "@workspace/api-client-react";
 import { extractErrorMessage } from "@/lib/utils";
 
-export function useMiningTimer(player: Player | null, onMessage: (msg: string) => void) {
+export function useMiningTimer(
+  player: Player | null,
+  onMessage: (msg: string) => void,
+) {
+  const [isMining, setIsMining] = useState<boolean>(
+    !!player?.miningStartedAt,
+  );
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  const [completedCycles, setCompletedCycles] = useState(0);
-  const [isReadyToCollect, setIsReadyToCollect] = useState(false);
-  
+
   const queryClient = useQueryClient();
   const collectMining = useCollectMining();
+  const startMining = useStartMining();
+  const stopMining = useStopMining();
 
+  const isMiningRef = useRef(isMining);
   useEffect(() => {
-    if (!player || !player.miningStartedAt || player.miningQueued === 0) {
+    isMiningRef.current = isMining;
+  }, [isMining]);
+
+  const initializedRef = useRef(false);
+  useEffect(() => {
+    if (!initializedRef.current && player) {
+      initializedRef.current = true;
+      if (player.miningStartedAt) {
+        setIsMining(true);
+        isMiningRef.current = true;
+      }
+    }
+  }, [player]);
+
+  const cycleSecs = player?.cycleDurationSec ?? 30;
+  const startedAtMs = player?.miningStartedAt
+    ? new Date(player.miningStartedAt).getTime()
+    : null;
+
+  const inFlightRef = useRef(false);
+
+  const tick = useCallback(async () => {
+    if (!isMiningRef.current) {
       setTimeLeft(null);
-      setIsReadyToCollect(false);
+      return;
+    }
+    if (!startedAtMs) {
+      if (!inFlightRef.current) {
+        inFlightRef.current = true;
+        try {
+          await startMining.mutateAsync();
+          await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+        } catch (error: unknown) {
+          onMessage(
+            `[ERROR] Start failed: ${extractErrorMessage(error) ?? "Unknown error"}`,
+          );
+          setIsMining(false);
+          isMiningRef.current = false;
+        } finally {
+          inFlightRef.current = false;
+        }
+      }
       return;
     }
 
-    const startedAt = new Date(player.miningStartedAt).getTime();
-    const cycleSecs = player.cycleDurationSec;
-    
-    const updateTimer = () => {
-      const now = Date.now();
-      const elapsedSecs = Math.floor((now - startedAt) / 1000);
-      
-      const cyclesDone = Math.min(
-        Math.floor(elapsedSecs / cycleSecs), 
-        player.miningQueued
-      );
-      
-      setCompletedCycles(cyclesDone);
-      
-      if (cyclesDone >= player.miningQueued) {
-        setTimeLeft(0);
-        setIsReadyToCollect(true);
-      } else {
-        const nextCycleEndsAtSecs = (cyclesDone + 1) * cycleSecs;
-        setTimeLeft(nextCycleEndsAtSecs - elapsedSecs);
-        setIsReadyToCollect(cyclesDone > 0);
-      }
-    };
-
-    updateTimer();
-    const intervalId = setInterval(updateTimer, 1000);
-    
-    return () => clearInterval(intervalId);
-  }, [player]);
-
-  const handleCollect = async () => {
-    if (!isReadyToCollect) return;
-    
+    const elapsed = Math.floor((Date.now() - startedAtMs) / 1000);
+    const remaining = cycleSecs - elapsed;
+    if (remaining > 0) {
+      setTimeLeft(remaining);
+      return;
+    }
+    setTimeLeft(0);
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     try {
       const res = await collectMining.mutateAsync();
-      
-      if (res && res.reward) {
-        onMessage(`[SYSTEM] Collected rewards for ${res.reward.cycles} cycles.`);
-        onMessage(`[REWARD] +${res.reward.credits} CR, +${res.reward.experience} XP.`);
+      if (res?.reward) {
+        onMessage(
+          `[REWARD] +${res.reward.credits} CR, +${res.reward.experience} XP.`,
+        );
         if (res.reward.leveledUp) {
-          onMessage(`[LEVEL UP] You reached Mining Level ${res.reward.newLevel}!`);
+          onMessage(
+            `[LEVEL UP] You reached Mining Level ${res.reward.newLevel}!`,
+          );
         }
-        res.reward.messages.forEach(msg => onMessage(`[MINING] ${msg}`));
       }
-      
-      queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+      if (isMiningRef.current) {
+        await startMining.mutateAsync();
+      }
+      await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
     } catch (error: unknown) {
-      onMessage(`[ERROR] Collection failed: ${extractErrorMessage(error) ?? "Unknown error"}`);
+      onMessage(
+        `[ERROR] Cycle failed: ${extractErrorMessage(error) ?? "Unknown error"}`,
+      );
+      setIsMining(false);
+      isMiningRef.current = false;
+    } finally {
+      inFlightRef.current = false;
     }
-  };
+  }, [
+    startedAtMs,
+    cycleSecs,
+    collectMining,
+    startMining,
+    queryClient,
+    onMessage,
+  ]);
+
+  useEffect(() => {
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [tick]);
+
+  const handleStart = useCallback(async () => {
+    if (isMining) return;
+    setIsMining(true);
+    isMiningRef.current = true;
+    onMessage("[SYSTEM] Extractor array engaged. Auto-cycle initiated.");
+    if (!startedAtMs && !inFlightRef.current) {
+      inFlightRef.current = true;
+      try {
+        await startMining.mutateAsync();
+        await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+      } catch (error: unknown) {
+        onMessage(
+          `[ERROR] Start failed: ${extractErrorMessage(error) ?? "Unknown error"}`,
+        );
+        setIsMining(false);
+        isMiningRef.current = false;
+      } finally {
+        inFlightRef.current = false;
+      }
+    }
+  }, [isMining, startedAtMs, startMining, queryClient, onMessage]);
+
+  const handleStop = useCallback(async () => {
+    if (!isMining) return;
+    setIsMining(false);
+    isMiningRef.current = false;
+    setTimeLeft(null);
+    onMessage(
+      "[SYSTEM] Extractor array disengaged. In-progress cycle abandoned.",
+    );
+    try {
+      await stopMining.mutateAsync();
+      await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+    } catch (error: unknown) {
+      onMessage(
+        `[ERROR] Stop failed: ${extractErrorMessage(error) ?? "Unknown error"}`,
+      );
+    }
+  }, [isMining, stopMining, queryClient, onMessage]);
 
   return {
+    isMining,
     timeLeft,
-    completedCycles,
-    isReadyToCollect,
-    handleCollect,
-    isCollecting: collectMining.isPending
+    handleStart,
+    handleStop,
+    isBusy:
+      collectMining.isPending || startMining.isPending || stopMining.isPending,
   };
 }

@@ -428,8 +428,8 @@ export function useGetMe<
 }
 
 /**
- * Adds one mining cycle to the queue. Each cycle takes 30 seconds. A player may queue up to 20 cycles.
- * @summary Queue a mining cycle
+ * Idempotently begins a 30-second mining cycle. If a cycle is already in progress, returns the current state without resetting it.
+ * @summary Begin a mining cycle
  */
 export const getStartMiningUrl = () => {
   return `/api/mining/start`;
@@ -487,7 +487,7 @@ export type StartMiningMutationResult = NonNullable<
 export type StartMiningMutationError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Queue a mining cycle
+ * @summary Begin a mining cycle
  */
 export const useStartMining = <
   TError = ErrorType<ErrorResponse>,
@@ -510,8 +510,90 @@ export const useStartMining = <
 };
 
 /**
- * Validates server-side that at least one 30-second cycle has elapsed and awards credits + XP for each completed cycle.
- * @summary Collect rewards from completed mining cycles
+ * Clears the in-progress mining cycle without granting rewards. Used when the player explicitly stops the auto-loop.
+ * @summary Abandon the in-progress mining cycle
+ */
+export const getStopMiningUrl = () => {
+  return `/api/mining/stop`;
+};
+
+export const stopMining = async (
+  options?: RequestInit,
+): Promise<MiningState> => {
+  return customFetch<MiningState>(getStopMiningUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getStopMiningMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof stopMining>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof stopMining>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["stopMining"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof stopMining>>,
+    void
+  > = () => {
+    return stopMining(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type StopMiningMutationResult = NonNullable<
+  Awaited<ReturnType<typeof stopMining>>
+>;
+
+export type StopMiningMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Abandon the in-progress mining cycle
+ */
+export const useStopMining = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof stopMining>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof stopMining>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getStopMiningMutationOptions(options));
+};
+
+/**
+ * Validates server-side that the 30-second cycle has elapsed, then awards one cycle's credits + XP and clears the in-progress cycle.
+ * @summary Collect rewards from a completed mining cycle
  */
 export const getCollectMiningUrl = () => {
   return `/api/mining/collect`;
@@ -569,7 +651,7 @@ export type CollectMiningMutationResult = NonNullable<
 export type CollectMiningMutationError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Collect rewards from completed mining cycles
+ * @summary Collect rewards from a completed mining cycle
  */
 export const useCollectMining = <
   TError = ErrorType<ErrorResponse>,

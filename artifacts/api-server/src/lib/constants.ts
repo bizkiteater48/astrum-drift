@@ -1,5 +1,4 @@
 export const CYCLE_DURATION_SEC = 30;
-export const MAX_MINING_QUEUE = 20;
 export const CREDITS_PER_CYCLE = 25;
 export const XP_PER_CYCLE = 10;
 

@@ -18,7 +18,6 @@ export const playersTable = pgTable("players", {
     .notNull()
     .default("Earth Orbit"),
   miningLevel: integer("mining_level").notNull().default(1),
-  miningQueued: integer("mining_queued").notNull().default(0),
   miningStartedAt: timestamp("mining_started_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

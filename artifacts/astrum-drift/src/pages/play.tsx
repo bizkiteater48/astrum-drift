@@ -1,16 +1,13 @@
-import React, { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
-import { 
-  useGetMe, 
+import {
+  useGetMe,
   getGetMeQueryKey,
   useLogout,
-  useStartMining,
-  ApiError
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Power, Terminal, Pickaxe, Battery, MapPin, Award, Zap } from "lucide-react";
+import { Loader2, Power, Terminal, Pickaxe, Battery, MapPin, Award, Zap, Square } from "lucide-react";
 import earthOrbitImg from "@/assets/earth-orbit.png";
-import { extractErrorMessage } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useMiningTimer } from "@/hooks/use-mining-timer";
@@ -29,7 +26,6 @@ export default function PlayPage() {
   });
 
   const logoutMutation = useLogout();
-  const startMiningMutation = useStartMining();
 
   const addMessage = (text: string) => {
     setMessages(prev => [...prev, {
@@ -39,13 +35,13 @@ export default function PlayPage() {
     }].slice(-50)); // Keep last 50
   };
 
-  const { 
-    timeLeft, 
-    completedCycles, 
-    isReadyToCollect, 
-    handleCollect, 
-    isCollecting 
-  } = useMiningTimer(player || null, addMessage);
+  const {
+    isMining,
+    timeLeft,
+    handleStart,
+    handleStop,
+    isBusy,
+  } = useMiningTimer(player ?? null, addMessage);
 
   useEffect(() => {
     if (meError) {
@@ -87,18 +83,6 @@ export default function PlayPage() {
     }
   };
 
-  const onStartMining = async () => {
-    try {
-      addMessage(`[CMD] Queuing mining cycle...`);
-      await startMiningMutation.mutateAsync();
-      queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-      addMessage(`[SYSTEM] Mining cycle added to queue.`);
-    } catch (error: unknown) {
-      addMessage(`[ERROR] ${extractErrorMessage(error) ?? "Failed to queue mining cycle"}`);
-    }
-  };
-
-  const isQueueFull = player.miningQueued >= player.maxQueue;
 
   return (
     <div className="min-h-[100dvh] bg-background text-foreground flex flex-col relative font-mono overflow-hidden">
@@ -199,56 +183,47 @@ export default function PlayPage() {
                 <Pickaxe className="h-4 w-4" /> Extractor Array
               </h2>
               <span className="text-xs text-muted-foreground uppercase">
-                Queue: <span className={isQueueFull ? "text-chart-2 font-bold" : "text-primary"}>{player.miningQueued}</span> / {player.maxQueue}
+                Cycle: <span className="text-primary">{player.cycleDurationSec}s</span>
               </span>
             </div>
 
             <div className="space-y-2 bg-background/50 border border-primary/10 p-3">
               <div className="flex justify-between text-sm uppercase">
                 <span className="text-muted-foreground">Status:</span>
-                <span className={player.miningQueued > 0 ? "text-primary text-glow animate-pulse" : "text-muted-foreground"}>
-                  {player.miningQueued > 0 ? "ACTIVE" : "STANDBY"}
+                <span className={isMining ? "text-primary text-glow animate-pulse" : "text-muted-foreground"}>
+                  {isMining ? "ACTIVE" : "STANDBY"}
                 </span>
               </div>
-              
-              {player.miningQueued > 0 && (
-                <>
-                  <div className="flex justify-between text-sm uppercase">
-                    <span className="text-muted-foreground">Completed:</span>
-                    <span className={completedCycles > 0 ? "text-chart-2" : "text-primary"}>
-                      {completedCycles} / {player.miningQueued}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm uppercase">
-                    <span className="text-muted-foreground">Next Cycle:</span>
-                    <span className="text-primary font-bold">
-                      {timeLeft !== null ? `${timeLeft}s` : "--"}
-                    </span>
-                  </div>
-                </>
+
+              {isMining && (
+                <div className="flex justify-between text-sm uppercase">
+                  <span className="text-muted-foreground">Next Yield:</span>
+                  <span className="text-primary font-bold">
+                    {timeLeft !== null ? `${timeLeft}s` : "--"}
+                  </span>
+                </div>
               )}
             </div>
 
             <div className="grid grid-cols-1 gap-2 mt-2">
-              <Button 
-                onClick={onStartMining} 
-                disabled={isQueueFull || startMiningMutation.isPending}
-                className="w-full rounded-none font-mono uppercase tracking-widest border border-primary bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary"
-                variant="outline"
-              >
-                {startMiningMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Pickaxe className="h-4 w-4 mr-2" />}
-                {isQueueFull ? "Queue Full" : "Queue Cycle"}
-              </Button>
-              
-              {isReadyToCollect && (
-                <Button 
-                  onClick={handleCollect} 
-                  disabled={isCollecting}
-                  className="w-full rounded-none font-mono uppercase tracking-widest border border-chart-2 bg-chart-2/10 text-chart-2 hover:bg-chart-2/20 hover:text-chart-2 text-glow-amber"
+              {!isMining ? (
+                <Button
+                  onClick={handleStart}
+                  disabled={isBusy}
+                  className="w-full rounded-none font-mono uppercase tracking-widest border border-primary bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary"
                   variant="outline"
                 >
-                  {isCollecting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Zap className="h-4 w-4 mr-2" />}
-                  Collect Yield ({completedCycles})
+                  {isBusy ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Pickaxe className="h-4 w-4 mr-2" />}
+                  Start Mining
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleStop}
+                  className="w-full rounded-none font-mono uppercase tracking-widest border border-destructive bg-destructive/10 text-destructive hover:bg-destructive/20 hover:text-destructive"
+                  variant="outline"
+                >
+                  <Square className="h-4 w-4 mr-2" />
+                  Stop Mining
                 </Button>
               )}
             </div>

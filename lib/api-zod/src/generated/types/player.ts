@@ -13,9 +13,7 @@ export interface Player {
   experience: number;
   currentLocation: string;
   miningLevel: number;
-  miningQueued: number;
   /** @nullable */
   miningStartedAt: Date | null;
   cycleDurationSec: number;
-  maxQueue: number;
 }

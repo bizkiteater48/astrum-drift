@@ -38,15 +38,16 @@ A web-based, text-focused space mining MMORPG built on this monorepo.
 ### Backend modules
 
 - `artifacts/api-server/src/lib/session.ts` — `express-session` configured with `connect-pg-simple` PG store, httpOnly+sameSite=lax cookies, secure in prod. Reads `SESSION_SECRET`.
-- `artifacts/api-server/src/lib/constants.ts` — game constants: `CYCLE_DURATION_SEC=30`, `MAX_MINING_QUEUE=20`, `CREDITS_PER_CYCLE=25`, `XP_PER_CYCLE=10`, `xpForLevel(level) = level*100`.
-- `artifacts/api-server/src/lib/player.ts` — `serializePlayer()` shapes the DB row to the OpenAPI `Player` schema (including derived `cycleDurationSec` / `maxQueue`).
+- `artifacts/api-server/src/lib/constants.ts` — game constants: `CYCLE_DURATION_SEC=30`, `CREDITS_PER_CYCLE=25`, `XP_PER_CYCLE=10`, `xpForLevel(level) = level*100`.
+- `artifacts/api-server/src/lib/player.ts` — `serializePlayer()` shapes the DB row to the OpenAPI `Player` schema (including derived `cycleDurationSec`).
+- Mining is a single-cycle Start/Stop toggle: `/mining/start` is idempotent, `/mining/stop` clears `mining_started_at`, `/mining/collect` validates >=30s elapsed and grants one cycle reward. The browser auto-loops collect→start while the user keeps the page open.
 - `artifacts/api-server/src/middlewares/auth.ts` — `requireAuth` and `getClientIp`.
 - `artifacts/api-server/src/routes/auth.ts` — register/login/logout/me. **Session is saved BEFORE the IP is claimed**, and the player + session are rolled back if the IP claim fails. Anti-cheat is enforced atomically via `INSERT … ON CONFLICT (player_id) DO UPDATE` on `user_sessions`, with a unique index on `ip` providing race-free same-IP rejection (23505 → 403).
 - `artifacts/api-server/src/routes/mining.ts` — start/collect. Both wrap their read-modify-write in a `db.transaction` with `SELECT ... FOR UPDATE` on the player row to prevent lost updates under concurrent requests.
 
 ### DB schema (`lib/db/src/schema/`)
 
-- `players` — id, username (unique), hashed_password, credits, experience, current_location (default `Earth Orbit`), mining_level, mining_queued, mining_started_at, created_at.
+- `players` — id, username (unique), hashed_password, credits, experience, current_location (default `Earth Orbit`), mining_level, mining_started_at (null = not mining), created_at.
 - `user_sessions` — id, player_id (unique, FK → players, ON DELETE CASCADE), ip, created_at, with a unique index on `ip`. This table provides the atomic IP-based anti-cheat lock.
 - `session` — `connect-pg-simple`'s sid/sess/expire table (cookie storage, separate from `user_sessions`).
 

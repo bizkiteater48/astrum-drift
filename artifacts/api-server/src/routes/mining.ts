@@ -5,7 +5,6 @@ import { serializePlayer } from "../lib/player";
 import { requireAuth } from "../middlewares/auth";
 import {
   CYCLE_DURATION_SEC,
-  MAX_MINING_QUEUE,
   CREDITS_PER_CYCLE,
   XP_PER_CYCLE,
   xpForLevel,
@@ -25,16 +24,12 @@ router.post("/mining/start", requireAuth, async (req, res): Promise<void> => {
     if (!player) {
       return { kind: "missing" as const };
     }
-    if (player.miningQueued >= MAX_MINING_QUEUE) {
-      return { kind: "full" as const };
+    if (player.miningStartedAt) {
+      return { kind: "ok" as const, player };
     }
-    const newQueued = player.miningQueued + 1;
-    const startedAt =
-      player.miningQueued === 0 ? new Date() : player.miningStartedAt;
-
     const [updated] = await tx
       .update(playersTable)
-      .set({ miningQueued: newQueued, miningStartedAt: startedAt })
+      .set({ miningStartedAt: new Date() })
       .where(eq(playersTable.id, playerId))
       .returning();
     return { kind: "ok" as const, player: updated! };
@@ -44,8 +39,34 @@ router.post("/mining/start", requireAuth, async (req, res): Promise<void> => {
     res.status(401).json({ error: "Not authenticated" });
     return;
   }
-  if (result.kind === "full") {
-    res.status(409).json({ error: "Mining queue is full" });
+  res.status(200).json({ player: serializePlayer(result.player) });
+});
+
+router.post("/mining/stop", requireAuth, async (req, res): Promise<void> => {
+  const playerId = req.session.playerId!;
+
+  const result = await db.transaction(async (tx) => {
+    const [player] = await tx
+      .select()
+      .from(playersTable)
+      .where(eq(playersTable.id, playerId))
+      .for("update");
+    if (!player) {
+      return { kind: "missing" as const };
+    }
+    if (!player.miningStartedAt) {
+      return { kind: "ok" as const, player };
+    }
+    const [updated] = await tx
+      .update(playersTable)
+      .set({ miningStartedAt: null })
+      .where(eq(playersTable.id, playerId))
+      .returning();
+    return { kind: "ok" as const, player: updated! };
+  });
+
+  if (result.kind === "missing") {
+    res.status(401).json({ error: "Not authenticated" });
     return;
   }
   res.status(200).json({ player: serializePlayer(result.player) });
@@ -66,33 +87,26 @@ router.post(
       if (!player) {
         return { kind: "missing" as const };
       }
-      if (player.miningQueued <= 0 || !player.miningStartedAt) {
+      if (!player.miningStartedAt) {
         return { kind: "no_cycle" as const };
       }
 
       const now = Date.now();
       const startedMs = player.miningStartedAt.getTime();
       const elapsedSec = Math.floor((now - startedMs) / 1000);
-      const elapsedCycles = Math.floor(elapsedSec / CYCLE_DURATION_SEC);
-      const completed = Math.min(elapsedCycles, player.miningQueued);
 
-      if (completed <= 0) {
+      if (elapsedSec < CYCLE_DURATION_SEC) {
         return { kind: "not_ready" as const };
       }
 
-      const earnedCredits =
-        completed * CREDITS_PER_CYCLE * player.miningLevel;
-      const earnedXp = completed * XP_PER_CYCLE * player.miningLevel;
+      const earnedCredits = CREDITS_PER_CYCLE * player.miningLevel;
+      const earnedXp = XP_PER_CYCLE * player.miningLevel;
 
       let newExperience = player.experience + earnedXp;
       let newLevel = player.miningLevel;
-      const messages: string[] = [];
-
-      for (let i = 0; i < completed; i++) {
-        messages.push(
-          `Cycle complete: +${CREDITS_PER_CYCLE * player.miningLevel} credits, +${XP_PER_CYCLE * player.miningLevel} XP.`,
-        );
-      }
+      const messages: string[] = [
+        `Cycle complete: +${earnedCredits} credits, +${earnedXp} XP.`,
+      ];
 
       while (newExperience >= xpForLevel(newLevel)) {
         newExperience -= xpForLevel(newLevel);
@@ -102,21 +116,13 @@ router.post(
         );
       }
 
-      const newCredits = player.credits + earnedCredits;
-      const newQueued = player.miningQueued - completed;
-      const newStartedAt: Date | null =
-        newQueued === 0
-          ? null
-          : new Date(startedMs + completed * CYCLE_DURATION_SEC * 1000);
-
       const [updated] = await tx
         .update(playersTable)
         .set({
-          credits: newCredits,
+          credits: player.credits + earnedCredits,
           experience: newExperience,
           miningLevel: newLevel,
-          miningQueued: newQueued,
-          miningStartedAt: newStartedAt,
+          miningStartedAt: null,
         })
         .where(eq(playersTable.id, playerId))
         .returning();
@@ -125,7 +131,7 @@ router.post(
         kind: "ok" as const,
         player: updated!,
         reward: {
-          cycles: completed,
+          cycles: 1,
           credits: earnedCredits,
           experience: earnedXp,
           leveledUp: newLevel > player.miningLevel,
@@ -140,7 +146,7 @@ router.post(
       return;
     }
     if (result.kind === "no_cycle") {
-      res.status(400).json({ error: "No mining cycles in progress" });
+      res.status(400).json({ error: "No mining cycle in progress" });
       return;
     }
     if (result.kind === "not_ready") {

@@ -56,10 +56,8 @@ export const LoginResponse = zod.object({
   experience: zod.number(),
   currentLocation: zod.string(),
   miningLevel: zod.number(),
-  miningQueued: zod.number(),
   miningStartedAt: zod.coerce.date().nullable(),
   cycleDurationSec: zod.number(),
-  maxQueue: zod.number(),
 });
 
 /**
@@ -79,15 +77,13 @@ export const GetMeResponse = zod.object({
   experience: zod.number(),
   currentLocation: zod.string(),
   miningLevel: zod.number(),
-  miningQueued: zod.number(),
   miningStartedAt: zod.coerce.date().nullable(),
   cycleDurationSec: zod.number(),
-  maxQueue: zod.number(),
 });
 
 /**
- * Adds one mining cycle to the queue. Each cycle takes 30 seconds. A player may queue up to 20 cycles.
- * @summary Queue a mining cycle
+ * Idempotently begins a 30-second mining cycle. If a cycle is already in progress, returns the current state without resetting it.
+ * @summary Begin a mining cycle
  */
 export const StartMiningResponse = zod.object({
   player: zod.object({
@@ -97,16 +93,31 @@ export const StartMiningResponse = zod.object({
     experience: zod.number(),
     currentLocation: zod.string(),
     miningLevel: zod.number(),
-    miningQueued: zod.number(),
     miningStartedAt: zod.coerce.date().nullable(),
     cycleDurationSec: zod.number(),
-    maxQueue: zod.number(),
   }),
 });
 
 /**
- * Validates server-side that at least one 30-second cycle has elapsed and awards credits + XP for each completed cycle.
- * @summary Collect rewards from completed mining cycles
+ * Clears the in-progress mining cycle without granting rewards. Used when the player explicitly stops the auto-loop.
+ * @summary Abandon the in-progress mining cycle
+ */
+export const StopMiningResponse = zod.object({
+  player: zod.object({
+    id: zod.number(),
+    username: zod.string(),
+    credits: zod.number(),
+    experience: zod.number(),
+    currentLocation: zod.string(),
+    miningLevel: zod.number(),
+    miningStartedAt: zod.coerce.date().nullable(),
+    cycleDurationSec: zod.number(),
+  }),
+});
+
+/**
+ * Validates server-side that the 30-second cycle has elapsed, then awards one cycle's credits + XP and clears the in-progress cycle.
+ * @summary Collect rewards from a completed mining cycle
  */
 export const CollectMiningResponse = zod.object({
   player: zod.object({
@@ -116,10 +127,8 @@ export const CollectMiningResponse = zod.object({
     experience: zod.number(),
     currentLocation: zod.string(),
     miningLevel: zod.number(),
-    miningQueued: zod.number(),
     miningStartedAt: zod.coerce.date().nullable(),
     cycleDurationSec: zod.number(),
-    maxQueue: zod.number(),
   }),
   reward: zod.object({
     cycles: zod.number(),

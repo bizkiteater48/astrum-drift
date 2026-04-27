@@ -124,11 +124,11 @@ paths:
     post:
       operationId: startMining
       tags: [mining]
-      summary: Queue a mining cycle
-      description: Adds one mining cycle to the queue. Each cycle takes 30 seconds. A player may queue up to 20 cycles.
+      summary: Begin a mining cycle
+      description: Idempotently begins a 30-second mining cycle. If a cycle is already in progress, returns the current state without resetting it.
       responses:
         "200":
-          description: Mining queue updated
+          description: Mining state
           content:
             application/json:
               schema:
@@ -139,8 +139,21 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-        "409":
-          description: Mining queue is full
+  /mining/stop:
+    post:
+      operationId: stopMining
+      tags: [mining]
+      summary: Abandon the in-progress mining cycle
+      description: Clears the in-progress mining cycle without granting rewards. Used when the player explicitly stops the auto-loop.
+      responses:
+        "200":
+          description: Mining state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MiningState"
+        "401":
+          description: Not authenticated
           content:
             application/json:
               schema:
@@ -149,8 +162,8 @@ paths:
     post:
       operationId: collectMining
       tags: [mining]
-      summary: Collect rewards from completed mining cycles
-      description: Validates server-side that at least one 30-second cycle has elapsed and awards credits + XP for each completed cycle.
+      summary: Collect rewards from a completed mining cycle
+      description: Validates server-side that the 30-second cycle has elapsed, then awards one cycle's credits + XP and clears the in-progress cycle.
       responses:
         "200":
           description: Rewards collected
@@ -222,14 +235,10 @@ components:
           type: string
         miningLevel:
           type: integer
-        miningQueued:
-          type: integer
         miningStartedAt:
           type: ["string", "null"]
           format: date-time
         cycleDurationSec:
-          type: integer
-        maxQueue:
           type: integer
       required:
         - id
@@ -238,10 +247,8 @@ components:
         - experience
         - currentLocation
         - miningLevel
-        - miningQueued
         - miningStartedAt
         - cycleDurationSec
-        - maxQueue
     MiningState:
       type: object
       properties:
