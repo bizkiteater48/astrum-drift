@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Astrum Drift"
+version = "1.0.0"
+id = "artifacts/astrum-drift"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19137
+
+[services.development]
+run = "pnpm --filter @workspace/astrum-drift run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/astrum-drift", "run", "build" ]
+publicDir = "artifacts/astrum-drift/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19137"
+BASE_PATH = "/"

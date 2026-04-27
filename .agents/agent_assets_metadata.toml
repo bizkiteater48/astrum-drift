@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "NYSnypJWTOPtwyprCcRE-"
+uri = "file://artifacts/astrum-drift/src/assets/earth-orbit.png"
+type = "image"
+title = "Earth Orbit Viewport"
