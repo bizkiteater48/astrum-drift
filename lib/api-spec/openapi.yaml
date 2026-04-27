@@ -139,25 +139,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-  /mining/stop:
-    post:
-      operationId: stopMining
-      tags: [mining]
-      summary: Abandon the in-progress mining cycle
-      description: Clears the in-progress mining cycle without granting rewards. Used when the player explicitly stops the auto-loop.
-      responses:
-        "200":
-          description: Mining state
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MiningState"
-        "401":
-          description: Not authenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
   /mining/collect:
     post:
       operationId: collectMining

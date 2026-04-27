@@ -99,23 +99,6 @@ export const StartMiningResponse = zod.object({
 });
 
 /**
- * Clears the in-progress mining cycle without granting rewards. Used when the player explicitly stops the auto-loop.
- * @summary Abandon the in-progress mining cycle
- */
-export const StopMiningResponse = zod.object({
-  player: zod.object({
-    id: zod.number(),
-    username: zod.string(),
-    credits: zod.number(),
-    experience: zod.number(),
-    currentLocation: zod.string(),
-    miningLevel: zod.number(),
-    miningStartedAt: zod.coerce.date().nullable(),
-    cycleDurationSec: zod.number(),
-  }),
-});
-
-/**
  * Validates server-side that the 30-second cycle has elapsed, then awards one cycle's credits + XP and clears the in-progress cycle.
  * @summary Collect rewards from a completed mining cycle
  */

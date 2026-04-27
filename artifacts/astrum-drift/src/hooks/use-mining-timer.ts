@@ -4,7 +4,6 @@ import {
   getGetMeQueryKey,
   useCollectMining,
   useStartMining,
-  useStopMining,
   Player,
 } from "@workspace/api-client-react";
 import { extractErrorMessage } from "@/lib/utils";
@@ -21,7 +20,6 @@ export function useMiningTimer(
   const queryClient = useQueryClient();
   const collectMining = useCollectMining();
   const startMining = useStartMining();
-  const stopMining = useStopMining();
 
   const isMiningRef = useRef(isMining);
   useEffect(() => {
@@ -141,30 +139,21 @@ export function useMiningTimer(
     }
   }, [isMining, startedAtMs, startMining, queryClient, onMessage]);
 
-  const handleStop = useCallback(async () => {
+  const handleStop = useCallback(() => {
     if (!isMining) return;
     setIsMining(false);
     isMiningRef.current = false;
     setTimeLeft(null);
     onMessage(
-      "[SYSTEM] Extractor array disengaged. In-progress cycle abandoned.",
+      "[SYSTEM] Auto-cycle disengaged. In-progress cycle can be resumed later.",
     );
-    try {
-      await stopMining.mutateAsync();
-      await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-    } catch (error: unknown) {
-      onMessage(
-        `[ERROR] Stop failed: ${extractErrorMessage(error) ?? "Unknown error"}`,
-      );
-    }
-  }, [isMining, stopMining, queryClient, onMessage]);
+  }, [isMining, onMessage]);
 
   return {
     isMining,
     timeLeft,
     handleStart,
     handleStop,
-    isBusy:
-      collectMining.isPending || startMining.isPending || stopMining.isPending,
+    isBusy: collectMining.isPending || startMining.isPending,
   };
 }

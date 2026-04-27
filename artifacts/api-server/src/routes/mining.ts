@@ -42,36 +42,6 @@ router.post("/mining/start", requireAuth, async (req, res): Promise<void> => {
   res.status(200).json({ player: serializePlayer(result.player) });
 });
 
-router.post("/mining/stop", requireAuth, async (req, res): Promise<void> => {
-  const playerId = req.session.playerId!;
-
-  const result = await db.transaction(async (tx) => {
-    const [player] = await tx
-      .select()
-      .from(playersTable)
-      .where(eq(playersTable.id, playerId))
-      .for("update");
-    if (!player) {
-      return { kind: "missing" as const };
-    }
-    if (!player.miningStartedAt) {
-      return { kind: "ok" as const, player };
-    }
-    const [updated] = await tx
-      .update(playersTable)
-      .set({ miningStartedAt: null })
-      .where(eq(playersTable.id, playerId))
-      .returning();
-    return { kind: "ok" as const, player: updated! };
-  });
-
-  if (result.kind === "missing") {
-    res.status(401).json({ error: "Not authenticated" });
-    return;
-  }
-  res.status(200).json({ player: serializePlayer(result.player) });
-});
-
 router.post(
   "/mining/collect",
   requireAuth,
