@@ -37,6 +37,7 @@ export default function PlayPage() {
 
   const {
     isMining,
+    hasInProgressCycle,
     timeLeft,
     handleStart,
     handleStop,
@@ -190,16 +191,22 @@ export default function PlayPage() {
             <div className="space-y-2 bg-background/50 border border-primary/10 p-3">
               <div className="flex justify-between text-sm uppercase">
                 <span className="text-muted-foreground">Status:</span>
-                <span className={isMining ? "text-primary text-glow animate-pulse" : "text-muted-foreground"}>
-                  {isMining ? "ACTIVE" : "STANDBY"}
+                <span className={
+                  isMining ? "text-primary text-glow animate-pulse"
+                  : hasInProgressCycle ? "text-chart-2 text-glow-amber"
+                  : "text-muted-foreground"
+                }>
+                  {isMining ? "ACTIVE" : hasInProgressCycle ? "PAUSED" : "STANDBY"}
                 </span>
               </div>
 
-              {isMining && (
+              {hasInProgressCycle && (
                 <div className="flex justify-between text-sm uppercase">
-                  <span className="text-muted-foreground">Next Yield:</span>
+                  <span className="text-muted-foreground">
+                    {timeLeft !== null && timeLeft <= 0 ? "Ready:" : "Next Yield:"}
+                  </span>
                   <span className="text-primary font-bold">
-                    {timeLeft !== null ? `${timeLeft}s` : "--"}
+                    {timeLeft !== null && timeLeft > 0 ? `${timeLeft}s` : "Claim Now"}
                   </span>
                 </div>
               )}

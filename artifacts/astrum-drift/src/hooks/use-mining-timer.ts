@@ -45,8 +45,15 @@ export function useMiningTimer(
   const inFlightRef = useRef(false);
 
   const tick = useCallback(async () => {
-    if (!isMiningRef.current) {
+    if (startedAtMs) {
+      const elapsed = Math.floor((Date.now() - startedAtMs) / 1000);
+      const remaining = Math.max(0, cycleSecs - elapsed);
+      setTimeLeft(remaining);
+    } else {
       setTimeLeft(null);
+    }
+
+    if (!isMiningRef.current) {
       return;
     }
     if (!startedAtMs) {
@@ -69,12 +76,9 @@ export function useMiningTimer(
     }
 
     const elapsed = Math.floor((Date.now() - startedAtMs) / 1000);
-    const remaining = cycleSecs - elapsed;
-    if (remaining > 0) {
-      setTimeLeft(remaining);
+    if (elapsed < cycleSecs) {
       return;
     }
-    setTimeLeft(0);
     if (inFlightRef.current) return;
     inFlightRef.current = true;
     try {
@@ -143,14 +147,16 @@ export function useMiningTimer(
     if (!isMining) return;
     setIsMining(false);
     isMiningRef.current = false;
-    setTimeLeft(null);
     onMessage(
       "[SYSTEM] Auto-cycle disengaged. In-progress cycle can be resumed later.",
     );
   }, [isMining, onMessage]);
 
+  const hasInProgressCycle = !!startedAtMs;
+
   return {
     isMining,
+    hasInProgressCycle,
     timeLeft,
     handleStart,
     handleStop,
