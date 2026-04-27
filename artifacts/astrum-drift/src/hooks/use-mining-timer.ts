@@ -126,22 +126,21 @@ export function useMiningTimer(
     setIsMining(true);
     isMiningRef.current = true;
     onMessage("[SYSTEM] Extractor array engaged. Auto-cycle initiated.");
-    if (!startedAtMs && !inFlightRef.current) {
-      inFlightRef.current = true;
-      try {
-        await startMining.mutateAsync();
-        await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-      } catch (error: unknown) {
-        onMessage(
-          `[ERROR] Start failed: ${extractErrorMessage(error) ?? "Unknown error"}`,
-        );
-        setIsMining(false);
-        isMiningRef.current = false;
-      } finally {
-        inFlightRef.current = false;
-      }
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+    try {
+      await startMining.mutateAsync();
+      await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+    } catch (error: unknown) {
+      onMessage(
+        `[ERROR] Start failed: ${extractErrorMessage(error) ?? "Unknown error"}`,
+      );
+      setIsMining(false);
+      isMiningRef.current = false;
+    } finally {
+      inFlightRef.current = false;
     }
-  }, [isMining, startedAtMs, startMining, queryClient, onMessage]);
+  }, [isMining, startMining, queryClient, onMessage]);
 
   const handleStop = useCallback(() => {
     if (!isMining) return;
