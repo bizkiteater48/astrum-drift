@@ -224,7 +224,9 @@
   /* Deep-space nebula background: layered radial gradients of purple,
      magenta and deep blue clouds, plus a tiled star field. Positioned to
      show vivid colour around the centred login card and to render
-     correctly inside nested iframes (no `background-attachment: fixed`). */
+     correctly inside nested iframes (no `background-attachment: fixed`).
+     The corner cloud layers slowly drift across the viewport for a sense
+     of motion; the central bloom and base vignette stay anchored. */
   .nebula-bg {
     background-color: hsl(248 45% 5%);
     background-image:
@@ -242,10 +244,52 @@
       radial-gradient(ellipse 50% 40% at 18% 88%, hsl(265 60% 24% / 0.75), transparent 75%),
       /* Deep base — slightly lighter at center so the nebula reads through */
       radial-gradient(circle at 50% 50%, hsl(248 50% 10%), hsl(248 45% 5%) 85%);
+    background-size:
+      100% 100%,
+      110% 110%,
+      140% 140%,
+      140% 140%,
+      140% 140%,
+      140% 140%,
+      100% 100%;
+    background-position:
+      50% 45%,
+      60% 80%,
+      0% 0%,
+      100% 100%,
+      100% 0%,
+      0% 100%,
+      50% 50%;
+    animation: nebula-drift 90s ease-in-out infinite alternate;
+  }
+
+  @keyframes nebula-drift {
+    0% {
+      background-position:
+        50% 45%,
+        60% 80%,
+        0% 0%,
+        100% 100%,
+        100% 0%,
+        0% 100%,
+        50% 50%;
+    }
+    100% {
+      background-position:
+        50% 45%,
+        58% 82%,
+        12% 8%,
+        88% 92%,
+        92% 10%,
+        8% 90%,
+        50% 50%;
+    }
   }
 
   /* Star field overlay: small bright dots scattered with two repeating
-     gradients at slightly different scales for a parallax feel. */
+     gradients at slightly different scales for a parallax feel. The
+     element holds the base star layer; ::before and ::after add two
+     additional sets, each twinkling on its own cadence. */
   .nebula-stars {
     position: absolute;
     inset: 0;
@@ -264,6 +308,68 @@
     background-size: 600px 600px, 800px 800px, 700px 700px, 900px 900px, 750px 750px, 650px 650px, 850px 850px, 720px 720px, 680px 680px, 800px 800px;
     background-repeat: repeat;
     opacity: 0.85;
+    animation: nebula-twinkle-a 4.6s ease-in-out infinite;
+    animation-delay: -1.3s;
+  }
+
+  .nebula-stars::before,
+  .nebula-stars::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-repeat: repeat;
+  }
+
+  .nebula-stars::before {
+    background-image:
+      radial-gradient(1px 1px at 17% 41%, hsl(0 0% 100% / 0.8), transparent 50%),
+      radial-gradient(1.5px 1.5px at 53% 14%, hsl(188 100% 92% / 0.9), transparent 50%),
+      radial-gradient(1px 1px at 84% 67%, hsl(0 0% 100% / 0.7), transparent 50%),
+      radial-gradient(1px 1px at 33% 81%, hsl(0 0% 100% / 0.7), transparent 50%),
+      radial-gradient(1px 1px at 66% 36%, hsl(280 80% 92% / 0.8), transparent 50%);
+    background-size: 520px 520px, 690px 690px, 760px 760px, 610px 610px, 830px 830px;
+    opacity: 0.7;
+    animation: nebula-twinkle-b 6.7s ease-in-out infinite;
+    animation-delay: -2.9s;
+  }
+
+  .nebula-stars::after {
+    background-image:
+      radial-gradient(1.5px 1.5px at 22% 73%, hsl(188 100% 95% / 0.9), transparent 50%),
+      radial-gradient(1px 1px at 71% 11%, hsl(0 0% 100% / 0.75), transparent 50%),
+      radial-gradient(1px 1px at 45% 55%, hsl(0 0% 100% / 0.65), transparent 50%),
+      radial-gradient(1px 1px at 91% 39%, hsl(280 80% 92% / 0.7), transparent 50%),
+      radial-gradient(1px 1px at 5% 27%, hsl(0 0% 100% / 0.65), transparent 50%);
+    background-size: 740px 740px, 580px 580px, 870px 870px, 640px 640px, 710px 710px;
+    opacity: 0.6;
+    animation: nebula-twinkle-c 8.3s ease-in-out infinite;
+    animation-delay: -4.7s;
+  }
+
+  @keyframes nebula-twinkle-a {
+    0%, 100% { opacity: 0.85; }
+    50% { opacity: 0.5; }
+  }
+
+  @keyframes nebula-twinkle-b {
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 0.85; }
+  }
+
+  @keyframes nebula-twinkle-c {
+    0%, 100% { opacity: 0.55; }
+    30% { opacity: 0.95; }
+    65% { opacity: 0.25; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nebula-bg,
+    .nebula-stars,
+    .nebula-stars::before,
+    .nebula-stars::after {
+      animation: none;
+    }
   }
 
   /* Glassmorphism panel: dark, translucent, blurred, purple-tinted edge. */
