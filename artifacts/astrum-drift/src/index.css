@@ -223,8 +223,7 @@
 @layer utilities {
   /* Deep-space nebula background: a real nebula photograph covers the
      viewport, with a soft dark vignette layered on top so the centred
-     UI panels stay readable. A subtle slow pan ("ken burns") gives a
-     gentle sense of drift without distracting from the content. */
+     UI panels stay readable. The photo is anchored — no pan/zoom. */
   .nebula-bg {
     background-color: hsl(248 45% 5%);
     background-image:
@@ -235,43 +234,30 @@
     background-repeat: no-repeat, no-repeat;
     background-size: 100% 100%, cover;
     background-position: 50% 50%, 50% 50%;
-    animation: nebula-drift 90s ease-in-out infinite alternate;
   }
 
-  @keyframes nebula-drift {
-    0% {
-      background-size: 100% 100%, 110% 110%;
-      background-position: 50% 50%, 48% 52%;
-    }
-    100% {
-      background-size: 100% 100%, 118% 118%;
-      background-position: 50% 50%, 54% 46%;
-    }
-  }
-
-  /* Star field overlay: small bright dots scattered with two repeating
-     gradients at slightly different scales for a parallax feel. The
-     element holds the base star layer; ::before and ::after add two
-     additional sets, each twinkling on its own cadence. */
+  /* Star field overlay: three independent layers of small bright dots
+     plus a few larger "hero" twinklers, each layer pulsing on its own
+     cadence so the sky reads as a real twinkling night, not a metronome. */
   .nebula-stars {
     position: absolute;
     inset: 0;
     pointer-events: none;
     background-image:
-      radial-gradient(1px 1px at 12% 18%, hsl(0 0% 100% / 0.85), transparent 50%),
-      radial-gradient(1px 1px at 28% 62%, hsl(0 0% 100% / 0.75), transparent 50%),
-      radial-gradient(1.5px 1.5px at 47% 31%, hsl(188 100% 90% / 0.9), transparent 50%),
-      radial-gradient(1px 1px at 61% 78%, hsl(0 0% 100% / 0.7), transparent 50%),
-      radial-gradient(1.5px 1.5px at 78% 22%, hsl(280 80% 90% / 0.85), transparent 50%),
-      radial-gradient(1px 1px at 89% 56%, hsl(0 0% 100% / 0.7), transparent 50%),
-      radial-gradient(1px 1px at 8% 88%, hsl(0 0% 100% / 0.6), transparent 50%),
-      radial-gradient(1px 1px at 38% 92%, hsl(0 0% 100% / 0.6), transparent 50%),
-      radial-gradient(1px 1px at 95% 8%, hsl(0 0% 100% / 0.7), transparent 50%),
-      radial-gradient(1px 1px at 70% 50%, hsl(0 0% 100% / 0.55), transparent 50%);
+      radial-gradient(1px 1px at 12% 18%, hsl(0 0% 100% / 0.95), transparent 50%),
+      radial-gradient(1px 1px at 28% 62%, hsl(0 0% 100% / 0.85), transparent 50%),
+      radial-gradient(2px 2px at 47% 31%, hsl(188 100% 92% / 1), transparent 55%),
+      radial-gradient(1px 1px at 61% 78%, hsl(0 0% 100% / 0.8), transparent 50%),
+      radial-gradient(2px 2px at 78% 22%, hsl(280 85% 92% / 1), transparent 55%),
+      radial-gradient(1px 1px at 89% 56%, hsl(0 0% 100% / 0.8), transparent 50%),
+      radial-gradient(1px 1px at 8% 88%, hsl(0 0% 100% / 0.7), transparent 50%),
+      radial-gradient(1px 1px at 38% 92%, hsl(0 0% 100% / 0.7), transparent 50%),
+      radial-gradient(1px 1px at 95% 8%, hsl(0 0% 100% / 0.8), transparent 50%),
+      radial-gradient(1px 1px at 70% 50%, hsl(0 0% 100% / 0.65), transparent 50%);
     background-size: 600px 600px, 800px 800px, 700px 700px, 900px 900px, 750px 750px, 650px 650px, 850px 850px, 720px 720px, 680px 680px, 800px 800px;
     background-repeat: repeat;
-    opacity: 0.85;
-    animation: nebula-twinkle-a 4.6s ease-in-out infinite;
+    opacity: 0.95;
+    animation: nebula-twinkle-a 3.8s ease-in-out infinite;
     animation-delay: -1.3s;
   }
 
@@ -284,50 +270,56 @@
     background-repeat: repeat;
   }
 
+  /* Brighter "hero" twinklers — fewer, larger, deeper fade range. */
   .nebula-stars::before {
     background-image:
-      radial-gradient(1px 1px at 17% 41%, hsl(0 0% 100% / 0.8), transparent 50%),
-      radial-gradient(1.5px 1.5px at 53% 14%, hsl(188 100% 92% / 0.9), transparent 50%),
-      radial-gradient(1px 1px at 84% 67%, hsl(0 0% 100% / 0.7), transparent 50%),
-      radial-gradient(1px 1px at 33% 81%, hsl(0 0% 100% / 0.7), transparent 50%),
-      radial-gradient(1px 1px at 66% 36%, hsl(280 80% 92% / 0.8), transparent 50%);
-    background-size: 520px 520px, 690px 690px, 760px 760px, 610px 610px, 830px 830px;
-    opacity: 0.7;
-    animation: nebula-twinkle-b 6.7s ease-in-out infinite;
+      radial-gradient(2.5px 2.5px at 17% 41%, hsl(0 0% 100% / 1), transparent 55%),
+      radial-gradient(2px 2px at 53% 14%, hsl(188 100% 95% / 1), transparent 55%),
+      radial-gradient(2.5px 2.5px at 84% 67%, hsl(0 0% 100% / 1), transparent 55%),
+      radial-gradient(2px 2px at 33% 81%, hsl(280 85% 95% / 1), transparent 55%),
+      radial-gradient(2px 2px at 66% 36%, hsl(0 0% 100% / 1), transparent 55%),
+      radial-gradient(2.5px 2.5px at 9% 64%, hsl(188 100% 95% / 1), transparent 55%),
+      radial-gradient(2px 2px at 75% 86%, hsl(0 0% 100% / 1), transparent 55%);
+    background-size: 520px 520px, 690px 690px, 760px 760px, 610px 610px, 830px 830px, 580px 580px, 720px 720px;
+    opacity: 0.95;
+    animation: nebula-twinkle-b 5.2s ease-in-out infinite;
     animation-delay: -2.9s;
   }
 
+  /* Slow, dramatic third cadence layer. */
   .nebula-stars::after {
     background-image:
-      radial-gradient(1.5px 1.5px at 22% 73%, hsl(188 100% 95% / 0.9), transparent 50%),
-      radial-gradient(1px 1px at 71% 11%, hsl(0 0% 100% / 0.75), transparent 50%),
-      radial-gradient(1px 1px at 45% 55%, hsl(0 0% 100% / 0.65), transparent 50%),
-      radial-gradient(1px 1px at 91% 39%, hsl(280 80% 92% / 0.7), transparent 50%),
-      radial-gradient(1px 1px at 5% 27%, hsl(0 0% 100% / 0.65), transparent 50%);
-    background-size: 740px 740px, 580px 580px, 870px 870px, 640px 640px, 710px 710px;
-    opacity: 0.6;
-    animation: nebula-twinkle-c 8.3s ease-in-out infinite;
+      radial-gradient(2px 2px at 22% 73%, hsl(188 100% 95% / 1), transparent 55%),
+      radial-gradient(1.5px 1.5px at 71% 11%, hsl(0 0% 100% / 0.95), transparent 50%),
+      radial-gradient(1.5px 1.5px at 45% 55%, hsl(0 0% 100% / 0.85), transparent 50%),
+      radial-gradient(2px 2px at 91% 39%, hsl(280 85% 92% / 1), transparent 55%),
+      radial-gradient(1.5px 1.5px at 5% 27%, hsl(0 0% 100% / 0.85), transparent 50%),
+      radial-gradient(2px 2px at 58% 6%, hsl(0 0% 100% / 1), transparent 55%),
+      radial-gradient(2px 2px at 30% 50%, hsl(188 100% 95% / 1), transparent 55%);
+    background-size: 740px 740px, 580px 580px, 870px 870px, 640px 640px, 710px 710px, 820px 820px, 660px 660px;
+    opacity: 0.85;
+    animation: nebula-twinkle-c 7.1s ease-in-out infinite;
     animation-delay: -4.7s;
   }
 
+  /* Wider opacity ranges so some stars clearly drop near-dark and pop back. */
   @keyframes nebula-twinkle-a {
-    0%, 100% { opacity: 0.85; }
-    50% { opacity: 0.5; }
+    0%, 100% { opacity: 0.95; }
+    50% { opacity: 0.35; }
   }
 
   @keyframes nebula-twinkle-b {
-    0%, 100% { opacity: 0.35; }
-    50% { opacity: 0.85; }
+    0%, 100% { opacity: 0.15; }
+    50% { opacity: 1; }
   }
 
   @keyframes nebula-twinkle-c {
-    0%, 100% { opacity: 0.55; }
-    30% { opacity: 0.95; }
-    65% { opacity: 0.25; }
+    0%, 100% { opacity: 0.5; }
+    30% { opacity: 1; }
+    65% { opacity: 0.1; }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .nebula-bg,
     .nebula-stars,
     .nebula-stars::before,
     .nebula-stars::after {
