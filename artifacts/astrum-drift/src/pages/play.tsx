@@ -117,7 +117,7 @@ export default function PlayPage() {
         <div className="lg:col-span-8 flex flex-col gap-4 h-full overflow-hidden">
           
           {/* Viewport */}
-          <div className="relative flex-1 min-h-[30vh] border border-primary/30 bg-black box-glow overflow-hidden group rounded-md">
+          <div className="relative flex-1 min-h-[30vh] border border-primary/30 bg-black box-glow overflow-hidden group rounded-lg">
             <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-background/20 z-10 pointer-events-none" />
             <img 
               src={earthOrbitImg} 
@@ -125,12 +125,12 @@ export default function PlayPage() {
               className="w-full h-full object-cover opacity-80 mix-blend-screen scale-105 transition-transform duration-[20s] group-hover:scale-110 ease-linear"
             />
             
-            <div className="absolute top-4 left-4 z-20 flex items-center gap-2 glass-panel px-3 py-1.5 rounded-md">
+            <div className="absolute top-4 left-4 z-20 flex items-center gap-2 glass-panel px-3 py-1.5 rounded-lg">
               <MapPin className="h-4 w-4 text-chart-2" />
               <span className="uppercase tracking-widest text-sm text-chart-2 text-glow-amber">LOC: {player.currentLocation}</span>
             </div>
 
-            <div className="absolute top-4 right-4 z-20 flex items-center gap-2 glass-panel px-3 py-1.5 rounded-md">
+            <div className="absolute top-4 right-4 z-20 flex items-center gap-2 glass-panel px-3 py-1.5 rounded-lg">
               <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
               <span className="uppercase tracking-widest text-sm text-primary">Sensors Active</span>
             </div>
@@ -147,7 +147,7 @@ export default function PlayPage() {
 
           {/* Stats Panel */}
           <div className="h-28 grid grid-cols-2 md:grid-cols-4 gap-2">
-            <div className="glass-panel p-3 flex flex-col justify-center relative overflow-hidden rounded-md">
+            <div className="glass-panel p-3 flex flex-col justify-center relative overflow-hidden rounded-lg">
               <span className="text-xs text-muted-foreground uppercase tracking-widest mb-1 z-10">Credits</span>
               <div className="flex items-center gap-2 z-10">
                 <Battery className="h-4 w-4 text-chart-3" />
@@ -155,7 +155,7 @@ export default function PlayPage() {
               </div>
               <div className="absolute right-0 bottom-0 text-[4rem] font-bold text-chart-3/5 select-none -mb-4 -mr-2">CR</div>
             </div>
-            <div className="glass-panel p-3 flex flex-col justify-center relative overflow-hidden rounded-md">
+            <div className="glass-panel p-3 flex flex-col justify-center relative overflow-hidden rounded-lg">
               <span className="text-xs text-muted-foreground uppercase tracking-widest mb-1 z-10">Experience</span>
               <div className="flex items-center gap-2 z-10">
                 <Zap className="h-4 w-4 text-chart-4" />
@@ -163,7 +163,7 @@ export default function PlayPage() {
               </div>
               <div className="absolute right-0 bottom-0 text-[4rem] font-bold text-chart-4/5 select-none -mb-4 -mr-2">XP</div>
             </div>
-            <div className="glass-panel p-3 flex flex-col justify-center col-span-2 md:col-span-2 relative overflow-hidden rounded-md">
+            <div className="glass-panel p-3 flex flex-col justify-center col-span-2 md:col-span-2 relative overflow-hidden rounded-lg">
               <span className="text-xs text-muted-foreground uppercase tracking-widest mb-1 z-10">Mining Level {player.miningLevel}</span>
               <div className="flex items-center gap-2 z-10">
                 <Award className="h-4 w-4 text-primary" />
@@ -178,7 +178,7 @@ export default function PlayPage() {
         <div className="lg:col-span-4 flex flex-col gap-4 h-full overflow-hidden">
           
           {/* Mining Controls */}
-          <div className="glass-panel p-4 flex flex-col gap-4 flex-shrink-0 rounded-md">
+          <div className="glass-panel p-4 flex flex-col gap-4 flex-shrink-0 rounded-lg">
             <div className="flex items-center justify-between">
               <h2 className="uppercase tracking-widest text-primary font-bold flex items-center gap-2">
                 <Pickaxe className="h-4 w-4" /> Extractor Array
@@ -188,7 +188,7 @@ export default function PlayPage() {
               </span>
             </div>
 
-            <div className="space-y-2 bg-background/50 border border-primary/10 p-3 rounded-md">
+            <div className="space-y-2 bg-background/50 border border-primary/10 p-3 rounded-lg">
               <div className="flex justify-between text-sm uppercase">
                 <span className="text-muted-foreground">Status:</span>
                 <span className={
@@ -237,7 +237,7 @@ export default function PlayPage() {
           </div>
 
           {/* Command Console Log */}
-          <div className="flex-1 glass-panel p-4 flex flex-col overflow-hidden relative rounded-md">
+          <div className="flex-1 glass-panel p-4 flex flex-col overflow-hidden relative rounded-lg">
             <h3 className="uppercase tracking-widest text-xs text-primary/60 border-b border-primary/20 pb-2 mb-2 sticky top-0">Terminal Log</h3>
             <div className="flex-1 overflow-y-auto space-y-1 pr-2 custom-scrollbar">
               {messages.map((msg) => (
