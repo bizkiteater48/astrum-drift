@@ -113,7 +113,7 @@ export default function AuthPage() {
             <TerminalSquare className="h-10 w-10 text-primary" />
           </div>
           <h1 className="text-5xl font-bold uppercase tracking-[0.25em] text-primary text-glow font-mono">Astrum Drift</h1>
-          <p className="text-muted-foreground font-mono text-sm tracking-wider uppercase">Deep Space Mining Protocol v0.1</p>
+          <p className="text-base md:text-lg italic text-[hsl(280_85%_75%)] [text-shadow:0_0_10px_hsl(280_85%_60%/0.55)]">A New Dawn Among the Stars</p>
         </div>
 
         <Tabs defaultValue="login" className="w-full" onValueChange={() => setAuthError(null)}>
