@@ -242,7 +242,7 @@ export default function PlayPage() {
             <div className="flex-1 overflow-y-auto space-y-1 pr-2 custom-scrollbar">
               {messages.map((msg) => (
                 <div key={msg.id} className="text-xs break-words leading-relaxed opacity-90 hover:opacity-100 hover:bg-primary/5 p-1 transition-colors">
-                  <span className="text-primary/40 mr-2">[{msg.time}]</span>
+                  <span className="text-primary/70 mr-2">[{msg.time}]</span>
                   <span className={
                     msg.text.includes("[ERROR]") ? "text-destructive" :
                     msg.text.includes("[REWARD]") || msg.text.includes("[LEVEL UP]") ? "text-chart-2 text-glow-amber" :

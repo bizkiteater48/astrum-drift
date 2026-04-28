@@ -105,7 +105,7 @@
   --secondary-foreground: 188 100% 50%;
 
   --muted: 250 25% 14%;
-  --muted-foreground: 250 25% 60%;
+  --muted-foreground: 250 30% 75%;
 
   --accent: 188 100% 50%;
   --accent-foreground: 248 35% 5%;
@@ -183,7 +183,7 @@
   --secondary-foreground: 188 100% 50%;
 
   --muted: 250 25% 14%;
-  --muted-foreground: 250 25% 60%;
+  --muted-foreground: 250 30% 75%;
 
   --accent: 188 100% 50%;
   --accent-foreground: 248 35% 5%;
@@ -372,9 +372,11 @@
     }
   }
 
-  /* Glassmorphism panel: dark, translucent, blurred, purple-tinted edge. */
+  /* Glassmorphism panel: dark, translucent, blurred, purple-tinted edge.
+     Opacity tuned to preserve the glass feel while keeping small muted
+     copy (status labels, helper text) legible against the nebula. */
   .glass-panel {
-    background: hsl(248 30% 8% / 0.72);
+    background: hsl(248 30% 8% / 0.82);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
     border: 1px solid hsl(280 45% 35% / 0.35);
