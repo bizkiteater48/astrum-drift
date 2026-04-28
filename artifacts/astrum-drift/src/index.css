@@ -76,56 +76,56 @@
   --elevate-1: rgba(0,229,255, .05);
   --elevate-2: rgba(0,229,255, .10);
 
-  /* Deep Space Cyan Theme - Light mode is dark too, it's a space terminal! */
-  --background: 222 47% 6%;
+  /* Deep Space Nebula Theme - blue-violet darks with cyan accents */
+  --background: 248 35% 5%;
   --foreground: 188 86% 80%;
 
-  --border: 188 86% 25%;
-  --card: 222 47% 8%;
+  --border: 270 40% 30%;
+  --card: 248 30% 9%;
   --card-foreground: 188 86% 80%;
-  --card-border: 188 86% 20%;
+  --card-border: 270 40% 28%;
 
-  --sidebar: 222 47% 8%;
+  --sidebar: 248 30% 9%;
   --sidebar-foreground: 188 86% 80%;
-  --sidebar-border: 188 86% 20%;
+  --sidebar-border: 270 40% 28%;
   --sidebar-primary: 188 100% 50%;
-  --sidebar-primary-foreground: 222 47% 6%;
-  --sidebar-accent: 188 86% 20%;
+  --sidebar-primary-foreground: 248 35% 5%;
+  --sidebar-accent: 270 40% 25%;
   --sidebar-accent-foreground: 188 100% 50%;
   --sidebar-ring: 188 100% 50%;
 
-  --popover: 222 47% 8%;
+  --popover: 248 30% 9%;
   --popover-foreground: 188 86% 80%;
-  --popover-border: 188 86% 25%;
+  --popover-border: 270 40% 30%;
 
   --primary: 188 100% 50%; /* Cyan */
-  --primary-foreground: 222 47% 6%;
+  --primary-foreground: 248 35% 5%;
 
-  --secondary: 222 47% 12%;
+  --secondary: 250 30% 14%;
   --secondary-foreground: 188 100% 50%;
 
-  --muted: 222 47% 12%;
-  --muted-foreground: 188 86% 50%;
+  --muted: 250 25% 14%;
+  --muted-foreground: 250 25% 60%;
 
   --accent: 188 100% 50%;
-  --accent-foreground: 222 47% 6%;
+  --accent-foreground: 248 35% 5%;
 
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
 
-  --input: 188 86% 20%;
+  --input: 270 40% 25%;
   --ring: 188 100% 50%;
 
   --chart-1: 188 100% 50%;
   --chart-2: 38 100% 50%; /* Amber */
   --chart-3: 142 71% 45%;
-  --chart-4: 280 65% 60%;
+  --chart-4: 280 65% 65%; /* Purple */
   --chart-5: 0 84% 60%;
 
   --app-font-sans: 'Rajdhani', sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: 'JetBrains Mono', monospace;
-  --radius: 0rem; 
+  --radius: 0.5rem;
   --shadow-2xs: 0px 2px 0px 0px hsl(188 100% 50% / 0.1);
   --shadow-xs: 0px 2px 0px 0px hsl(188 100% 50% / 0.1);
   --shadow-sm: 0px 2px 0px 0px hsl(188 100% 50% / 0.1), 0px 1px 2px -1px hsl(188 100% 50% / 0.1);
@@ -155,49 +155,49 @@
   --elevate-1: rgba(0,229,255, .05);
   --elevate-2: rgba(0,229,255, .10);
 
-  --background: 222 47% 6%;
+  --background: 248 35% 5%;
   --foreground: 188 86% 80%;
 
-  --border: 188 86% 25%;
-  --card: 222 47% 8%;
+  --border: 270 40% 30%;
+  --card: 248 30% 9%;
   --card-foreground: 188 86% 80%;
-  --card-border: 188 86% 20%;
+  --card-border: 270 40% 28%;
 
-  --sidebar: 222 47% 8%;
+  --sidebar: 248 30% 9%;
   --sidebar-foreground: 188 86% 80%;
-  --sidebar-border: 188 86% 20%;
+  --sidebar-border: 270 40% 28%;
   --sidebar-primary: 188 100% 50%;
-  --sidebar-primary-foreground: 222 47% 6%;
-  --sidebar-accent: 188 86% 20%;
+  --sidebar-primary-foreground: 248 35% 5%;
+  --sidebar-accent: 270 40% 25%;
   --sidebar-accent-foreground: 188 100% 50%;
   --sidebar-ring: 188 100% 50%;
 
-  --popover: 222 47% 8%;
+  --popover: 248 30% 9%;
   --popover-foreground: 188 86% 80%;
-  --popover-border: 188 86% 25%;
+  --popover-border: 270 40% 30%;
 
-  --primary: 188 100% 50%; 
-  --primary-foreground: 222 47% 6%;
+  --primary: 188 100% 50%;
+  --primary-foreground: 248 35% 5%;
 
-  --secondary: 222 47% 12%;
+  --secondary: 250 30% 14%;
   --secondary-foreground: 188 100% 50%;
 
-  --muted: 222 47% 12%;
-  --muted-foreground: 188 86% 50%;
+  --muted: 250 25% 14%;
+  --muted-foreground: 250 25% 60%;
 
   --accent: 188 100% 50%;
-  --accent-foreground: 222 47% 6%;
+  --accent-foreground: 248 35% 5%;
 
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
 
-  --input: 188 86% 20%;
+  --input: 270 40% 25%;
   --ring: 188 100% 50%;
 
   --chart-1: 188 100% 50%;
-  --chart-2: 38 100% 50%; 
+  --chart-2: 38 100% 50%;
   --chart-3: 142 71% 45%;
-  --chart-4: 280 65% 60%;
+  --chart-4: 280 65% 65%;
   --chart-5: 0 84% 60%;
 
   --shadow-2xs: 0px 2px 0px 0px hsl(188 100% 50% / 0.1);
@@ -221,21 +221,75 @@
 }
 
 @layer utilities {
+  /* Deep-space nebula background: layered radial gradients of purple,
+     magenta and deep blue clouds, plus a tiled star field. */
+  .nebula-bg {
+    background-color: hsl(248 40% 4%);
+    background-image:
+      radial-gradient(ellipse 70% 55% at 18% 22%, hsl(280 65% 22% / 0.85), transparent 70%),
+      radial-gradient(ellipse 60% 50% at 82% 78%, hsl(305 55% 20% / 0.75), transparent 70%),
+      radial-gradient(ellipse 50% 40% at 75% 15%, hsl(250 60% 25% / 0.55), transparent 75%),
+      radial-gradient(ellipse 40% 35% at 25% 85%, hsl(265 50% 18% / 0.65), transparent 75%),
+      radial-gradient(circle at 50% 50%, hsl(245 45% 8%), hsl(248 40% 4%) 80%);
+    background-attachment: fixed;
+  }
+
+  /* Star field overlay: small bright dots scattered with two repeating
+     gradients at slightly different scales for a parallax feel. */
+  .nebula-stars {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      radial-gradient(1px 1px at 12% 18%, hsl(0 0% 100% / 0.85), transparent 50%),
+      radial-gradient(1px 1px at 28% 62%, hsl(0 0% 100% / 0.75), transparent 50%),
+      radial-gradient(1.5px 1.5px at 47% 31%, hsl(188 100% 90% / 0.9), transparent 50%),
+      radial-gradient(1px 1px at 61% 78%, hsl(0 0% 100% / 0.7), transparent 50%),
+      radial-gradient(1.5px 1.5px at 78% 22%, hsl(280 80% 90% / 0.85), transparent 50%),
+      radial-gradient(1px 1px at 89% 56%, hsl(0 0% 100% / 0.7), transparent 50%),
+      radial-gradient(1px 1px at 8% 88%, hsl(0 0% 100% / 0.6), transparent 50%),
+      radial-gradient(1px 1px at 38% 92%, hsl(0 0% 100% / 0.6), transparent 50%),
+      radial-gradient(1px 1px at 95% 8%, hsl(0 0% 100% / 0.7), transparent 50%),
+      radial-gradient(1px 1px at 70% 50%, hsl(0 0% 100% / 0.55), transparent 50%);
+    background-size: 600px 600px, 800px 800px, 700px 700px, 900px 900px, 750px 750px, 650px 650px, 850px 850px, 720px 720px, 680px 680px, 800px 800px;
+    background-repeat: repeat;
+    opacity: 0.85;
+  }
+
+  /* Glassmorphism panel: dark, translucent, blurred, purple-tinted edge. */
+  .glass-panel {
+    background: hsl(248 30% 8% / 0.72);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid hsl(280 45% 35% / 0.35);
+    box-shadow:
+      0 0 30px hsl(280 60% 25% / 0.25),
+      inset 0 0 20px hsl(248 40% 4% / 0.4);
+  }
+
+  /* Kept for backward-compat with class refs; CRT scanlines disabled. */
   .crt-overlay {
-    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-    background-size: 100% 2px, 3px 100%;
+    background: none;
     pointer-events: none;
     z-index: 50;
   }
 
   .text-glow {
-    text-shadow: 0 0 5px hsl(var(--primary) / 0.5), 0 0 10px hsl(var(--primary) / 0.3);
+    text-shadow:
+      0 0 5px hsl(var(--primary) / 0.55),
+      0 0 12px hsl(var(--primary) / 0.35),
+      0 0 22px hsl(280 80% 60% / 0.15);
   }
   .text-glow-amber {
-    text-shadow: 0 0 5px hsl(38 100% 50% / 0.5), 0 0 10px hsl(38 100% 50% / 0.3);
+    text-shadow:
+      0 0 5px hsl(38 100% 55% / 0.55),
+      0 0 12px hsl(38 100% 55% / 0.35);
   }
 
   .box-glow {
-    box-shadow: inset 0 0 20px hsl(var(--primary) / 0.1), 0 0 20px hsl(var(--primary) / 0.1);
+    box-shadow:
+      inset 0 0 20px hsl(var(--primary) / 0.08),
+      0 0 24px hsl(var(--primary) / 0.12),
+      0 0 40px hsl(280 60% 45% / 0.10);
   }
 }

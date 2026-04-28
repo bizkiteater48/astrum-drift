@@ -18,7 +18,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -32,7 +31,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { useToast } from "@/hooks/use-toast";
 
 const authSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters").max(32, "Username is too long"),
@@ -52,7 +50,6 @@ export default function AuthPage() {
   
   const loginMutation = useLogin();
   const registerMutation = useRegister();
-  const { toast } = useToast();
 
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -98,36 +95,35 @@ export default function AuthPage() {
 
   if (meLoading) {
     return (
-      <div className="min-h-[100dvh] bg-background flex flex-col items-center justify-center">
-        <div className="absolute inset-0 crt-overlay" />
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-primary mt-4 font-mono uppercase tracking-widest animate-pulse">Establishing Connection...</p>
+      <div className="min-h-[100dvh] nebula-bg flex flex-col items-center justify-center relative overflow-hidden">
+        <div className="nebula-stars" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary z-10" />
+        <p className="text-primary mt-4 font-mono uppercase tracking-widest animate-pulse z-10">Establishing Connection...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-[100dvh] bg-background flex flex-col items-center justify-center p-4 relative overflow-hidden">
-      <div className="absolute inset-0 crt-overlay" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/5 via-background to-background" />
-      
+    <div className="min-h-[100dvh] nebula-bg flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      <div className="nebula-stars" />
+
       <div className="w-full max-w-md z-10 space-y-8">
         <div className="text-center space-y-2">
           <div className="inline-flex items-center justify-center p-4 rounded-full border border-primary/30 bg-primary/5 mb-4 box-glow">
             <TerminalSquare className="h-10 w-10 text-primary" />
           </div>
-          <h1 className="text-4xl font-bold uppercase tracking-[0.2em] text-primary text-glow font-mono">Astrum Drift</h1>
+          <h1 className="text-5xl font-bold uppercase tracking-[0.25em] text-primary text-glow font-mono">Astrum Drift</h1>
           <p className="text-muted-foreground font-mono text-sm tracking-wider uppercase">Deep Space Mining Protocol v0.1</p>
         </div>
 
         <Tabs defaultValue="login" className="w-full" onValueChange={() => setAuthError(null)}>
-          <TabsList className="grid w-full grid-cols-2 bg-card border border-primary/20 rounded-none h-12">
-            <TabsTrigger value="login" className="rounded-none font-mono uppercase tracking-wider data-[state=active]:bg-primary/20 data-[state=active]:text-primary">Initialize</TabsTrigger>
-            <TabsTrigger value="register" className="rounded-none font-mono uppercase tracking-wider data-[state=active]:bg-primary/20 data-[state=active]:text-primary">Register</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 glass-panel h-12 p-1">
+            <TabsTrigger value="login" className="font-mono uppercase tracking-wider data-[state=active]:bg-primary/20 data-[state=active]:text-primary">Initialize</TabsTrigger>
+            <TabsTrigger value="register" className="font-mono uppercase tracking-wider data-[state=active]:bg-primary/20 data-[state=active]:text-primary">Register</TabsTrigger>
           </TabsList>
           
           <TabsContent value="login" className="mt-4">
-            <Card className="border-primary/20 bg-card/80 backdrop-blur-sm rounded-none box-glow">
+            <Card className="glass-panel">
               <CardHeader>
                 <CardTitle className="font-mono uppercase tracking-widest text-primary text-lg">Commander Login</CardTitle>
                 <CardDescription className="font-mono text-xs">Enter your credentials to access the ship terminal.</CardDescription>
@@ -142,7 +138,7 @@ export default function AuthPage() {
                         <FormItem>
                           <FormLabel className="font-mono uppercase text-primary/80">Designation</FormLabel>
                           <FormControl>
-                            <Input placeholder="CMDR-XYZ" {...field} className="font-mono rounded-none border-primary/30 focus-visible:ring-primary/50 bg-background/50 text-foreground" />
+                            <Input placeholder="CMDR-XYZ" {...field} className="font-mono border-primary/30 focus-visible:ring-primary/50 bg-background/40 text-foreground" />
                           </FormControl>
                           <FormMessage className="font-mono text-xs text-destructive text-glow" />
                         </FormItem>
@@ -155,7 +151,7 @@ export default function AuthPage() {
                         <FormItem>
                           <FormLabel className="font-mono uppercase text-primary/80">Access Code</FormLabel>
                           <FormControl>
-                            <Input type="password" placeholder="••••••••" {...field} className="font-mono rounded-none border-primary/30 focus-visible:ring-primary/50 bg-background/50 text-foreground" />
+                            <Input type="password" placeholder="••••••••" {...field} className="font-mono border-primary/30 focus-visible:ring-primary/50 bg-background/40 text-foreground" />
                           </FormControl>
                           <FormMessage className="font-mono text-xs text-destructive text-glow" />
                         </FormItem>
@@ -163,12 +159,12 @@ export default function AuthPage() {
                     />
                     
                     {authError && (
-                      <div className="bg-destructive/10 border border-destructive/30 p-3 mt-4">
+                      <div className="bg-destructive/10 border border-destructive/30 p-3 mt-4 rounded-md">
                         <p className="text-destructive text-xs font-mono uppercase font-bold text-glow">{authError}</p>
                       </div>
                     )}
                     
-                    <Button type="submit" className="w-full rounded-none font-mono uppercase tracking-widest" disabled={loginMutation.isPending}>
+                    <Button type="submit" className="w-full font-mono uppercase tracking-widest" disabled={loginMutation.isPending}>
                       {loginMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Connect"}
                     </Button>
                   </form>
@@ -178,7 +174,7 @@ export default function AuthPage() {
           </TabsContent>
           
           <TabsContent value="register" className="mt-4">
-            <Card className="border-primary/20 bg-card/80 backdrop-blur-sm rounded-none box-glow">
+            <Card className="glass-panel">
               <CardHeader>
                 <CardTitle className="font-mono uppercase tracking-widest text-primary text-lg">New Commander</CardTitle>
                 <CardDescription className="font-mono text-xs">Register a new profile in the company database.</CardDescription>
@@ -193,7 +189,7 @@ export default function AuthPage() {
                         <FormItem>
                           <FormLabel className="font-mono uppercase text-primary/80">Designation</FormLabel>
                           <FormControl>
-                            <Input placeholder="CMDR-XYZ" {...field} className="font-mono rounded-none border-primary/30 focus-visible:ring-primary/50 bg-background/50 text-foreground" />
+                            <Input placeholder="CMDR-XYZ" {...field} className="font-mono border-primary/30 focus-visible:ring-primary/50 bg-background/40 text-foreground" />
                           </FormControl>
                           <FormMessage className="font-mono text-xs text-destructive text-glow" />
                         </FormItem>
@@ -206,7 +202,7 @@ export default function AuthPage() {
                         <FormItem>
                           <FormLabel className="font-mono uppercase text-primary/80">Access Code</FormLabel>
                           <FormControl>
-                            <Input type="password" placeholder="••••••••" {...field} className="font-mono rounded-none border-primary/30 focus-visible:ring-primary/50 bg-background/50 text-foreground" />
+                            <Input type="password" placeholder="••••••••" {...field} className="font-mono border-primary/30 focus-visible:ring-primary/50 bg-background/40 text-foreground" />
                           </FormControl>
                           <FormMessage className="font-mono text-xs text-destructive text-glow" />
                         </FormItem>
@@ -214,12 +210,12 @@ export default function AuthPage() {
                     />
                     
                     {authError && (
-                      <div className="bg-destructive/10 border border-destructive/30 p-3 mt-4">
+                      <div className="bg-destructive/10 border border-destructive/30 p-3 mt-4 rounded-md">
                         <p className="text-destructive text-xs font-mono uppercase font-bold text-glow">{authError}</p>
                       </div>
                     )}
                     
-                    <Button type="submit" className="w-full rounded-none font-mono uppercase tracking-widest" disabled={registerMutation.isPending}>
+                    <Button type="submit" className="w-full font-mono uppercase tracking-widest" disabled={registerMutation.isPending}>
                       {registerMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Register"}
                     </Button>
                   </form>
