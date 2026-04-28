@@ -222,16 +222,26 @@
 
 @layer utilities {
   /* Deep-space nebula background: layered radial gradients of purple,
-     magenta and deep blue clouds, plus a tiled star field. */
+     magenta and deep blue clouds, plus a tiled star field. Positioned to
+     show vivid colour around the centred login card and to render
+     correctly inside nested iframes (no `background-attachment: fixed`). */
   .nebula-bg {
-    background-color: hsl(248 40% 4%);
+    background-color: hsl(248 45% 5%);
     background-image:
-      radial-gradient(ellipse 70% 55% at 18% 22%, hsl(280 65% 22% / 0.85), transparent 70%),
-      radial-gradient(ellipse 60% 50% at 82% 78%, hsl(305 55% 20% / 0.75), transparent 70%),
-      radial-gradient(ellipse 50% 40% at 75% 15%, hsl(250 60% 25% / 0.55), transparent 75%),
-      radial-gradient(ellipse 40% 35% at 25% 85%, hsl(265 50% 18% / 0.65), transparent 75%),
-      radial-gradient(circle at 50% 50%, hsl(245 45% 8%), hsl(248 40% 4%) 80%);
-    background-attachment: fixed;
+      /* Big violet bloom directly behind the centred card */
+      radial-gradient(ellipse 80% 65% at 50% 45%, hsl(278 70% 32% / 0.55), transparent 72%),
+      /* Magenta sweep across the lower middle */
+      radial-gradient(ellipse 90% 55% at 60% 80%, hsl(305 65% 28% / 0.55), transparent 75%),
+      /* Top-left purple cloud */
+      radial-gradient(ellipse 75% 60% at 12% 18%, hsl(275 70% 28% / 0.95), transparent 70%),
+      /* Bottom-right magenta cloud */
+      radial-gradient(ellipse 70% 55% at 88% 82%, hsl(310 65% 26% / 0.9), transparent 70%),
+      /* Upper-right indigo wisp */
+      radial-gradient(ellipse 55% 45% at 82% 18%, hsl(248 65% 28% / 0.7), transparent 75%),
+      /* Lower-left violet wisp */
+      radial-gradient(ellipse 50% 40% at 18% 88%, hsl(265 60% 24% / 0.75), transparent 75%),
+      /* Deep base — slightly lighter at center so the nebula reads through */
+      radial-gradient(circle at 50% 50%, hsl(248 50% 10%), hsl(248 45% 5%) 85%);
   }
 
   /* Star field overlay: small bright dots scattered with two repeating
