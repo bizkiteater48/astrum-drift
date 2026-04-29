@@ -88,10 +88,6 @@ export default function App() {
             </div>
           </div>
         </section>
-
-        <p className="text-center font-mono text-[0.65rem] uppercase tracking-[0.4em] text-foreground/40">
-          Astrum Drift // Pre-Launch Beacon
-        </p>
       </main>
 
       <footer className="absolute bottom-0 inset-x-0 z-10 p-4 text-center font-mono text-[0.65rem] uppercase tracking-[0.3em] text-foreground/40">
