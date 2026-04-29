@@ -34,6 +34,7 @@ A web-based, text-focused space mining MMORPG built on this monorepo.
 
 - `artifacts/astrum-drift` — React + Vite frontend at `/`. Pages: `/` (auth), `/play` (game).
 - `artifacts/api-server` — Express 5 API at `/api`.
+- `artifacts/coming-soon` — Standalone React + Vite "coming soon" landing page at `/coming-soon/`. Frontend-only, no backend calls; reuses the nebula bg, twinkle stars, fonts, and glassmorphism tokens from `astrum-drift`. Single page with the ASTRUM DRIFT wordmark, violet italic tagline, "Launching Soon" headline, and a Contact Us button that reveals `contact@astrumdrift.com` as a `mailto:` link.
 
 ### Backend modules
 

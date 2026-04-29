@@ -1,0 +1,165 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Rajdhani:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-primary-border: var(--primary-border);
+  --color-ring: hsl(var(--ring));
+
+  --font-sans: var(--app-font-sans);
+  --font-mono: var(--app-font-mono);
+
+  --radius-lg: var(--radius);
+}
+
+:root {
+  --background: 248 35% 5%;
+  --foreground: 188 86% 80%;
+
+  --primary: 188 100% 50%;
+  --primary-foreground: 248 35% 5%;
+  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + 10) / alpha);
+
+  --ring: 188 100% 50%;
+
+  --app-font-sans: 'Rajdhani', sans-serif;
+  --app-font-mono: 'JetBrains Mono', monospace;
+
+  --radius: 0.5rem;
+}
+
+@layer base {
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  /* Deep-space nebula background: a real nebula photograph covers the
+     viewport, with a soft dark vignette layered on top so the centred
+     content stays readable. */
+  .nebula-bg {
+    background-color: hsl(248 45% 5%);
+    background-image:
+      radial-gradient(ellipse 70% 60% at 50% 50%, hsl(248 60% 4% / 0.55), transparent 75%),
+      url("./assets/nebula.jpg");
+    background-repeat: no-repeat, no-repeat;
+    background-size: 100% 100%, cover;
+    background-position: 50% 50%, 50% 50%;
+  }
+
+  /* Three independent layers of small bright dots, each pulsing on its
+     own cadence so the sky reads as a real twinkling night. */
+  .nebula-stars {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      radial-gradient(1px 1px at 12% 18%, hsl(0 0% 100% / 0.95), transparent 50%),
+      radial-gradient(1px 1px at 28% 62%, hsl(0 0% 100% / 0.85), transparent 50%),
+      radial-gradient(2px 2px at 47% 31%, hsl(188 100% 92% / 1), transparent 55%),
+      radial-gradient(1px 1px at 61% 78%, hsl(0 0% 100% / 0.8), transparent 50%),
+      radial-gradient(2px 2px at 78% 22%, hsl(280 85% 92% / 1), transparent 55%),
+      radial-gradient(1px 1px at 89% 56%, hsl(0 0% 100% / 0.8), transparent 50%),
+      radial-gradient(1px 1px at 8% 88%, hsl(0 0% 100% / 0.7), transparent 50%),
+      radial-gradient(1px 1px at 38% 92%, hsl(0 0% 100% / 0.7), transparent 50%),
+      radial-gradient(1px 1px at 95% 8%, hsl(0 0% 100% / 0.8), transparent 50%),
+      radial-gradient(1px 1px at 70% 50%, hsl(0 0% 100% / 0.65), transparent 50%);
+    background-size: 600px 600px, 800px 800px, 700px 700px, 900px 900px, 750px 750px, 650px 650px, 850px 850px, 720px 720px, 680px 680px, 800px 800px;
+    background-repeat: repeat;
+    opacity: 0.95;
+    animation: nebula-twinkle-a 3.8s ease-in-out infinite;
+    animation-delay: -1.3s;
+  }
+
+  .nebula-stars::before,
+  .nebula-stars::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-repeat: repeat;
+  }
+
+  .nebula-stars::before {
+    background-image:
+      radial-gradient(2.5px 2.5px at 17% 41%, hsl(0 0% 100% / 1), transparent 55%),
+      radial-gradient(2px 2px at 53% 14%, hsl(188 100% 95% / 1), transparent 55%),
+      radial-gradient(2.5px 2.5px at 84% 67%, hsl(0 0% 100% / 1), transparent 55%),
+      radial-gradient(2px 2px at 33% 81%, hsl(280 85% 95% / 1), transparent 55%),
+      radial-gradient(2px 2px at 66% 36%, hsl(0 0% 100% / 1), transparent 55%),
+      radial-gradient(2.5px 2.5px at 9% 64%, hsl(188 100% 95% / 1), transparent 55%),
+      radial-gradient(2px 2px at 75% 86%, hsl(0 0% 100% / 1), transparent 55%);
+    background-size: 520px 520px, 690px 690px, 760px 760px, 610px 610px, 830px 830px, 580px 580px, 720px 720px;
+    opacity: 0.95;
+    animation: nebula-twinkle-b 5.2s ease-in-out infinite;
+    animation-delay: -2.9s;
+  }
+
+  .nebula-stars::after {
+    background-image:
+      radial-gradient(2px 2px at 22% 73%, hsl(188 100% 95% / 1), transparent 55%),
+      radial-gradient(1.5px 1.5px at 71% 11%, hsl(0 0% 100% / 0.95), transparent 50%),
+      radial-gradient(1.5px 1.5px at 45% 55%, hsl(0 0% 100% / 0.85), transparent 50%),
+      radial-gradient(2px 2px at 91% 39%, hsl(280 85% 92% / 1), transparent 55%),
+      radial-gradient(1.5px 1.5px at 5% 27%, hsl(0 0% 100% / 0.85), transparent 50%),
+      radial-gradient(2px 2px at 58% 6%, hsl(0 0% 100% / 1), transparent 55%),
+      radial-gradient(2px 2px at 30% 50%, hsl(188 100% 95% / 1), transparent 55%);
+    background-size: 740px 740px, 580px 580px, 870px 870px, 640px 640px, 710px 710px, 820px 820px, 660px 660px;
+    opacity: 0.85;
+    animation: nebula-twinkle-c 7.1s ease-in-out infinite;
+    animation-delay: -4.7s;
+  }
+
+  @keyframes nebula-twinkle-a {
+    0%, 100% { opacity: 0.95; }
+    50% { opacity: 0.35; }
+  }
+
+  @keyframes nebula-twinkle-b {
+    0%, 100% { opacity: 0.15; }
+    50% { opacity: 1; }
+  }
+
+  @keyframes nebula-twinkle-c {
+    0%, 100% { opacity: 0.5; }
+    30% { opacity: 1; }
+    65% { opacity: 0.1; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nebula-stars,
+    .nebula-stars::before,
+    .nebula-stars::after {
+      animation: none;
+    }
+  }
+
+  /* Glassmorphism panel: dark, translucent, blurred, purple-tinted edge. */
+  .glass-panel {
+    background: hsl(248 30% 8% / 0.82);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid hsl(280 45% 35% / 0.35);
+    box-shadow:
+      0 0 30px hsl(280 60% 25% / 0.25),
+      inset 0 0 20px hsl(248 40% 4% / 0.4);
+  }
+
+  .text-glow {
+    text-shadow:
+      0 0 5px hsl(var(--primary) / 0.55),
+      0 0 12px hsl(var(--primary) / 0.35),
+      0 0 22px hsl(280 80% 60% / 0.15);
+  }
+
+  .box-glow {
+    box-shadow:
+      inset 0 0 20px hsl(var(--primary) / 0.08),
+      0 0 24px hsl(var(--primary) / 0.12),
+      0 0 40px hsl(280 60% 45% / 0.10);
+  }
+}
