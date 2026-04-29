@@ -93,6 +93,10 @@ export default function App() {
           Astrum Drift // Pre-Launch Beacon
         </p>
       </main>
+
+      <footer className="absolute bottom-0 inset-x-0 z-10 p-4 text-center font-mono text-[0.65rem] uppercase tracking-[0.3em] text-foreground/40">
+        © {new Date().getFullYear()} Astrum Drift. All rights reserved.
+      </footer>
     </div>
   );
 }
