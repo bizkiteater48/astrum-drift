@@ -1473,9 +1473,6 @@ export default function PlayPage() {
                 <p className="text-xs text-chart-2 uppercase tracking-widest font-bold">
                   Update Available
                 </p>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">
-                  Refresh to load the latest Astrum Drift build.
-                </p>
               </div>
 
               <Button
