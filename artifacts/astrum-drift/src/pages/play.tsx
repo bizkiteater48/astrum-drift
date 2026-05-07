@@ -1083,22 +1083,36 @@ export default function PlayPage() {
 
     const checkForUpdate = async () => {
       try {
-        const response = await fetch(`/version.json?ts=${Date.now()}`, {
-          cache: "no-store",
-        });
+        const possibleVersionPaths = [
+          "/game/version.json",
+          "/version.json",
+        ];
 
-        if (!response.ok) return;
+        let version: string | null = null;
 
-        const data = (await response.json()) as { version?: string };
+        for (const path of possibleVersionPaths) {
+          const response = await fetch(`${path}?ts=${Date.now()}`, {
+            cache: "no-store",
+          });
 
-        if (!data.version) return;
+          if (!response.ok) continue;
+
+          const data = (await response.json()) as { version?: string };
+
+          if (data.version) {
+            version = data.version;
+            break;
+          }
+        }
+
+        if (!version || cancelled) return;
 
         setLoadedAppVersion((currentVersion) => {
           if (!currentVersion) {
-            return data.version ?? null;
+            return version;
           }
 
-          if (data.version !== currentVersion && !cancelled) {
+          if (version !== currentVersion) {
             setIsUpdateAvailable(true);
           }
 
@@ -1118,7 +1132,6 @@ export default function PlayPage() {
       window.clearInterval(intervalId);
     };
   }, []);
-
   useEffect(() => {
     if (!isTutorialActionRunning || tutorialTimerLeft === null) return;
 
@@ -1464,30 +1477,6 @@ export default function PlayPage() {
           </Button>
         </div>
       </header>
-
-      {isUpdateAvailable && (
-        <div className="z-30 px-3 pt-3">
-          <div className="glass-panel border border-chart-2/50 rounded-lg px-3 py-2 shadow-[0_0_18px_rgba(255,190,80,0.35)]">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs text-chart-2 uppercase tracking-widest font-bold">
-                  Update Available
-                </p>
-              </div>
-
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => window.location.reload()}
-                className="shrink-0 h-8 px-3 font-mono uppercase tracking-widest border-chart-2/50 text-chart-2 hover:bg-chart-2/10"
-              >
-                Refresh
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {isUpdateAvailable && (
         <div className="fixed top-16 left-3 right-3 z-[90] md:left-auto md:right-4 md:w-96">
