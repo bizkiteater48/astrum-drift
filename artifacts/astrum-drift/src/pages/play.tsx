@@ -323,17 +323,29 @@ export default function PlayPage() {
 
   const activeSkill = getActiveSkillFromTutorialStep();
 
-  const hasMobileCombatAlert =
+  const hasMobileStatusAlert =
+    isTutorialActionRunning ||
     isInCombat ||
     isCombatRoundRunning ||
     requiresPostCombatHeal ||
     postCombatRecoveryComplete;
 
-  const mobileCombatAlertText = requiresPostCombatHeal
+  const mobileStatusAlertText = requiresPostCombatHeal
     ? "Recovery required — use Life Support Gel"
     : postCombatRecoveryComplete
       ? "Recovery complete — return to action"
-      : "Combat active — Training Drone";
+      : isInCombat || isCombatRoundRunning
+        ? "Combat active — Training Drone"
+        : currentTutorialStep.type === "travel"
+          ? `Traveling — ${currentTutorialStep.actionLabel ?? "In Transit"}`
+          : `Action active — ${currentTutorialStep.actionLabel ?? "Training Action"}`;
+
+  const mobileStatusTimerText =
+    combatTimerLeft !== null
+      ? `Next exchange ${Math.ceil(combatTimerLeft)}s`
+      : tutorialTimerLeft !== null
+        ? `${Math.ceil(tutorialTimerLeft)}s remaining`
+        : "";
 
   const shouldHighlightLifeSupportGel =
     requiresPostCombatHeal && (tutorialInventory["Life Support Gel"] ?? 0) > 0;
@@ -1258,20 +1270,18 @@ export default function PlayPage() {
         </div>
       </header>
 
-      {hasMobileCombatAlert && (
+      {hasMobileStatusAlert && (
         <div className="lg:hidden z-20 px-3 pt-3">
           <div className="glass-panel border border-chart-2/50 rounded-lg px-3 py-2 shadow-[0_0_18px_rgba(255,190,80,0.35)]">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[10px] text-chart-2 uppercase tracking-widest font-bold">
-                  {mobileCombatAlertText}
+                  {mobileStatusAlertText}
                 </p>
 
                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">
                   Health {playerHealth}/{playerMaxHealth}
-                  {combatTimerLeft !== null
-                    ? ` • Next exchange ${Math.ceil(combatTimerLeft)}s`
-                    : ""}
+                  {mobileStatusTimerText ? ` • ${mobileStatusTimerText}` : ""}
                 </p>
               </div>
 
@@ -1792,14 +1802,50 @@ export default function PlayPage() {
                         {recentRewardMessages.length === 0 &&
                           recentSystemNotice === null && (
                             <div className="bg-background/50 border border-primary/10 rounded-lg px-3 py-2">
-                              <div className="text-center text-xs uppercase tracking-widest">
-                                <p className="text-muted-foreground mb-1">
-                                  Awaiting Command
-                                </p>
-                                <p className="text-primary">
-                                  Select an available action from the command
-                                  panel.
-                                </p>
+                              <div className="text-center text-xs uppercase tracking-widest space-y-3">
+                                <div>
+                                  <p className="text-muted-foreground mb-1">
+                                    Awaiting Command
+                                  </p>
+                                  <p className="text-primary">
+                                    Select the current training action to
+                                    proceed.
+                                  </p>
+                                </div>
+
+                                {currentTutorialStep.actionLabel &&
+                                  !isTutorialComplete && (
+                                    <Button
+                                      type="button"
+                                      onClick={
+                                        currentTutorialStep.id ===
+                                        "defeat_training_drone"
+                                          ? startTrainingCombatRound
+                                          : handleTutorialAction
+                                      }
+                                      disabled={
+                                        isTutorialActionRunning ||
+                                        isInCombat ||
+                                        requiresPostCombatHeal ||
+                                        postCombatRecoveryComplete ||
+                                        (currentTutorialStep.id ===
+                                          "defeat_training_drone" &&
+                                          equippedGear.Hand !==
+                                            "Training Blade")
+                                      }
+                                      title={
+                                        currentTutorialStep.id ===
+                                          "defeat_training_drone" &&
+                                        equippedGear.Hand !== "Training Blade"
+                                          ? "Equip the Training Blade from Inventory Summary before engaging the drone."
+                                          : undefined
+                                      }
+                                      variant="outline"
+                                      className="lg:hidden w-full justify-center h-auto min-h-12 whitespace-normal text-center leading-tight text-xs font-mono uppercase tracking-widest border-chart-2/50 text-chart-2 hover:bg-chart-2/10 py-3 px-4"
+                                    >
+                                      {currentTutorialStep.actionLabel}
+                                    </Button>
+                                  )}
                               </div>
                             </div>
                           )}
@@ -1821,16 +1867,21 @@ export default function PlayPage() {
             )}
           </div>
 
-          {recentSystemNotice !== null && !isTutorialActionRunning && (
-            <div className="bg-background/50 border border-primary/10 rounded-lg px-3 py-2 text-center">
-              <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">
-                Equipment Updated
-              </p>
-              <p className="text-sm text-primary font-bold">
-                {recentSystemNotice}
-              </p>
-            </div>
-          )}
+          {recentSystemNotice !== null &&
+            !isTutorialActionRunning &&
+            !isInCombat &&
+            !isCombatRoundRunning &&
+            !requiresPostCombatHeal &&
+            !postCombatRecoveryComplete && (
+              <div className="bg-background/50 border border-primary/10 rounded-lg px-3 py-2 text-center">
+                <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">
+                  Equipment Updated
+                </p>
+                <p className="text-sm text-primary font-bold">
+                  {recentSystemNotice}
+                </p>
+              </div>
+            )}
           {/* Center Player Chat */}
 
           <div
