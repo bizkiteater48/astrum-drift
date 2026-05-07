@@ -246,6 +246,11 @@ export default function PlayPage() {
   const [showShipCargoManifest, setShowShipCargoManifest] = useState(false);
   const [showStationStorage, setShowStationStorage] = useState(false);
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+
+  const [mobilePanel, setMobilePanel] = useState<
+    "action" | "location" | "character" | "chat"
+  >("action");
+
   const [isChatOpen, setIsChatOpen] = useState(true);
   const [showLaunchIntro, setShowLaunchIntro] = useState(true);
   const [showCommandTour, setShowCommandTour] = useState(true);
@@ -317,9 +322,21 @@ export default function PlayPage() {
   };
 
   const activeSkill = getActiveSkillFromTutorialStep();
+
+  const hasMobileCombatAlert =
+    isInCombat ||
+    isCombatRoundRunning ||
+    requiresPostCombatHeal ||
+    postCombatRecoveryComplete;
+
+  const mobileCombatAlertText = requiresPostCombatHeal
+    ? "Recovery required — use Life Support Gel"
+    : postCombatRecoveryComplete
+      ? "Recovery complete — return to action"
+      : "Combat active — Training Drone";
+
   const shouldHighlightLifeSupportGel =
-    requiresPostCombatHeal &&
-    (tutorialInventory["Life Support Gel"] ?? 0) > 0;
+    requiresPostCombatHeal && (tutorialInventory["Life Support Gel"] ?? 0) > 0;
 
   const getRequiredHandItemForStep = (stepId: string) => {
     switch (stepId) {
@@ -451,7 +468,7 @@ export default function PlayPage() {
     localStorage.setItem(`astrumCommandTourSeen_${player.username}`, "true");
     setShowCommandTour(false);
   };
-  
+
   const closeLaunchIntro = () => {
     if (!player) return;
     localStorage.setItem(`astrumLaunchIntroSeen_${player.username}`, "true");
@@ -1080,17 +1097,18 @@ export default function PlayPage() {
     if (!player?.username) return;
 
     const launchIntroSeen =
-      localStorage.getItem(`astrumLaunchIntroSeen_${player.username}`) === "true";
+      localStorage.getItem(`astrumLaunchIntroSeen_${player.username}`) ===
+      "true";
 
     const commandTourSeen =
-      localStorage.getItem(`astrumCommandTourSeen_${player.username}`) === "true";
+      localStorage.getItem(`astrumCommandTourSeen_${player.username}`) ===
+      "true";
 
     setShowLaunchIntro(!launchIntroSeen);
     setShowCommandTour(!commandTourSeen);
   }, [player?.username]);
 
   if (meLoading) {
-   
     return (
       <div className="min-h-[100dvh] nebula-bg flex flex-col items-center justify-center relative overflow-hidden">
         <div className="nebula-stars" />
@@ -1220,11 +1238,13 @@ export default function PlayPage() {
             Astrum Drift
           </h1>
         </div>
+
         <div className="flex items-center gap-4 text-sm text-primary/80">
           <span className="hidden md:inline-block tracking-wider uppercase">
             <span className="text-muted-foreground mr-2">CMDR</span>
             {player.username}
           </span>
+
           <Button
             variant="outline"
             size="sm"
@@ -1238,12 +1258,45 @@ export default function PlayPage() {
         </div>
       </header>
 
+      {hasMobileCombatAlert && (
+        <div className="lg:hidden z-20 px-3 pt-3">
+          <div className="glass-panel border border-chart-2/50 rounded-lg px-3 py-2 shadow-[0_0_18px_rgba(255,190,80,0.35)]">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] text-chart-2 uppercase tracking-widest font-bold">
+                  {mobileCombatAlertText}
+                </p>
+
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">
+                  Health {playerHealth}/{playerMaxHealth}
+                  {combatTimerLeft !== null
+                    ? ` • Next exchange ${Math.ceil(combatTimerLeft)}s`
+                    : ""}
+                </p>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setMobilePanel("action")}
+                className="shrink-0 h-8 px-3 font-mono uppercase tracking-widest border-chart-2/50 text-chart-2 hover:bg-chart-2/10"
+              >
+                Return
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content Grid */}
 
-      <main className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-4 p-4 overflow-hidden">
+      <main className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-4 p-3 pb-24 lg:p-4 lg:pb-4 overflow-y-auto lg:overflow-hidden">
         {/* Left Column: Location & Navigation */}
         <div
-          className={`lg:col-span-3 flex flex-col gap-4 h-full overflow-hidden ${getCommandTourHighlightClass("left")}`}
+          className={`${
+            mobilePanel === "location" ? "flex" : "hidden"
+          } lg:flex lg:col-span-3 flex-col gap-4 min-h-0 lg:h-full lg:overflow-hidden ${getCommandTourHighlightClass("left")}`}
         >
           <div className="glass-panel p-4 flex flex-col gap-4 rounded-lg h-full">
             <div>
@@ -1370,387 +1423,404 @@ export default function PlayPage() {
         </div>
 
         {/* Center Column: Viewport & Stats */}
-        <div className="lg:col-span-6 flex flex-col gap-4 h-full overflow-y-auto custom-scrollbar">
-          {isInCombat ||
-          requiresPostCombatHeal ||
-          postCombatRecoveryComplete ? (
-            <div className="glass-panel border border-destructive/30 rounded-lg overflow-hidden h-full flex flex-col">
-              <div className="relative h-[42vh] min-h-[240px] max-h-[360px] bg-black overflow-hidden">
-                <img
-                  src={trainingDroneCombatImg}
-                  alt="Training Drone combat encounter"
-                  className="w-full h-full object-cover opacity-85"
-                />
-
-                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-black/40" />
-
-                <div className="absolute top-4 left-4 right-4 z-20 text-center">
-                  <h2 className="text-2xl font-bold text-destructive uppercase tracking-widest">
-                    Training Drone
-                  </h2>
-
-                  <div className="mt-3 max-w-md mx-auto">
-                    <div className="flex justify-between text-xs uppercase tracking-widest mb-1">
-                      <span className="text-muted-foreground">
-                        Enemy Health
-                      </span>
-                      <span className="text-destructive font-bold">
-                        {enemyHealth}/60
-                      </span>
-                    </div>
-                    <Progress
-                      value={(enemyHealth / 60) * 100}
-                      className="h-3 [&>div]:bg-destructive"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-chart-2/20 bg-background/50 px-3 py-2">
-                <Progress
-                  value={
-                    combatTimerLeft !== null
-                      ? Math.max(
-                          0,
-                          Math.min(
-                            100,
-                            (combatTimerLeft /
-                              (currentTutorialStep.timerSec ?? 5)) *
-                              100,
-                          ),
-                        )
-                      : 0
-                  }
-                  className="h-2 [&>div]:bg-chart-2"
-                />
-              </div>
-              <div className="p-3 space-y-3">
-                <div className="rounded-lg border border-primary/20 bg-background/60 px-3 py-3 text-center">
-                  <p className="text-xs md:text-sm text-chart-2 font-bold uppercase tracking-widest leading-snug">
-                    {combatMessage ?? "Combat systems engaged."}
-                  </p>
-                  {postCombatRecoveryComplete && (
-                    <div className="rounded-lg border border-chart-2/30 bg-chart-2/10 px-3 py-3 text-center">
-                      <p className="text-xs text-muted-foreground uppercase tracking-widest mb-2">
-                        Recovery Complete
-                      </p>
-
-                      <p className="text-sm text-primary font-bold uppercase tracking-widest mb-3">
-                        You are cleared to proceed.
-                      </p>
-
-                      <Button
-                        variant="outline"
-                        onClick={continueAfterPostCombatRecovery}
-                        className="font-mono uppercase tracking-widest border-chart-2/50 text-chart-2 hover:bg-chart-2/10"
-                      >
-                        Continue
-                      </Button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 gap-3">
-                  <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
-                    <div className="flex justify-between text-xs uppercase tracking-widest mb-2">
-                      <span className="text-muted-foreground">Your Health</span>
-                      <span className={`font-bold ${getHealthTextColor()}`}>
-                        {playerHealth}/{playerMaxHealth}
-                      </span>
-                    </div>
-                    <Progress
-                      value={(playerHealth / playerMaxHealth) * 100}
-                      className="h-2 [&>div]:bg-primary"
-                    />
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-primary/20 bg-background/50 px-3 py-2">
-                  <div className="rounded-lg border border-primary/20 bg-background/50 px-3 py-2">
-                    <p className="text-xs text-muted-foreground uppercase tracking-widest mb-2">
-                      Healing Items
-                    </p>
-
-                    <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-1">
-                      {[
-                        {
-                          name: "Life Support Gel",
-                          qty: tutorialInventory["Life Support Gel"] ?? 0,
-                          heal: "+10 HP",
-                        },
-                        { name: "Med Foam Pack", qty: 0, heal: "+25 HP" },
-                        { name: "Trauma Patch", qty: 0, heal: "+40 HP" },
-                        { name: "Bio-Stabilizer", qty: 0, heal: "+60 HP" },
-                      ].map((item) => {
-                        const isLifeSupportGel = item.name === "Life Support Gel";
-                        const shouldHighlightItem =
-                          isLifeSupportGel && shouldHighlightLifeSupportGel;
-
-                        return (
-                          <button
-                            key={item.name}
-                            type="button"
-                            onClick={() => {
-                              if (isLifeSupportGel) {
-                                useLifeSupportGelFromCombatPanel();
-                              }
-                            }}
-                            disabled={
-                              item.qty <= 0 ||
-                              !requiresPostCombatHeal ||
-                              !isLifeSupportGel
-                            }
-                            className={`min-w-28 rounded-lg border px-2 py-2 text-left transition-all duration-200 disabled:opacity-40 ${
-                              shouldHighlightItem
-                                ? "border-chart-2 bg-chart-2/10 ring-2 ring-chart-2/70 shadow-[0_0_18px_rgba(255,190,80,0.55)] animate-pulse"
-                                : "border-primary/20 bg-background/60 hover:bg-primary/10"
-                            }`}
-                            title={`${item.name} ${item.heal}`}
-                          >
-                            <div
-                              className={`h-8 w-8 rounded border mb-1 flex items-center justify-center text-xs ${
-                                shouldHighlightItem
-                                  ? "border-chart-2/70 bg-chart-2/20 text-chart-2"
-                                  : "border-primary/20 bg-primary/10 text-primary"
-                              }`}
-                            >
-                              +
-                            </div>
-
-                            <p
-                              className={`text-[10px] uppercase tracking-widest leading-tight ${
-                                shouldHighlightItem ? "text-chart-2 font-bold" : "text-primary"
-                              }`}
-                            >
-                              {item.name}
-                            </p>
-
-                            <p className="text-[10px] text-muted-foreground">
-                              {item.heal}
-                            </p>
-
-                            <p className="text-xs text-chart-2 font-bold text-right">
-                              {item.qty}
-                            </p>
-
-                            {shouldHighlightItem && (
-                              <p className="mt-1 text-[9px] text-chart-2 uppercase tracking-widest font-bold">
-                                Click to use
-                              </p>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-               
-                </div>
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* Viewport */}
-              <div
-                className={`rounded-xl overflow-hidden ${getCommandTourHighlightClass("directive")}`}
-              >
-                <div className="relative h-[34vh] border border-primary/30 bg-black box-glow overflow-hidden group rounded-lg">
-                  <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-background/20 z-10 pointer-events-none" />
+        <div
+          className={`${
+            mobilePanel === "action" || mobilePanel === "chat"
+              ? "flex"
+              : "hidden"
+          } lg:flex lg:col-span-6 flex-col gap-4 min-h-0 lg:h-full overflow-y-auto custom-scrollbar`}
+        >
+          <div
+            className={`${mobilePanel === "action" ? "block" : "hidden"} lg:block`}
+          >
+            {isInCombat ||
+            requiresPostCombatHeal ||
+            postCombatRecoveryComplete ? (
+              <div className="glass-panel border border-destructive/30 rounded-lg overflow-hidden h-full flex flex-col">
+                <div className="relative h-[42vh] min-h-[240px] max-h-[360px] bg-black overflow-hidden">
                   <img
-                    src={tutorialViewportImage}
-                    alt={`${currentTutorialStep.location} viewport`}
-                    className="w-full h-full object-cover opacity-80 mix-blend-screen scale-105 transition-transform duration-[20s] group-hover:scale-110 ease-linear"
+                    src={trainingDroneCombatImg}
+                    alt="Training Drone combat encounter"
+                    className="w-full h-full object-cover opacity-85"
                   />
 
-                  <div className="absolute top-4 right-4 z-20 flex items-center gap-2 glass-panel px-3 py-1.5 rounded-lg">
-                    <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-                    <span className="uppercase tracking-widest text-sm text-primary">
-                      Sensors Active
-                    </span>
+                  <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-black/40" />
+
+                  <div className="absolute top-4 left-4 right-4 z-20 text-center">
+                    <h2 className="text-2xl font-bold text-destructive uppercase tracking-widest">
+                      Training Drone
+                    </h2>
+
+                    <div className="mt-3 max-w-md mx-auto">
+                      <div className="flex justify-between text-xs uppercase tracking-widest mb-1">
+                        <span className="text-muted-foreground">
+                          Enemy Health
+                        </span>
+                        <span className="text-destructive font-bold">
+                          {enemyHealth}/60
+                        </span>
+                      </div>
+                      <Progress
+                        value={(enemyHealth / 60) * 100}
+                        className="h-3 [&>div]:bg-destructive"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-chart-2/20 bg-background/50 px-3 py-2">
+                  <Progress
+                    value={
+                      combatTimerLeft !== null
+                        ? Math.max(
+                            0,
+                            Math.min(
+                              100,
+                              (combatTimerLeft /
+                                (currentTutorialStep.timerSec ?? 5)) *
+                                100,
+                            ),
+                          )
+                        : 0
+                    }
+                    className="h-2 [&>div]:bg-chart-2"
+                  />
+                </div>
+                <div className="p-3 space-y-3">
+                  <div className="rounded-lg border border-primary/20 bg-background/60 px-3 py-3 text-center">
+                    <p className="text-xs md:text-sm text-chart-2 font-bold uppercase tracking-widest leading-snug">
+                      {combatMessage ?? "Combat systems engaged."}
+                    </p>
+                    {postCombatRecoveryComplete && (
+                      <div className="rounded-lg border border-chart-2/30 bg-chart-2/10 px-3 py-3 text-center">
+                        <p className="text-xs text-muted-foreground uppercase tracking-widest mb-2">
+                          Recovery Complete
+                        </p>
+
+                        <p className="text-sm text-primary font-bold uppercase tracking-widest mb-3">
+                          You are cleared to proceed.
+                        </p>
+
+                        <Button
+                          variant="outline"
+                          onClick={continueAfterPostCombatRecovery}
+                          className="font-mono uppercase tracking-widest border-chart-2/50 text-chart-2 hover:bg-chart-2/10"
+                        >
+                          Continue
+                        </Button>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Viewport Overlay HUD elements */}
-                  <div className="absolute bottom-0 left-0 w-full h-1/3 bg-gradient-to-t from-primary/10 to-transparent z-10 pointer-events-none" />
-                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 border border-primary/20 rounded-full flex items-center justify-center opacity-30 z-10 pointer-events-none">
-                    <div className="w-1 h-2 bg-primary absolute top-0" />
-                    <div className="w-1 h-2 bg-primary absolute bottom-0" />
-                    <div className="h-1 w-2 bg-primary absolute left-0" />
-                    <div className="h-1 w-2 bg-primary absolute right-0" />
+                  <div className="grid grid-cols-1 gap-3">
+                    <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+                      <div className="flex justify-between text-xs uppercase tracking-widest mb-2">
+                        <span className="text-muted-foreground">
+                          Your Health
+                        </span>
+                        <span className={`font-bold ${getHealthTextColor()}`}>
+                          {playerHealth}/{playerMaxHealth}
+                        </span>
+                      </div>
+                      <Progress
+                        value={(playerHealth / playerMaxHealth) * 100}
+                        className="h-2 [&>div]:bg-primary"
+                      />
+                    </div>
                   </div>
-                  {/* Training Directive Overlay */}
-                  <div className="absolute bottom-0 left-0 right-0 z-20 glass-panel border border-chart-2/30 rounded-lg px-3 py-2">
-                    <div className="flex items-center justify-between gap-4 mb-2">
-                      <p className="text-[10px] text-chart-2 uppercase tracking-widest font-bold">
-                        Training Directive
+
+                  <div className="rounded-lg border border-primary/20 bg-background/50 px-3 py-2">
+                    <div className="rounded-lg border border-primary/20 bg-background/50 px-3 py-2">
+                      <p className="text-xs text-muted-foreground uppercase tracking-widest mb-2">
+                        Healing Items
                       </p>
 
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                        {isTutorialComplete
-                          ? "Ready"
-                          : `Step ${currentTutorialStepIndex + 1}/${tutorialSteps.length}`}
+                      <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-1">
+                        {[
+                          {
+                            name: "Life Support Gel",
+                            qty: tutorialInventory["Life Support Gel"] ?? 0,
+                            heal: "+10 HP",
+                          },
+                          { name: "Med Foam Pack", qty: 0, heal: "+25 HP" },
+                          { name: "Trauma Patch", qty: 0, heal: "+40 HP" },
+                          { name: "Bio-Stabilizer", qty: 0, heal: "+60 HP" },
+                        ].map((item) => {
+                          const isLifeSupportGel =
+                            item.name === "Life Support Gel";
+                          const shouldHighlightItem =
+                            isLifeSupportGel && shouldHighlightLifeSupportGel;
+
+                          return (
+                            <button
+                              key={item.name}
+                              type="button"
+                              onClick={() => {
+                                if (isLifeSupportGel) {
+                                  useLifeSupportGelFromCombatPanel();
+                                }
+                              }}
+                              disabled={
+                                item.qty <= 0 ||
+                                !requiresPostCombatHeal ||
+                                !isLifeSupportGel
+                              }
+                              className={`min-w-28 rounded-lg border px-2 py-2 text-left transition-all duration-200 disabled:opacity-40 ${
+                                shouldHighlightItem
+                                  ? "border-chart-2 bg-chart-2/10 ring-2 ring-chart-2/70 shadow-[0_0_18px_rgba(255,190,80,0.55)] animate-pulse"
+                                  : "border-primary/20 bg-background/60 hover:bg-primary/10"
+                              }`}
+                              title={`${item.name} ${item.heal}`}
+                            >
+                              <div
+                                className={`h-8 w-8 rounded border mb-1 flex items-center justify-center text-xs ${
+                                  shouldHighlightItem
+                                    ? "border-chart-2/70 bg-chart-2/20 text-chart-2"
+                                    : "border-primary/20 bg-primary/10 text-primary"
+                                }`}
+                              >
+                                +
+                              </div>
+
+                              <p
+                                className={`text-[10px] uppercase tracking-widest leading-tight ${
+                                  shouldHighlightItem
+                                    ? "text-chart-2 font-bold"
+                                    : "text-primary"
+                                }`}
+                              >
+                                {item.name}
+                              </p>
+
+                              <p className="text-[10px] text-muted-foreground">
+                                {item.heal}
+                              </p>
+
+                              <p className="text-xs text-chart-2 font-bold text-right">
+                                {item.qty}
+                              </p>
+
+                              {shouldHighlightItem && (
+                                <p className="mt-1 text-[9px] text-chart-2 uppercase tracking-widest font-bold">
+                                  Click to use
+                                </p>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Viewport */}
+                <div
+                  className={`rounded-xl overflow-hidden ${getCommandTourHighlightClass("directive")}`}
+                >
+                  <div className="relative h-[34vh] border border-primary/30 bg-black box-glow overflow-hidden group rounded-lg">
+                    <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-background/20 z-10 pointer-events-none" />
+                    <img
+                      src={tutorialViewportImage}
+                      alt={`${currentTutorialStep.location} viewport`}
+                      className="w-full h-full object-cover opacity-80 mix-blend-screen scale-105 transition-transform duration-[20s] group-hover:scale-110 ease-linear"
+                    />
+
+                    <div className="absolute top-4 right-4 z-20 flex items-center gap-2 glass-panel px-3 py-1.5 rounded-lg">
+                      <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                      <span className="uppercase tracking-widest text-sm text-primary">
+                        Sensors Active
                       </span>
                     </div>
 
-                    <p className="text-xs md:text-sm text-primary font-bold uppercase tracking-widest leading-snug">
-                      {currentTutorialStep.objective}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Skill Progress / Result Panel */}
-                <div className="glass-panel p-3 rounded-b-xl border border-primary/20 border-t-0">
-                  {isInCombat ? (
-                    <>
-                      <div className="mb-3">
-                        <p className="text-xs text-destructive uppercase tracking-widest mb-3">
-                          Combat Encounter
+                    {/* Viewport Overlay HUD elements */}
+                    <div className="absolute bottom-0 left-0 w-full h-1/3 bg-gradient-to-t from-primary/10 to-transparent z-10 pointer-events-none" />
+                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 border border-primary/20 rounded-full flex items-center justify-center opacity-30 z-10 pointer-events-none">
+                      <div className="w-1 h-2 bg-primary absolute top-0" />
+                      <div className="w-1 h-2 bg-primary absolute bottom-0" />
+                      <div className="h-1 w-2 bg-primary absolute left-0" />
+                      <div className="h-1 w-2 bg-primary absolute right-0" />
+                    </div>
+                    {/* Training Directive Overlay */}
+                    <div className="absolute bottom-0 left-0 right-0 z-20 glass-panel border border-chart-2/30 rounded-lg px-3 py-2">
+                      <div className="flex items-center justify-between gap-4 mb-2">
+                        <p className="text-[10px] text-chart-2 uppercase tracking-widest font-bold">
+                          Training Directive
                         </p>
 
-                        {/* Enemy Health - primary focus */}
-                        <div className="rounded-lg border border-destructive/25 bg-destructive/5 px-3 py-2 mb-3">
-                          <div className="flex justify-between text-xs mb-2">
-                            <span className="text-muted-foreground uppercase tracking-widest">
-                              Training Drone
-                            </span>
-                            <span className="text-destructive font-bold">
-                              {enemyHealth}/60
-                            </span>
-                          </div>
-
-                          <Progress
-                            value={(enemyHealth / 60) * 100}
-                            className="h-3 [&>div]:bg-destructive"
-                          />
-                        </div>
-
-                        {/* Player Health - secondary combat reference */}
-                        <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
-                          <div className="flex justify-between text-xs mb-2">
-                            <span className="text-muted-foreground uppercase tracking-widest">
-                              Your Health
-                            </span>
-                            <span className="text-primary font-bold">
-                              {playerHealth}/100
-                            </span>
-                          </div>
-
-                          <Progress
-                            value={playerHealth}
-                            className="h-2 [&>div]:bg-primary"
-                          />
-                        </div>
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                          {isTutorialComplete
+                            ? "Ready"
+                            : `Step ${currentTutorialStepIndex + 1}/${tutorialSteps.length}`}
+                        </span>
                       </div>
 
-                      <div className="bg-background/50 border border-chart-2/20 rounded-lg px-3 py-2">
-                        <div className="flex items-center justify-between text-xs uppercase tracking-widest mb-2">
-                          <span className="text-muted-foreground">
-                            Next Exchange
-                          </span>
-                          <span className="text-chart-2 font-bold">
-                            {combatTimerLeft !== null
-                              ? `${Math.ceil(combatTimerLeft)}s`
-                              : "Ready"}
-                          </span>
-                        </div>
-
-                        {combatMessage && (
-                          <p className="text-xs text-chart-2 leading-relaxed mt-2">
-                            {combatMessage}
-                          </p>
-                        )}
-                        </div>
-                        </>
-                        ) : isTutorialActionRunning && tutorialTimerLeft !== null ? (
-                          <>
-                            <div className="flex items-center justify-between mb-2">
-                              <div>
-                                <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">
-                                  {activeSkill} Level
-                                </p>
-                                <p className="text-lg font-bold text-primary uppercase tracking-widest">
-                                  {activeSkill === "Mining" ? player?.miningLevel ?? 1 : 1}
-                                </p>
-                              </div>
-
-                              <div className="text-right">
-                                <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">
-                                  Experience
-                                </p>
-                                <p className="text-xs text-chart-2 font-bold">
-                                  0/0
-                                </p>
-                              </div>
-                            </div>
-
-                            <Progress value={0} className="h-2 mb-3" />
-
-                            <div className="bg-background/50 border border-primary/10 rounded-lg px-3 py-2">
-                        <div className="flex items-center justify-between text-xs uppercase tracking-widest mb-2">
-                          <span className="text-muted-foreground">
-                            {currentTutorialStep.type === "travel"
-                              ? "In Transit"
-                              : currentTutorialStep.actionLabel}
-                          </span>
-                          <span className="text-chart-2 font-bold">
-                            {Math.ceil(tutorialTimerLeft)}s
-                          </span>
-                        </div>
-
-                        <Progress
-                          value={
-                            currentTutorialStep.timerSec
-                              ? Math.max(
-                                  0,
-                                  Math.min(
-                                    100,
-                                    (tutorialTimerLeft /
-                                      currentTutorialStep.timerSec) *
-                                      100,
-                                  ),
-                                )
-                              : 0
-                          }
-                          className="h-2"
-                        />
-                        {currentTutorialStep.type === "travel" && (
-                          <p className="text-xs text-primary uppercase tracking-widest text-center mt-3">
-                            Moving through Outpost One training sector...
-                          </p>
-                        )}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      {recentRewardMessages.length === 0 &&
-                        recentSystemNotice === null && (
-                          <div className="bg-background/50 border border-primary/10 rounded-lg px-3 py-2">
-                            <div className="text-center text-xs uppercase tracking-widest">
-                              <p className="text-muted-foreground mb-1">
-                                Awaiting Command
-                              </p>
-                              <p className="text-primary">
-                                Select an available action from the command
-                                panel.
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                    </>
-                  )}
-                  {recentRewardMessages.length > 0 && (
-                    <div className="bg-background/50 border border-chart-2/20 rounded-lg px-3 py-2 text-center">
-                      <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">
-                        You have obtained
-                      </p>
-                      <p className="text-sm text-chart-2 font-bold">
-                        {recentRewardMessages[0]}
+                      <p className="text-xs md:text-sm text-primary font-bold uppercase tracking-widest leading-snug">
+                        {currentTutorialStep.objective}
                       </p>
                     </div>
-                  )}
+                  </div>
+
+                  {/* Skill Progress / Result Panel */}
+                  <div className="glass-panel p-3 rounded-b-xl border border-primary/20 border-t-0">
+                    {isInCombat ? (
+                      <>
+                        <div className="mb-3">
+                          <p className="text-xs text-destructive uppercase tracking-widest mb-3">
+                            Combat Encounter
+                          </p>
+
+                          {/* Enemy Health - primary focus */}
+                          <div className="rounded-lg border border-destructive/25 bg-destructive/5 px-3 py-2 mb-3">
+                            <div className="flex justify-between text-xs mb-2">
+                              <span className="text-muted-foreground uppercase tracking-widest">
+                                Training Drone
+                              </span>
+                              <span className="text-destructive font-bold">
+                                {enemyHealth}/60
+                              </span>
+                            </div>
+
+                            <Progress
+                              value={(enemyHealth / 60) * 100}
+                              className="h-3 [&>div]:bg-destructive"
+                            />
+                          </div>
+
+                          {/* Player Health - secondary combat reference */}
+                          <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+                            <div className="flex justify-between text-xs mb-2">
+                              <span className="text-muted-foreground uppercase tracking-widest">
+                                Your Health
+                              </span>
+                              <span className="text-primary font-bold">
+                                {playerHealth}/100
+                              </span>
+                            </div>
+
+                            <Progress
+                              value={playerHealth}
+                              className="h-2 [&>div]:bg-primary"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="bg-background/50 border border-chart-2/20 rounded-lg px-3 py-2">
+                          <div className="flex items-center justify-between text-xs uppercase tracking-widest mb-2">
+                            <span className="text-muted-foreground">
+                              Next Exchange
+                            </span>
+                            <span className="text-chart-2 font-bold">
+                              {combatTimerLeft !== null
+                                ? `${Math.ceil(combatTimerLeft)}s`
+                                : "Ready"}
+                            </span>
+                          </div>
+
+                          {combatMessage && (
+                            <p className="text-xs text-chart-2 leading-relaxed mt-2">
+                              {combatMessage}
+                            </p>
+                          )}
+                        </div>
+                      </>
+                    ) : isTutorialActionRunning &&
+                      tutorialTimerLeft !== null ? (
+                      <>
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">
+                              {activeSkill} Level
+                            </p>
+                            <p className="text-lg font-bold text-primary uppercase tracking-widest">
+                              {activeSkill === "Mining"
+                                ? (player?.miningLevel ?? 1)
+                                : 1}
+                            </p>
+                          </div>
+
+                          <div className="text-right">
+                            <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">
+                              Experience
+                            </p>
+                            <p className="text-xs text-chart-2 font-bold">
+                              0/0
+                            </p>
+                          </div>
+                        </div>
+
+                        <Progress value={0} className="h-2 mb-3" />
+
+                        <div className="bg-background/50 border border-primary/10 rounded-lg px-3 py-2">
+                          <div className="flex items-center justify-between text-xs uppercase tracking-widest mb-2">
+                            <span className="text-muted-foreground">
+                              {currentTutorialStep.type === "travel"
+                                ? "In Transit"
+                                : currentTutorialStep.actionLabel}
+                            </span>
+                            <span className="text-chart-2 font-bold">
+                              {Math.ceil(tutorialTimerLeft)}s
+                            </span>
+                          </div>
+
+                          <Progress
+                            value={
+                              currentTutorialStep.timerSec
+                                ? Math.max(
+                                    0,
+                                    Math.min(
+                                      100,
+                                      (tutorialTimerLeft /
+                                        currentTutorialStep.timerSec) *
+                                        100,
+                                    ),
+                                  )
+                                : 0
+                            }
+                            className="h-2"
+                          />
+                          {currentTutorialStep.type === "travel" && (
+                            <p className="text-xs text-primary uppercase tracking-widest text-center mt-3">
+                              Moving through Outpost One training sector...
+                            </p>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {recentRewardMessages.length === 0 &&
+                          recentSystemNotice === null && (
+                            <div className="bg-background/50 border border-primary/10 rounded-lg px-3 py-2">
+                              <div className="text-center text-xs uppercase tracking-widest">
+                                <p className="text-muted-foreground mb-1">
+                                  Awaiting Command
+                                </p>
+                                <p className="text-primary">
+                                  Select an available action from the command
+                                  panel.
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                      </>
+                    )}
+                    {recentRewardMessages.length > 0 && (
+                      <div className="bg-background/50 border border-chart-2/20 rounded-lg px-3 py-2 text-center">
+                        <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">
+                          You have obtained
+                        </p>
+                        <p className="text-sm text-chart-2 font-bold">
+                          {recentRewardMessages[0]}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </>
-          )}
+              </>
+            )}
+          </div>
+
           {recentSystemNotice !== null && !isTutorialActionRunning && (
             <div className="bg-background/50 border border-primary/10 rounded-lg px-3 py-2 text-center">
               <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">
@@ -1764,7 +1834,9 @@ export default function PlayPage() {
           {/* Center Player Chat */}
 
           <div
-            className={`mt-auto w-full p-[2px] ${getCommandTourHighlightClass("chat")}`}
+            className={`${
+              mobilePanel === "chat" ? "block" : "hidden"
+            } lg:block mt-auto w-full p-[2px] ${getCommandTourHighlightClass("chat")}`}
           >
             {isChatOpen ? (
               <div className="glass-panel border border-primary/20 rounded-lg h-36 flex flex-col overflow-hidden">
@@ -1822,7 +1894,9 @@ export default function PlayPage() {
         {/* Right Column: Console & Controls */}
 
         <div
-          className={`lg:col-span-3 flex flex-col gap-4 h-full overflow-y-auto custom-scrollbar ${getCommandTourColumnLiftClass("right")}`}
+          className={`${
+            mobilePanel === "character" ? "flex" : "hidden"
+          } lg:flex lg:col-span-3 flex-col gap-4 min-h-0 lg:h-full overflow-y-auto custom-scrollbar ${getCommandTourColumnLiftClass("right")}`}
         >
           {/* Equipment Board */}
 
@@ -2306,6 +2380,33 @@ export default function PlayPage() {
           </div>
         </div>
       </main>
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-primary/20 bg-background/95 backdrop-blur-md px-3 py-2">
+        <div className="grid grid-cols-4 gap-2">
+          {[
+            { id: "action", label: "Action" },
+            { id: "location", label: "Location" },
+            { id: "character", label: "Character" },
+            { id: "chat", label: "Chat" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() =>
+                setMobilePanel(
+                  tab.id as "action" | "location" | "character" | "chat",
+                )
+              }
+              className={`h-11 rounded-lg border text-[10px] font-mono uppercase tracking-widest transition-all ${
+                mobilePanel === tab.id
+                  ? "border-primary bg-primary/15 text-primary shadow-[0_0_14px_rgba(75,241,255,0.35)]"
+                  : "border-primary/20 bg-background/60 text-muted-foreground hover:bg-primary/10 hover:text-primary"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </nav>
       {showCommandTour && !showLaunchIntro && (
         <div className="fixed inset-0 z-40 bg-black/70 pointer-events-none flex items-center justify-center px-4">
           <div className="glass-panel relative z-[70] pointer-events-auto border border-primary/30 rounded-xl w-full max-w-lg p-5 translate-y-32">
