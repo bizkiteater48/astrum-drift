@@ -1866,7 +1866,43 @@ export default function PlayPage() {
               </>
             )}
           </div>
+          {mobilePanel === "action" &&
+            currentTutorialStep.actionLabel &&
+            !isTutorialComplete &&
+            !isTutorialActionRunning &&
+            !isInCombat &&
+            !requiresPostCombatHeal &&
+            !postCombatRecoveryComplete && (
+              <div className="lg:hidden bg-background/50 border border-chart-2/30 rounded-lg px-3 py-3 text-center">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2">
+                  Current Action
+                </p>
 
+                <Button
+                  type="button"
+                  onClick={
+                    currentTutorialStep.id === "defeat_training_drone"
+                      ? startTrainingCombatRound
+                      : handleTutorialAction
+                  }
+                  disabled={
+                    currentTutorialStep.id === "defeat_training_drone" &&
+                    equippedGear.Hand !== "Training Blade"
+                  }
+                  title={
+                    currentTutorialStep.id === "defeat_training_drone" &&
+                    equippedGear.Hand !== "Training Blade"
+                      ? "Equip the Training Blade from Inventory Summary before engaging the drone."
+                      : undefined
+                  }
+                  variant="outline"
+                  className="w-full justify-center h-auto min-h-12 whitespace-normal text-center leading-tight text-xs font-mono uppercase tracking-widest border-chart-2/50 text-chart-2 hover:bg-chart-2/10 py-3 px-4"
+                >
+                  {currentTutorialStep.actionLabel}
+                </Button>
+              </div>
+            )}
+          
           {recentSystemNotice !== null &&
             !isTutorialActionRunning &&
             !isInCombat &&
