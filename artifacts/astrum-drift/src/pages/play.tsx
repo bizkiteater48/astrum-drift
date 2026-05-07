@@ -372,6 +372,11 @@ export default function PlayPage() {
   const shouldHighlightLifeSupportGel =
     requiresPostCombatHeal && (tutorialInventory["Life Support Gel"] ?? 0) > 0;
 
+  const shouldHighlightTrainingBladeEquip =
+    currentTutorialStep.id === "defeat_training_drone" &&
+    equippedGear.Hand !== "Training Blade" &&
+    (tutorialInventory["Training Blade"] ?? 0) > 0;
+
   const getRequiredHandItemForStep = (stepId: string) => {
     switch (stepId) {
       case "mine_iron_ore":
@@ -1083,10 +1088,7 @@ export default function PlayPage() {
 
     const checkForUpdate = async () => {
       try {
-        const possibleVersionPaths = [
-          "/game/version.json",
-          "/version.json",
-        ];
+        const possibleVersionPaths = ["/game/version.json", "/version.json"];
 
         let version: string | null = null;
 
@@ -1481,17 +1483,17 @@ export default function PlayPage() {
           <Button
             variant="outline"
             size="sm"
-            className="border-destructive/50 text-destructive hover:bg-destructive/20 font-mono uppercase tracking-widest h-8"
+            className="border-destructive/50 text-destructive hover:bg-destructive/20 font-mono uppercase tracking-widest h-8 w-8 p-0"
             onClick={onLogout}
             disabled={logoutMutation.isPending}
+            title="Disconnect"
+            aria-label="Disconnect"
           >
-            <Power className="h-4 w-4 mr-2" />
-            Disconnect
+            <Power className="h-4 w-4" />
           </Button>
         </div>
       </header>
 
-     
       {hasMobileStatusAlert && mobilePanel !== "action" && (
         <div className="lg:hidden z-20 px-3 pt-3">
           <div className="glass-panel border border-chart-2/50 rounded-lg px-3 py-2 shadow-[0_0_18px_rgba(255,190,80,0.35)]">
@@ -2064,7 +2066,12 @@ export default function PlayPage() {
                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2">
                   Current Action
                 </p>
-
+                {shouldHighlightTrainingBladeEquip && (
+                  <p className="mb-3 text-[10px] text-chart-2 uppercase tracking-widest leading-relaxed">
+                    Equip the Training Blade from the Character tab before
+                    fighting.
+                  </p>
+                )}
                 <Button
                   type="button"
                   onClick={
@@ -2586,7 +2593,11 @@ export default function PlayPage() {
                                       onClick={() =>
                                         equipInventoryItem(itemName)
                                       }
-                                      className="text-chart-2 hover:text-primary hover:underline text-left"
+                                      className={`rounded-md border px-2 py-1 text-left transition-all ${
+                                        shouldHighlightTrainingBladeEquip
+                                          ? "border-chart-2/70 bg-chart-2/10 text-chart-2 shadow-[0_0_18px_rgba(255,190,80,0.55)] animate-pulse"
+                                          : "border-transparent text-chart-2 hover:text-primary hover:underline"
+                                      }`}
                                       title="Equip Training Blade"
                                     >
                                       {itemName}
@@ -2661,24 +2672,33 @@ export default function PlayPage() {
             { id: "character", label: "Character" },
             { id: "location", label: "Location" },
             { id: "chat", label: "Chat" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() =>
-                setMobilePanel(
-                  tab.id as "action" | "location" | "character" | "chat",
-                )
-              }
-              className={`h-11 rounded-lg border text-[10px] font-mono uppercase tracking-widest transition-all ${
-                mobilePanel === tab.id
-                  ? "border-primary bg-primary/15 text-primary shadow-[0_0_14px_rgba(75,241,255,0.35)]"
-                  : "border-primary/20 bg-background/60 text-muted-foreground hover:bg-primary/10 hover:text-primary"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+          ].map((tab) => {
+            const shouldHighlightTab =
+              tab.id === "character" && shouldHighlightTrainingBladeEquip;
+
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() =>
+                  setMobilePanel(
+                    tab.id as "action" | "character" | "location" | "chat",
+                  )
+                }
+                className={`h-11 rounded-lg border text-[10px] font-mono uppercase tracking-widest transition-all ${
+                  mobilePanel === tab.id
+                    ? "border-primary bg-primary/15 text-primary shadow-[0_0_14px_rgba(75,241,255,0.35)]"
+                    : "border-primary/20 bg-background/60 text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                } ${
+                  shouldHighlightTab
+                    ? "border-chart-2/70 bg-chart-2/10 text-chart-2 shadow-[0_0_18px_rgba(255,190,80,0.45)] animate-pulse"
+                    : ""
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
       </nav>
       {showCommandTour && !showLaunchIntro && (
