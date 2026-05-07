@@ -266,6 +266,9 @@ export default function PlayPage() {
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
   const [isTutorialSaveLoaded, setIsTutorialSaveLoaded] = useState(false);
 
+  const [isUpdateAvailable, setIsUpdateAvailable] = useState(false);
+  const [loadedAppVersion, setLoadedAppVersion] = useState<string | null>(null);
+
   const [mobilePanel, setMobilePanel] = useState<
     "action" | "location" | "character" | "chat"
   >("action");
@@ -1076,6 +1079,47 @@ export default function PlayPage() {
   }, [meError, setLocation]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const checkForUpdate = async () => {
+      try {
+        const response = await fetch(`/version.json?ts=${Date.now()}`, {
+          cache: "no-store",
+        });
+
+        if (!response.ok) return;
+
+        const data = (await response.json()) as { version?: string };
+
+        if (!data.version) return;
+
+        setLoadedAppVersion((currentVersion) => {
+          if (!currentVersion) {
+            return data.version ?? null;
+          }
+
+          if (data.version !== currentVersion && !cancelled) {
+            setIsUpdateAvailable(true);
+          }
+
+          return currentVersion;
+        });
+      } catch {
+        // Ignore update-check errors so gameplay is not affected.
+      }
+    };
+
+    checkForUpdate();
+
+    const intervalId = window.setInterval(checkForUpdate, 60_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!isTutorialActionRunning || tutorialTimerLeft === null) return;
 
     if (tutorialTimerLeft <= 0) {
@@ -1420,6 +1464,33 @@ export default function PlayPage() {
           </Button>
         </div>
       </header>
+
+      {isUpdateAvailable && (
+        <div className="z-30 px-3 pt-3">
+          <div className="glass-panel border border-chart-2/50 rounded-lg px-3 py-2 shadow-[0_0_18px_rgba(255,190,80,0.35)]">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs text-chart-2 uppercase tracking-widest font-bold">
+                  Update Available
+                </p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">
+                  Refresh to load the latest Astrum Drift build.
+                </p>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.reload()}
+                className="shrink-0 h-8 px-3 font-mono uppercase tracking-widest border-chart-2/50 text-chart-2 hover:bg-chart-2/10"
+              >
+                Refresh
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {hasMobileStatusAlert && mobilePanel !== "action" && (
         <div className="lg:hidden z-20 px-3 pt-3">
@@ -2395,7 +2466,7 @@ export default function PlayPage() {
 
                             <div className="flex justify-between text-xs">
                               <span className="text-muted-foreground uppercase tracking-widest">
-                                Hull
+                                Hull Integrity
                               </span>
                               <span className="text-chart-4">100%</span>
                             </div>
