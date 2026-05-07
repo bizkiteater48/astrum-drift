@@ -163,6 +163,24 @@ export default function PlayPage() {
     Array<{ id: string; text: string; time: string }>
   >([]);
   const [currentTutorialStepIndex, setCurrentTutorialStepIndex] = useState(0);
+  type TutorialSaveData = {
+    version: number;
+    currentTutorialStepIndex: number;
+    currentTutorialActionCount: number;
+    tutorialInventory: Record<string, number>;
+    playerHealth: number;
+    enemyHealth: number;
+    targetIntel: Record<string, number>;
+    equippedGear: Record<string, string | null>;
+    requiresPostCombatHeal: boolean;
+    postCombatRecoveryComplete: boolean;
+    isTutorialComplete: boolean;
+    recentRewardMessages: string[];
+    recentSystemNotice: string | null;
+    lastRewardStepId: string | null;
+  };
+
+  const TUTORIAL_SAVE_VERSION = 1;
   const [currentTutorialActionCount, setCurrentTutorialActionCount] =
     useState(0);
   const [tutorialInventory, setTutorialInventory] = useState<
@@ -246,6 +264,7 @@ export default function PlayPage() {
   const [showShipCargoManifest, setShowShipCargoManifest] = useState(false);
   const [showStationStorage, setShowStationStorage] = useState(false);
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+  const [isTutorialSaveLoaded, setIsTutorialSaveLoaded] = useState(false);
 
   const [mobilePanel, setMobilePanel] = useState<
     "action" | "location" | "character" | "chat"
@@ -1119,7 +1138,139 @@ export default function PlayPage() {
     setShowLaunchIntro(!launchIntroSeen);
     setShowCommandTour(!commandTourSeen);
   }, [player?.username]);
+  useEffect(() => {
+    if (!player?.username) return;
 
+    setIsTutorialSaveLoaded(false);
+
+    const saveKey = `astrumTutorialProgress_${player.username}`;
+    const rawSave = localStorage.getItem(saveKey);
+
+    if (!rawSave) {
+      setIsTutorialSaveLoaded(true);
+      return;
+    }
+
+    try {
+      const saved = JSON.parse(rawSave) as Partial<TutorialSaveData>;
+
+      if (saved.version !== TUTORIAL_SAVE_VERSION) {
+        localStorage.removeItem(saveKey);
+        setIsTutorialSaveLoaded(true);
+        return;
+      }
+
+      if (
+        typeof saved.currentTutorialStepIndex === "number" &&
+        saved.currentTutorialStepIndex >= 0 &&
+        saved.currentTutorialStepIndex < tutorialSteps.length
+      ) {
+        setCurrentTutorialStepIndex(saved.currentTutorialStepIndex);
+      }
+
+      if (typeof saved.currentTutorialActionCount === "number") {
+        setCurrentTutorialActionCount(saved.currentTutorialActionCount);
+      }
+
+      if (
+        saved.tutorialInventory &&
+        typeof saved.tutorialInventory === "object"
+      ) {
+        setTutorialInventory(saved.tutorialInventory);
+      }
+
+      if (typeof saved.playerHealth === "number") {
+        setPlayerHealth(saved.playerHealth);
+      }
+
+      if (typeof saved.enemyHealth === "number") {
+        setEnemyHealth(saved.enemyHealth);
+      }
+
+      if (saved.targetIntel && typeof saved.targetIntel === "object") {
+        setTargetIntel(saved.targetIntel);
+      }
+
+      if (saved.equippedGear && typeof saved.equippedGear === "object") {
+        setEquippedGear(saved.equippedGear);
+      }
+
+      if (typeof saved.requiresPostCombatHeal === "boolean") {
+        setRequiresPostCombatHeal(saved.requiresPostCombatHeal);
+      }
+
+      if (typeof saved.postCombatRecoveryComplete === "boolean") {
+        setPostCombatRecoveryComplete(saved.postCombatRecoveryComplete);
+      }
+
+      if (typeof saved.isTutorialComplete === "boolean") {
+        setIsTutorialComplete(saved.isTutorialComplete);
+      }
+
+      if (Array.isArray(saved.recentRewardMessages)) {
+        setRecentRewardMessages(saved.recentRewardMessages);
+      }
+
+      if (
+        typeof saved.recentSystemNotice === "string" ||
+        saved.recentSystemNotice === null
+      ) {
+        setRecentSystemNotice(saved.recentSystemNotice);
+      }
+
+      if (
+        typeof saved.lastRewardStepId === "string" ||
+        saved.lastRewardStepId === null
+      ) {
+        setLastRewardStepId(saved.lastRewardStepId);
+      }
+    } catch {
+      localStorage.removeItem(saveKey);
+    } finally {
+      setIsTutorialSaveLoaded(true);
+    }
+  }, [player?.username]);
+
+  useEffect(() => {
+    if (!player?.username || !isTutorialSaveLoaded) return;
+
+    const saveKey = `astrumTutorialProgress_${player.username}`;
+
+    const saveData: TutorialSaveData = {
+      version: TUTORIAL_SAVE_VERSION,
+      currentTutorialStepIndex,
+      currentTutorialActionCount,
+      tutorialInventory,
+      playerHealth,
+      enemyHealth,
+      targetIntel,
+      equippedGear,
+      requiresPostCombatHeal,
+      postCombatRecoveryComplete,
+      isTutorialComplete,
+      recentRewardMessages,
+      recentSystemNotice,
+      lastRewardStepId,
+    };
+
+    localStorage.setItem(saveKey, JSON.stringify(saveData));
+  }, [
+    player?.username,
+    isTutorialSaveLoaded,
+    currentTutorialStepIndex,
+    currentTutorialActionCount,
+    tutorialInventory,
+    playerHealth,
+    enemyHealth,
+    targetIntel,
+    equippedGear,
+    requiresPostCombatHeal,
+    postCombatRecoveryComplete,
+    isTutorialComplete,
+    recentRewardMessages,
+    recentSystemNotice,
+    lastRewardStepId,
+  ]);
   if (meLoading) {
     return (
       <div className="min-h-[100dvh] nebula-bg flex flex-col items-center justify-center relative overflow-hidden">
@@ -2434,12 +2585,12 @@ export default function PlayPage() {
       </main>
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-primary/20 bg-background/95 backdrop-blur-md px-3 py-2">
         <div className="grid grid-cols-4 gap-2">
-            {[
-              { id: "action", label: "Action" },
-              { id: "character", label: "Character" },
-              { id: "location", label: "Location" },
-              { id: "chat", label: "Chat" },
-            ].map((tab) => (
+          {[
+            { id: "action", label: "Action" },
+            { id: "character", label: "Character" },
+            { id: "location", label: "Location" },
+            { id: "chat", label: "Chat" },
+          ].map((tab) => (
             <button
               key={tab.id}
               type="button"
