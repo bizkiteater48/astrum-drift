@@ -1056,7 +1056,7 @@ export default function PlayPage() {
     tutorialProgress: TutorialSaveData,
   ) => {
     try {
-      await fetch("/players/tutorial-progress", {
+      await fetch("/api/players/tutorial-progress", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -1293,7 +1293,7 @@ export default function PlayPage() {
       const saveKey = `astrumTutorialProgress_${player.username}`;
 
       try {
-        const response = await fetch("/players/tutorial-progress", {
+        const response = await fetch("/api/players/tutorial-progress", {
           method: "GET",
           credentials: "include",
         });
