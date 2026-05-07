@@ -28,7 +28,37 @@ app.use(
     },
   }),
 );
-app.use(cors({ credentials: true, origin: true }));
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://astrumdrift.com",
+  "https://www.astrumdrift.com",
+  "https://play.astrumdrift.com",
+  "https://replit.com",
+];
+
+const allowedOriginPatterns = [
+  /^https:\/\/.*\.replit\.dev$/i,
+  /^https:\/\/.*\.repl\.co$/i,
+];
+
+app.use(
+  cors({
+    credentials: true,
+    origin(origin, callback) {
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        allowedOriginPatterns.some((pattern) => pattern.test(origin))
+      ) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`Not allowed by CORS: ${origin}`));
+    },
+  }),
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(sessionMiddleware);

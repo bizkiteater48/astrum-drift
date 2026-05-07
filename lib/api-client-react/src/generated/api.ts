@@ -23,6 +23,7 @@ import type {
   MiningCollectResult,
   MiningState,
   Player,
+  RegisterCredentials,
   SuccessResponse,
 } from "./api.schemas";
 
@@ -119,14 +120,14 @@ export const getRegisterUrl = () => {
 };
 
 export const register = async (
-  authCredentials: AuthCredentials,
+  registerCredentials: RegisterCredentials,
   options?: RequestInit,
 ): Promise<Player> => {
   return customFetch<Player>(getRegisterUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(authCredentials),
+    body: JSON.stringify(registerCredentials),
   });
 };
 
@@ -137,14 +138,14 @@ export const getRegisterMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof register>>,
     TError,
-    { data: BodyType<AuthCredentials> },
+    { data: BodyType<RegisterCredentials> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof register>>,
   TError,
-  { data: BodyType<AuthCredentials> },
+  { data: BodyType<RegisterCredentials> },
   TContext
 > => {
   const mutationKey = ["register"];
@@ -158,7 +159,7 @@ export const getRegisterMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof register>>,
-    { data: BodyType<AuthCredentials> }
+    { data: BodyType<RegisterCredentials> }
   > = (props) => {
     const { data } = props ?? {};
 
@@ -171,7 +172,7 @@ export const getRegisterMutationOptions = <
 export type RegisterMutationResult = NonNullable<
   Awaited<ReturnType<typeof register>>
 >;
-export type RegisterMutationBody = BodyType<AuthCredentials>;
+export type RegisterMutationBody = BodyType<RegisterCredentials>;
 export type RegisterMutationError = ErrorType<ErrorResponse>;
 
 /**
@@ -184,14 +185,14 @@ export const useRegister = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof register>>,
     TError,
-    { data: BodyType<AuthCredentials> },
+    { data: BodyType<RegisterCredentials> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof register>>,
   TError,
-  { data: BodyType<AuthCredentials> },
+  { data: BodyType<RegisterCredentials> },
   TContext
 > => {
   return useMutation(getRegisterMutationOptions(options));

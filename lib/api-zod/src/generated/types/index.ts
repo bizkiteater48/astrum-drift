@@ -13,4 +13,5 @@ export * from "./miningCollectResult";
 export * from "./miningReward";
 export * from "./miningState";
 export * from "./player";
+export * from "./registerCredentials";
 export * from "./successResponse";

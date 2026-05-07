@@ -18,6 +18,7 @@ if (!secret) {
 const isProduction = process.env["NODE_ENV"] === "production";
 
 const sessionOptions: SessionOptions = {
+  name: "astrum.sid",
   store: new PgStore({
     pool,
     tableName: "session",

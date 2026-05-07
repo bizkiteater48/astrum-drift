@@ -12,7 +12,14 @@ import {
 
 const router: IRouter = Router();
 
+const ENABLE_MINING = process.env.ENABLE_MINING === "true";
+
 router.post("/mining/start", requireAuth, async (req, res): Promise<void> => {
+  if (!ENABLE_MINING) {
+    res.status(403).json({ error: "Mining is currently disabled during testing." });
+    return;
+  }
+
   const playerId = req.session.playerId!;
 
   const result = await db.transaction(async (tx) => {
@@ -42,11 +49,16 @@ router.post("/mining/start", requireAuth, async (req, res): Promise<void> => {
   res.status(200).json({ player: serializePlayer(result.player) });
 });
 
-router.post(
-  "/mining/collect",
-  requireAuth,
-  async (req, res): Promise<void> => {
-    const playerId = req.session.playerId!;
+        router.post(
+          "/mining/collect",
+          requireAuth,
+          async (req, res): Promise<void> => {
+        if (!ENABLE_MINING) {
+          res.status(403).json({ error: "Mining is currently disabled during testing." });
+          return;
+        }
+
+        const playerId = req.session.playerId!;
 
     const result = await db.transaction(async (tx) => {
       const [player] = await tx

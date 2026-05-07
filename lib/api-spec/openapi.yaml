@@ -1,273 +1,328 @@
-openapi: 3.1.0
-info:
-  # Do not change the title, if the title changes, the import paths will be broken
-  title: Api
-  version: 0.1.0
-  description: Astrum Drift API
-servers:
-  - url: /api
-    description: Base API path
-tags:
-  - name: health
-    description: Health operations
-  - name: auth
-    description: Authentication operations
-  - name: player
-    description: Player state
-  - name: mining
-    description: Mining actions
-paths:
-  /healthz:
-    get:
-      operationId: healthCheck
-      tags: [health]
-      summary: Health check
-      description: Returns server health status
-      responses:
-        "200":
-          description: Healthy
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HealthStatus"
-  /auth/register:
-    post:
-      operationId: register
-      tags: [auth]
-      summary: Register a new player account
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AuthCredentials"
-      responses:
-        "201":
-          description: Registered
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Player"
-        "400":
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "409":
-          description: Username already taken
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-  /auth/login:
-    post:
-      operationId: login
-      tags: [auth]
-      summary: Log in to an existing account
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AuthCredentials"
-      responses:
-        "200":
-          description: Logged in
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Player"
-        "401":
-          description: Invalid credentials
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "403":
-          description: Another account is already active on this connection
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-  /auth/logout:
-    post:
-      operationId: logout
-      tags: [auth]
-      summary: Log out of the current session
-      responses:
-        "200":
-          description: Logged out
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
-  /auth/me:
-    get:
-      operationId: getMe
-      tags: [auth]
-      summary: Get the current logged-in player
-      responses:
-        "200":
-          description: Current player
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Player"
-        "401":
-          description: Not authenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-  /mining/start:
-    post:
-      operationId: startMining
-      tags: [mining]
-      summary: Begin a mining cycle
-      description: Idempotently begins a 30-second mining cycle. If a cycle is already in progress, returns the current state without resetting it.
-      responses:
-        "200":
-          description: Mining state
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MiningState"
-        "401":
-          description: Not authenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-  /mining/collect:
-    post:
-      operationId: collectMining
-      tags: [mining]
-      summary: Collect rewards from a completed mining cycle
-      description: Validates server-side that the 30-second cycle has elapsed, then awards one cycle's credits + XP and clears the in-progress cycle.
-      responses:
-        "200":
-          description: Rewards collected
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MiningCollectResult"
-        "400":
-          description: No cycle ready yet
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "401":
-          description: Not authenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-components:
-  schemas:
-    HealthStatus:
-      type: object
-      properties:
-        status:
-          type: string
-      required:
-        - status
-    ErrorResponse:
-      type: object
-      properties:
-        error:
-          type: string
-      required:
-        - error
-    SuccessResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-      required:
-        - success
-    AuthCredentials:
-      type: object
-      properties:
-        username:
-          type: string
-          minLength: 3
-          maxLength: 32
-        password:
-          type: string
-          minLength: 6
-          maxLength: 128
-      required:
-        - username
-        - password
-    Player:
-      type: object
-      properties:
-        id:
-          type: integer
-        username:
-          type: string
-        credits:
-          type: integer
-        experience:
-          type: integer
-        currentLocation:
-          type: string
-        miningLevel:
-          type: integer
-        miningStartedAt:
-          type: ["string", "null"]
-          format: date-time
-        cycleDurationSec:
-          type: integer
-      required:
-        - id
-        - username
-        - credits
-        - experience
-        - currentLocation
-        - miningLevel
-        - miningStartedAt
-        - cycleDurationSec
-    MiningState:
-      type: object
-      properties:
-        player:
-          $ref: "#/components/schemas/Player"
-      required:
-        - player
-    MiningReward:
-      type: object
-      properties:
-        cycles:
-          type: integer
-        credits:
-          type: integer
-        experience:
-          type: integer
-        leveledUp:
-          type: boolean
-        newLevel:
-          type: integer
-        messages:
-          type: array
-          items:
-            type: string
-      required:
-        - cycles
-        - credits
-        - experience
-        - leveledUp
-        - newLevel
-        - messages
-    MiningCollectResult:
-      type: object
-      properties:
-        player:
-          $ref: "#/components/schemas/Player"
-        reward:
-          $ref: "#/components/schemas/MiningReward"
-      required:
-        - player
-        - reward
+        openapi: 3.1.0
+        info:
+          # Do not change the title, if the title changes, the import paths will be broken
+          title: Api
+          version: 0.1.0
+          description: Astrum Drift API
+        servers:
+          - url: /api
+            description: Base API path
+        tags:
+          - name: health
+            description: Health operations
+          - name: auth
+            description: Authentication operations
+          - name: player
+            description: Player state
+          - name: mining
+            description: Mining actions
+
+        paths:
+          /healthz:
+            get:
+              operationId: healthCheck
+              tags: [health]
+              summary: Health check
+              description: Returns server health status
+              responses:
+                "200":
+                  description: Healthy
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/HealthStatus"
+
+          /auth/register:
+            post:
+              operationId: register
+              tags: [auth]
+              summary: Register a new player account
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/RegisterCredentials"
+              responses:
+                "201":
+                  description: Registered
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/Player"
+                "400":
+                  description: Validation error
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "403":
+                  description: Invalid tester access code
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "409":
+                  description: Username already taken
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
+          /auth/login:
+            post:
+              operationId: login
+              tags: [auth]
+              summary: Log in to an existing account
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/AuthCredentials"
+              responses:
+                "200":
+                  description: Logged in
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/Player"
+                "401":
+                  description: Invalid credentials
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "403":
+                  description: Another account is already active on this connection
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
+          /auth/logout:
+            post:
+              operationId: logout
+              tags: [auth]
+              summary: Log out of the current session
+              responses:
+                "200":
+                  description: Logged out
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/SuccessResponse"
+
+          /auth/me:
+            get:
+              operationId: getMe
+              tags: [auth]
+              summary: Get the current logged-in player
+              responses:
+                "200":
+                  description: Current player
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/Player"
+                "401":
+                  description: Not authenticated
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
+          /mining/start:
+            post:
+              operationId: startMining
+              tags: [mining]
+              summary: Begin a mining cycle
+              description: Idempotently begins a 30-second mining cycle. If a cycle is already in progress, returns the current state without resetting it.
+              responses:
+                "200":
+                  description: Mining state
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/MiningState"
+                "401":
+                  description: Not authenticated
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "403":
+                  description: Mining is disabled
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
+          /mining/collect:
+            post:
+              operationId: collectMining
+              tags: [mining]
+              summary: Collect rewards from a completed mining cycle
+              description: Validates server-side that the 30-second cycle has elapsed, then awards one cycle's credits + XP and clears the in-progress cycle.
+              responses:
+                "200":
+                  description: Rewards collected
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/MiningCollectResult"
+                "400":
+                  description: No cycle ready yet
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "401":
+                  description: Not authenticated
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "403":
+                  description: Mining is disabled
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
+        components:
+          schemas:
+            HealthStatus:
+              type: object
+              properties:
+                status:
+                  type: string
+              required:
+                - status
+
+            ErrorResponse:
+              type: object
+              properties:
+                error:
+                  type: string
+              required:
+                - error
+
+            SuccessResponse:
+              type: object
+              properties:
+                success:
+                  type: boolean
+              required:
+                - success
+
+            AuthCredentials:
+              type: object
+              properties:
+                username:
+                  type: string
+                  minLength: 3
+                  maxLength: 32
+                password:
+                  type: string
+                  minLength: 6
+                  maxLength: 128
+              required:
+                - username
+                - password
+
+            RegisterCredentials:
+              type: object
+              properties:
+                username:
+                  type: string
+                  minLength: 3
+                  maxLength: 32
+                password:
+                  type: string
+                  minLength: 6
+                  maxLength: 128
+                accessCode:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+              required:
+                - username
+                - password
+                - accessCode
+
+            Player:
+              type: object
+              properties:
+                id:
+                  type: integer
+                username:
+                  type: string
+                credits:
+                  type: integer
+                experience:
+                  type: integer
+                currentLocation:
+                  type: string
+                miningLevel:
+                  type: integer
+                miningStartedAt:
+                  type:
+                    - string
+                    - "null"
+                  format: date-time
+                cycleDurationSec:
+                  type: integer
+              required:
+                - id
+                - username
+                - credits
+                - experience
+                - currentLocation
+                - miningLevel
+                - miningStartedAt
+                - cycleDurationSec
+
+            MiningState:
+              type: object
+              properties:
+                player:
+                  $ref: "#/components/schemas/Player"
+              required:
+                - player
+
+            MiningReward:
+              type: object
+              properties:
+                cycles:
+                  type: integer
+                credits:
+                  type: integer
+                experience:
+                  type: integer
+                leveledUp:
+                  type: boolean
+                newLevel:
+                  type: integer
+                messages:
+                  type: array
+                  items:
+                    type: string
+              required:
+                - cycles
+                - credits
+                - experience
+                - leveledUp
+                - newLevel
+                - messages
+
+            MiningCollectResult:
+              type: object
+              properties:
+                player:
+                  $ref: "#/components/schemas/Player"
+                reward:
+                  $ref: "#/components/schemas/MiningReward"
+              required:
+                - player
+                - reward

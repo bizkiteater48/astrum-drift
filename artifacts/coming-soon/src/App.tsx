@@ -1,8 +1,5 @@
-import { useState } from "react";
-import { Mail } from "lucide-react";
+import { Rocket } from "lucide-react";
 import astrumLogo from "./assets/astrum-logo.png";
-
-const CONTACT_EMAIL = "contact@astrumdrift.com";
 
 const buttonClass = [
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full",
@@ -16,8 +13,6 @@ const buttonClass = [
 ].join(" ");
 
 export default function App() {
-  const [revealed, setRevealed] = useState(false);
-
   return (
     <div className="min-h-[100dvh] nebula-bg flex flex-col items-center justify-center p-4 relative overflow-hidden">
       <div className="nebula-stars" />
@@ -53,39 +48,20 @@ export default function App() {
               Launching Soon
             </h2>
             <p className="text-base md:text-lg text-foreground/85 leading-relaxed max-w-md mx-auto">
-              The terminal is warming up. Stand by, Commander —
-              the stars are aligning for first contact.
+              The terminal is warming up. Stand by, Commander — the stars are
+              aligning for first contact.
             </p>
           </div>
 
           <div className="flex flex-col items-center gap-4 pt-2">
-            <button
-              type="button"
-              onClick={() => setRevealed(true)}
+            <a
+              href="/game/"
               className={buttonClass}
-              data-testid="button-contact"
-              aria-expanded={revealed}
-              aria-controls="contact-reveal"
+              data-testid="button-play-tester-build"
             >
-              <Mail className="h-4 w-4" />
-              Contact Us
-            </button>
-
-            <div
-              id="contact-reveal"
-              className="min-h-[1.75rem] flex items-center justify-center"
-              aria-live="polite"
-            >
-              {revealed && (
-                <a
-                  href={`mailto:${CONTACT_EMAIL}`}
-                  className="font-mono text-sm md:text-base text-primary text-glow underline-offset-4 hover:underline"
-                  data-testid="link-contact-email"
-                >
-                  {CONTACT_EMAIL}
-                </a>
-              )}
-            </div>
+              <Rocket className="h-4 w-4" />
+              Play Tester Build
+            </a>
           </div>
         </section>
       </main>

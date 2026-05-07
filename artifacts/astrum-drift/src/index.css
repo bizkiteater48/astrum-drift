@@ -366,3 +366,150 @@
       0 0 40px hsl(280 60% 45% / 0.10);
   }
 }
+/* Astrum Drift - Right Column Full Avatar */
+
+/* Astrum Drift - Right Column Full Avatar */
+
+.avatar-preview {
+  width: 100%;
+  min-height: 300px;
+  max-height: 360px;
+  border: 1px solid rgba(75, 241, 255, 0.3);
+  background: radial-gradient(
+    circle at center,
+    rgba(75, 241, 255, 0.08),
+    rgba(5, 8, 18, 0.85)
+  );
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: inset 0 0 30px rgba(75, 241, 255, 0.06);
+}
+
+.avatar-image {
+  width: auto;
+  max-width: 58%;
+  height: auto;
+  max-height: 320px;
+  object-fit: contain;
+  object-position: center bottom;
+  display: block;
+}
+
+.avatar-overlay-wrap {
+  position: relative;
+}
+
+.avatar-slot {
+  position: absolute;
+  min-width: 82px;
+  max-width: 108px;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid rgba(75, 241, 255, 0.28);
+  background: rgba(5, 10, 20, 0.92);
+  border-radius: 0.6rem;
+  text-align: center;
+  box-shadow: 0 0 12px rgba(75, 241, 255, 0.08);
+  z-index: 5;
+}
+
+.avatar-slot-label {
+  display: block;
+  font-size: 8px;
+  line-height: 1;
+  color: rgba(180, 200, 220, 0.75);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-bottom: 0.2rem;
+}
+
+.avatar-slot-value {
+  display: block;
+  font-size: 10px;
+  line-height: 1.1;
+  color: rgba(75, 241, 255, 0.95);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.avatar-slot-helmet {
+  top: 12px;
+  left: 12px;
+}
+
+.avatar-slot-suit {
+  top: 12px;
+  right: 12px;
+}
+
+.avatar-slot-module-left {
+  bottom: 5px;
+  left: 20%;
+  transform: translateX(-50%);
+}
+
+.avatar-slot-module-right {
+  bottom: 5px;
+  left: 80%;
+  transform: translateX(-50%);
+}
+
+.avatar-slot-hand {
+  top: 50%;
+  left: 0%;
+  transform: translateY(-50%);
+}
+/* Astrum Drift - Equipment Board */
+
+.equipment-board-slot {
+  min-height: 64px;
+  border: 1px solid rgba(75, 241, 255, 0.22);
+  background: rgba(10, 15, 30, 0.62);
+  border-radius: 0.65rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0.55rem;
+  box-shadow: inset 0 0 14px rgba(75, 241, 255, 0.04);
+}
+
+.equipment-board-slot:hover {
+  border-color: rgba(75, 241, 255, 0.42);
+  background: rgba(75, 241, 255, 0.07);
+}
+
+.equipment-board-intel {
+  border-color: rgba(255, 190, 80, 0.28);
+  box-shadow: inset 0 0 14px rgba(255, 190, 80, 0.05);
+}
+
+.equipment-board-label {
+  font-size: 9px;
+  line-height: 1;
+  color: rgba(180, 200, 220, 0.75);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-bottom: 0.28rem;
+}
+
+.equipment-board-value {
+  font-size: 11px;
+  line-height: 1.15;
+  color: rgba(75, 241, 255, 0.95);
+  max-width: 105px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.equipment-board-subvalue {
+  font-size: 10px;
+  line-height: 1;
+  color: rgba(255, 190, 80, 0.95);
+  margin-top: 0.2rem;
+}

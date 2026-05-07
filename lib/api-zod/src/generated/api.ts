@@ -24,6 +24,8 @@ export const registerBodyUsernameMax = 32;
 export const registerBodyPasswordMin = 6;
 export const registerBodyPasswordMax = 128;
 
+export const registerBodyAccessCodeMax = 128;
+
 export const RegisterBody = zod.object({
   username: zod
     .string()
@@ -33,6 +35,7 @@ export const RegisterBody = zod.object({
     .string()
     .min(registerBodyPasswordMin)
     .max(registerBodyPasswordMax),
+  accessCode: zod.string().min(1).max(registerBodyAccessCodeMax),
 });
 
 /**

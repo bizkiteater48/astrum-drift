@@ -32,6 +32,14 @@ localPort = 8082
 externalPort = 3002
 
 [[ports]]
+localPort = 8083
+externalPort = 3003
+
+[[ports]]
+localPort = 9876
+externalPort = 4200
+
+[[ports]]
 localPort = 19137
 externalPort = 3000
 
@@ -41,3 +49,4 @@ externalPort = 3001
 
 [nix]
 channel = "stable-25_05"
+packages = ["rerun"]

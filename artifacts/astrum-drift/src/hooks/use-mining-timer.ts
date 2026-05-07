@@ -12,9 +12,7 @@ export function useMiningTimer(
   player: Player | null,
   onMessage: (msg: string) => void,
 ) {
-  const [isMining, setIsMining] = useState<boolean>(
-    !!player?.miningStartedAt,
-  );
+  const [isMining, setIsMining] = useState<boolean>(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
   const queryClient = useQueryClient();
@@ -22,27 +20,16 @@ export function useMiningTimer(
   const startMining = useStartMining();
 
   const isMiningRef = useRef(isMining);
+  const inFlightRef = useRef(false);
+
   useEffect(() => {
     isMiningRef.current = isMining;
   }, [isMining]);
-
-  const initializedRef = useRef(false);
-  useEffect(() => {
-    if (!initializedRef.current && player) {
-      initializedRef.current = true;
-      if (player.miningStartedAt) {
-        setIsMining(true);
-        isMiningRef.current = true;
-      }
-    }
-  }, [player]);
 
   const cycleSecs = player?.cycleDurationSec ?? 30;
   const startedAtMs = player?.miningStartedAt
     ? new Date(player.miningStartedAt).getTime()
     : null;
-
-  const inFlightRef = useRef(false);
 
   const tick = useCallback(async () => {
     if (startedAtMs) {
@@ -56,9 +43,11 @@ export function useMiningTimer(
     if (!isMiningRef.current) {
       return;
     }
+
     if (!startedAtMs) {
       if (!inFlightRef.current) {
         inFlightRef.current = true;
+
         try {
           await startMining.mutateAsync();
           await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
@@ -72,30 +61,42 @@ export function useMiningTimer(
           inFlightRef.current = false;
         }
       }
+
       return;
     }
 
     const elapsed = Math.floor((Date.now() - startedAtMs) / 1000);
+
     if (elapsed < cycleSecs) {
       return;
     }
-    if (inFlightRef.current) return;
+
+    if (inFlightRef.current) {
+      return;
+    }
+
     inFlightRef.current = true;
+
     try {
       const res = await collectMining.mutateAsync();
+
       if (res?.reward) {
         onMessage(
           `[REWARD] +${res.reward.credits} CR, +${res.reward.experience} XP.`,
         );
+
         if (res.reward.leveledUp) {
           onMessage(
             `[LEVEL UP] You reached Mining Level ${res.reward.newLevel}!`,
           );
         }
       }
-      if (isMiningRef.current) {
-        await startMining.mutateAsync();
-      }
+
+      // Auto-restart disabled during tutorial/testing safety cleanup.
+      // Player must manually start the next mining cycle later.
+      setIsMining(false);
+      isMiningRef.current = false;
+
       await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
     } catch (error: unknown) {
       onMessage(
@@ -122,12 +123,20 @@ export function useMiningTimer(
   }, [tick]);
 
   const handleStart = useCallback(async () => {
-    if (isMining) return;
+    if (isMining) {
+      return;
+    }
+
     setIsMining(true);
     isMiningRef.current = true;
     onMessage("[SYSTEM] Extractor array engaged. Auto-cycle initiated.");
-    if (inFlightRef.current) return;
+
+    if (inFlightRef.current) {
+      return;
+    }
+
     inFlightRef.current = true;
+
     try {
       await startMining.mutateAsync();
       await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
@@ -143,7 +152,10 @@ export function useMiningTimer(
   }, [isMining, startMining, queryClient, onMessage]);
 
   const handleStop = useCallback(() => {
-    if (!isMining) return;
+    if (!isMining) {
+      return;
+    }
+
     setIsMining(false);
     isMiningRef.current = false;
     onMessage(

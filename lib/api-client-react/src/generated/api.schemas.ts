@@ -30,6 +30,24 @@ export interface AuthCredentials {
   password: string;
 }
 
+export interface RegisterCredentials {
+  /**
+   * @minLength 3
+   * @maxLength 32
+   */
+  username: string;
+  /**
+   * @minLength 6
+   * @maxLength 128
+   */
+  password: string;
+  /**
+   * @minLength 1
+   * @maxLength 128
+   */
+  accessCode: string;
+}
+
 export interface Player {
   id: number;
   username: string;
