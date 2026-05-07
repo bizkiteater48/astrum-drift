@@ -1270,7 +1270,7 @@ export default function PlayPage() {
         </div>
       </header>
 
-      {hasMobileStatusAlert && (
+      {hasMobileStatusAlert && mobilePanel !== "action" && (
         <div className="lg:hidden z-20 px-3 pt-3">
           <div className="glass-panel border border-chart-2/50 rounded-lg px-3 py-2 shadow-[0_0_18px_rgba(255,190,80,0.35)]">
             <div className="flex items-center justify-between gap-3">
@@ -1372,7 +1372,7 @@ export default function PlayPage() {
                         : undefined
                     }
                     variant="outline"
-                    className="justify-start h-auto min-h-12 whitespace-normal text-left leading-tight text-xs font-mono uppercase tracking-widest border-chart-2/50 text-chart-2 hover:bg-chart-2/10 py-3 px-4"
+                    className="hidden lg:flex justify-start h-auto min-h-12 whitespace-normal text-left leading-tight text-xs font-mono uppercase tracking-widest border-chart-2/50 text-chart-2 hover:bg-chart-2/10 py-3 px-4"
                   >
                     {currentTutorialStep.actionLabel}
                   </Button>
@@ -1902,7 +1902,7 @@ export default function PlayPage() {
                 </Button>
               </div>
             )}
-          
+
           {recentSystemNotice !== null &&
             !isTutorialActionRunning &&
             !isInCombat &&
