@@ -2434,12 +2434,12 @@ export default function PlayPage() {
       </main>
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-primary/20 bg-background/95 backdrop-blur-md px-3 py-2">
         <div className="grid grid-cols-4 gap-2">
-          {[
-            { id: "action", label: "Action" },
-            { id: "location", label: "Location" },
-            { id: "character", label: "Character" },
-            { id: "chat", label: "Chat" },
-          ].map((tab) => (
+            {[
+              { id: "action", label: "Action" },
+              { id: "character", label: "Character" },
+              { id: "location", label: "Location" },
+              { id: "chat", label: "Chat" },
+            ].map((tab) => (
             <button
               key={tab.id}
               type="button"
