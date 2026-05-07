@@ -248,12 +248,76 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
     .select()
     .from(playersTable)
     .where(eq(playersTable.id, playerId));
+
   if (!player) {
     req.session.destroy(() => {});
     res.status(401).json({ error: "Not authenticated" });
     return;
   }
+
   res.status(200).json(serializePlayer(player));
 });
+
+router.get(
+  "/players/tutorial-progress",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const playerId = req.session.playerId!;
+
+    const [player] = await db
+      .select({
+        tutorialProgress: playersTable.tutorialProgress,
+      })
+      .from(playersTable)
+      .where(eq(playersTable.id, playerId));
+
+    if (!player) {
+      req.session.destroy(() => {});
+      res.status(401).json({ error: "Not authenticated" });
+      return;
+    }
+
+    res.status(200).json({
+      tutorialProgress: player.tutorialProgress ?? null,
+    });
+  },
+);
+
+router.put(
+  "/players/tutorial-progress",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const playerId = req.session.playerId!;
+    const tutorialProgress = req.body?.tutorialProgress;
+
+    if (
+      tutorialProgress !== null &&
+      (typeof tutorialProgress !== "object" || Array.isArray(tutorialProgress))
+    ) {
+      res.status(400).json({ error: "Invalid tutorial progress payload" });
+      return;
+    }
+
+    const [updatedPlayer] = await db
+      .update(playersTable)
+      .set({
+        tutorialProgress,
+      })
+      .where(eq(playersTable.id, playerId))
+      .returning({
+        tutorialProgress: playersTable.tutorialProgress,
+      });
+
+    if (!updatedPlayer) {
+      req.session.destroy(() => {});
+      res.status(401).json({ error: "Not authenticated" });
+      return;
+    }
+
+    res.status(200).json({
+      tutorialProgress: updatedPlayer.tutorialProgress ?? null,
+    });
+  },
+);
 
 export default router;

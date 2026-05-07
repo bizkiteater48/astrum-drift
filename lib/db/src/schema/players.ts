@@ -4,6 +4,7 @@ import {
   text,
   integer,
   timestamp,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -18,7 +19,20 @@ export const playersTable = pgTable("players", {
     .notNull()
     .default("Earth Orbit"),
   miningLevel: integer("mining_level").notNull().default(1),
+  combatLevel: integer("combat_level").notNull().default(1),
+  fabricationLevel: integer("fabrication_level").notNull().default(1),
+  harvestingLevel: integer("harvesting_level").notNull().default(1),
+  synthesisLevel: integer("synthesis_level").notNull().default(1),
+  salvagingLevel: integer("salvaging_level").notNull().default(1),
+  engineeringLevel: integer("engineering_level").notNull().default(1),
+  navigationLevel: integer("navigation_level").notNull().default(1),
+  tradingLevel: integer("trading_level").notNull().default(1),
+  trackingLevel: integer("tracking_level").notNull().default(1),
+
   miningStartedAt: timestamp("mining_started_at", { withTimezone: true }),
+
+  tutorialProgress: jsonb("tutorial_progress"),
+
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

@@ -1051,6 +1051,23 @@ export default function PlayPage() {
     setIsCombatRoundRunning(false);
     setCombatTimerLeft(null);
   };
+  
+  const saveTutorialProgressToServer = async (
+    tutorialProgress: TutorialSaveData,
+  ) => {
+    try {
+      await fetch("/players/tutorial-progress", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ tutorialProgress }),
+      });
+    } catch {
+      // Keep localStorage as fallback if the server save fails.
+    }
+  };
   const handleTutorialAction = () => {
     if (!currentTutorialStep || isTutorialActionRunning || isTutorialComplete)
       return;
@@ -1200,22 +1217,10 @@ export default function PlayPage() {
   useEffect(() => {
     if (!player?.username) return;
 
-    setIsTutorialSaveLoaded(false);
+    let cancelled = false;
 
-    const saveKey = `astrumTutorialProgress_${player.username}`;
-    const rawSave = localStorage.getItem(saveKey);
-
-    if (!rawSave) {
-      setIsTutorialSaveLoaded(true);
-      return;
-    }
-
-    try {
-      const saved = JSON.parse(rawSave) as Partial<TutorialSaveData>;
-
+    const applySavedProgress = (saved: Partial<TutorialSaveData>) => {
       if (saved.version !== TUTORIAL_SAVE_VERSION) {
-        localStorage.removeItem(saveKey);
-        setIsTutorialSaveLoaded(true);
         return;
       }
 
@@ -1231,10 +1236,7 @@ export default function PlayPage() {
         setCurrentTutorialActionCount(saved.currentTutorialActionCount);
       }
 
-      if (
-        saved.tutorialInventory &&
-        typeof saved.tutorialInventory === "object"
-      ) {
+      if (saved.tutorialInventory && typeof saved.tutorialInventory === "object") {
         setTutorialInventory(saved.tutorialInventory);
       }
 
@@ -1283,20 +1285,98 @@ export default function PlayPage() {
       ) {
         setLastRewardStepId(saved.lastRewardStepId);
       }
-    } catch {
-      localStorage.removeItem(saveKey);
-    } finally {
-      setIsTutorialSaveLoaded(true);
-    }
+    };
+
+    const loadTutorialProgress = async () => {
+      setIsTutorialSaveLoaded(false);
+
+      const saveKey = `astrumTutorialProgress_${player.username}`;
+
+      try {
+        const response = await fetch("/players/tutorial-progress", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (response.ok) {
+          const data = (await response.json()) as {
+            tutorialProgress?: Partial<TutorialSaveData> | null;
+          };
+
+          if (!cancelled && data.tutorialProgress) {
+            applySavedProgress(data.tutorialProgress);
+            setIsTutorialSaveLoaded(true);
+            return;
+          }
+        }
+      } catch {
+        // Fall back to localStorage below.
+      }
+
+      const rawSave = localStorage.getItem(saveKey);
+
+      if (!rawSave) {
+        if (!cancelled) {
+          setIsTutorialSaveLoaded(true);
+        }
+        return;
+      }
+
+      try {
+        const saved = JSON.parse(rawSave) as Partial<TutorialSaveData>;
+
+        if (!cancelled) {
+          applySavedProgress(saved);
+        }
+      } catch {
+        localStorage.removeItem(saveKey);
+      } finally {
+        if (!cancelled) {
+          setIsTutorialSaveLoaded(true);
+        }
+      }
+    };
+
+    loadTutorialProgress();
+
+    return () => {
+      cancelled = true;
+    };
   }, [player?.username]);
+    useEffect(() => {
+      if (!player?.username || !isTutorialSaveLoaded) return;
 
-  useEffect(() => {
-    if (!player?.username || !isTutorialSaveLoaded) return;
+      const saveKey = `astrumTutorialProgress_${player.username}`;
 
-    const saveKey = `astrumTutorialProgress_${player.username}`;
+      const saveData: TutorialSaveData = {
+        version: TUTORIAL_SAVE_VERSION,
+        currentTutorialStepIndex,
+        currentTutorialActionCount,
+        tutorialInventory,
+        playerHealth,
+        enemyHealth,
+        targetIntel,
+        equippedGear,
+        requiresPostCombatHeal,
+        postCombatRecoveryComplete,
+        isTutorialComplete,
+        recentRewardMessages,
+        recentSystemNotice,
+        lastRewardStepId,
+      };
 
-    const saveData: TutorialSaveData = {
-      version: TUTORIAL_SAVE_VERSION,
+      localStorage.setItem(saveKey, JSON.stringify(saveData));
+
+      const saveDelay = window.setTimeout(() => {
+        void saveTutorialProgressToServer(saveData);
+      }, 500);
+
+      return () => {
+        window.clearTimeout(saveDelay);
+      };
+    }, [
+      player?.username,
+      isTutorialSaveLoaded,
       currentTutorialStepIndex,
       currentTutorialActionCount,
       tutorialInventory,
@@ -1310,26 +1390,8 @@ export default function PlayPage() {
       recentRewardMessages,
       recentSystemNotice,
       lastRewardStepId,
-    };
+    ]);
 
-    localStorage.setItem(saveKey, JSON.stringify(saveData));
-  }, [
-    player?.username,
-    isTutorialSaveLoaded,
-    currentTutorialStepIndex,
-    currentTutorialActionCount,
-    tutorialInventory,
-    playerHealth,
-    enemyHealth,
-    targetIntel,
-    equippedGear,
-    requiresPostCombatHeal,
-    postCombatRecoveryComplete,
-    isTutorialComplete,
-    recentRewardMessages,
-    recentSystemNotice,
-    lastRewardStepId,
-  ]);
   if (meLoading) {
     return (
       <div className="min-h-[100dvh] nebula-bg flex flex-col items-center justify-center relative overflow-hidden">
