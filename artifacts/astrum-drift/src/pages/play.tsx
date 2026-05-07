@@ -317,6 +317,9 @@ export default function PlayPage() {
   };
 
   const activeSkill = getActiveSkillFromTutorialStep();
+  const shouldHighlightLifeSupportGel =
+    requiresPostCombatHeal &&
+    (tutorialInventory["Life Support Gel"] ?? 0) > 0;
 
   const getRequiredHandItemForStep = (stepId: string) => {
     switch (stepId) {
@@ -1463,52 +1466,85 @@ export default function PlayPage() {
                 </div>
 
                 <div className="rounded-lg border border-primary/20 bg-background/50 px-3 py-2">
-                  <p className="text-xs text-muted-foreground uppercase tracking-widest mb-2">
-                    Healing Items
-                  </p>
+                  <div className="rounded-lg border border-primary/20 bg-background/50 px-3 py-2">
+                    <p className="text-xs text-muted-foreground uppercase tracking-widest mb-2">
+                      Healing Items
+                    </p>
 
-                  <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-1">
-                    {[
-                      {
-                        name: "Life Support Gel",
-                        qty: tutorialInventory["Life Support Gel"] ?? 0,
-                        heal: "+10 HP",
-                      },
-                      { name: "Med Foam Pack", qty: 0, heal: "+25 HP" },
-                      { name: "Trauma Patch", qty: 0, heal: "+40 HP" },
-                      { name: "Bio-Stabilizer", qty: 0, heal: "+60 HP" },
-                    ].map((item) => (
-                      <button
-                        key={item.name}
-                        type="button"
-                        onClick={() => {
-                          if (item.name === "Life Support Gel") {
-                            useLifeSupportGelFromCombatPanel();
-                          }
-                        }}
-                        disabled={
-                          item.qty <= 0 ||
-                          !requiresPostCombatHeal ||
-                          item.name !== "Life Support Gel"
-                        }
-                        className="min-w-24 rounded-lg border border-primary/20 bg-background/60 px-2 py-1.5 text-left disabled:opacity-40 hover:bg-primary/10"
-                        title={`${item.name} ${item.heal}`}
-                      >
-                        <div className="h-8 w-8 rounded border border-primary/20 bg-primary/10 mb-1 flex items-center justify-center text-primary text-xs">
-                          +
-                        </div>
-                        <p className="text-[10px] text-primary uppercase tracking-widest leading-tight">
-                          {item.name}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {item.heal}
-                        </p>
-                        <p className="text-xs text-chart-2 font-bold text-right">
-                          {item.qty}
-                        </p>
-                      </button>
-                    ))}
+                    <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-1">
+                      {[
+                        {
+                          name: "Life Support Gel",
+                          qty: tutorialInventory["Life Support Gel"] ?? 0,
+                          heal: "+10 HP",
+                        },
+                        { name: "Med Foam Pack", qty: 0, heal: "+25 HP" },
+                        { name: "Trauma Patch", qty: 0, heal: "+40 HP" },
+                        { name: "Bio-Stabilizer", qty: 0, heal: "+60 HP" },
+                      ].map((item) => {
+                        const isLifeSupportGel = item.name === "Life Support Gel";
+                        const shouldHighlightItem =
+                          isLifeSupportGel && shouldHighlightLifeSupportGel;
+
+                        return (
+                          <button
+                            key={item.name}
+                            type="button"
+                            onClick={() => {
+                              if (isLifeSupportGel) {
+                                useLifeSupportGelFromCombatPanel();
+                              }
+                            }}
+                            disabled={
+                              item.qty <= 0 ||
+                              !requiresPostCombatHeal ||
+                              !isLifeSupportGel
+                            }
+                            className={`min-w-28 rounded-lg border px-2 py-2 text-left transition-all duration-200 disabled:opacity-40 ${
+                              shouldHighlightItem
+                                ? "border-chart-2 bg-chart-2/10 ring-2 ring-chart-2/70 shadow-[0_0_18px_rgba(255,190,80,0.55)] animate-pulse"
+                                : "border-primary/20 bg-background/60 hover:bg-primary/10"
+                            }`}
+                            title={`${item.name} ${item.heal}`}
+                          >
+                            <div
+                              className={`h-8 w-8 rounded border mb-1 flex items-center justify-center text-xs ${
+                                shouldHighlightItem
+                                  ? "border-chart-2/70 bg-chart-2/20 text-chart-2"
+                                  : "border-primary/20 bg-primary/10 text-primary"
+                              }`}
+                            >
+                              +
+                            </div>
+
+                            <p
+                              className={`text-[10px] uppercase tracking-widest leading-tight ${
+                                shouldHighlightItem ? "text-chart-2 font-bold" : "text-primary"
+                              }`}
+                            >
+                              {item.name}
+                            </p>
+
+                            <p className="text-[10px] text-muted-foreground">
+                              {item.heal}
+                            </p>
+
+                            <p className="text-xs text-chart-2 font-bold text-right">
+                              {item.qty}
+                            </p>
+
+                            {shouldHighlightItem && (
+                              <p className="mt-1 text-[9px] text-chart-2 uppercase tracking-widest font-bold">
+                                Click to use
+                              </p>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
+
+               
                 </div>
               </div>
             </div>
