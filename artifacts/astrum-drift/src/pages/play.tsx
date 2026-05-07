@@ -1451,7 +1451,7 @@ export default function PlayPage() {
       <div className="nebula-stars" />
 
       {/* Header */}
-      <header className="border-b border-primary/20 glass-panel px-4 py-3 flex items-center justify-between z-10">
+      <header className="border-b border-primary/20 glass-panel px-4 py-3 grid grid-cols-[auto_1fr_auto] items-center gap-3 z-10">
         <div className="flex items-center gap-3">
           <Terminal className="h-5 w-5 text-primary" />
           <h1 className="text-xl font-bold uppercase tracking-widest text-primary text-glow">
@@ -1459,7 +1459,20 @@ export default function PlayPage() {
           </h1>
         </div>
 
-        <div className="flex items-center gap-4 text-sm text-primary/80">
+        <div className="flex justify-center">
+          {isUpdateAvailable && (
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="rounded-lg border border-chart-2/60 bg-chart-2/10 px-3 py-1.5 text-[10px] font-mono font-bold uppercase tracking-widest text-chart-2 shadow-[0_0_16px_rgba(255,190,80,0.35)] hover:bg-chart-2/20"
+              title="Refresh to load the latest update"
+            >
+              Update Available
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-4 text-sm text-primary/80 justify-end">
           <span className="hidden md:inline-block tracking-wider uppercase">
             <span className="text-muted-foreground mr-2">CMDR</span>
             {player.username}
@@ -1478,28 +1491,7 @@ export default function PlayPage() {
         </div>
       </header>
 
-      {isUpdateAvailable && (
-        <div className="fixed top-16 left-3 right-3 z-[90] md:left-auto md:right-4 md:w-96">
-          <div className="glass-panel border border-chart-2/60 rounded-xl px-4 py-3 shadow-[0_0_24px_rgba(255,190,80,0.45)]">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs text-chart-2 uppercase tracking-widest font-bold">
-                Update Available
-              </p>
-
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => window.location.reload()}
-                className="shrink-0 h-8 px-3 font-mono uppercase tracking-widest border-chart-2/50 text-chart-2 hover:bg-chart-2/10"
-              >
-                Refresh
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
+     
       {hasMobileStatusAlert && mobilePanel !== "action" && (
         <div className="lg:hidden z-20 px-3 pt-3">
           <div className="glass-panel border border-chart-2/50 rounded-lg px-3 py-2 shadow-[0_0_18px_rgba(255,190,80,0.35)]">
