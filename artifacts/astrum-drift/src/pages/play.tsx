@@ -1273,27 +1273,26 @@ export default function PlayPage() {
       {hasMobileStatusAlert && mobilePanel !== "action" && (
         <div className="lg:hidden z-20 px-3 pt-3">
           <div className="glass-panel border border-chart-2/50 rounded-lg px-3 py-2 shadow-[0_0_18px_rgba(255,190,80,0.35)]">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
               <div className="min-w-0">
                 <p className="text-[10px] text-chart-2 uppercase tracking-widest font-bold">
                   {mobileStatusAlertText}
                 </p>
 
-                <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">
-                  Health {playerHealth}/{playerMaxHealth}
-                  {mobileStatusTimerText ? ` • ${mobileStatusTimerText}` : ""}
-                </p>
-              </div>
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span
+                    className={`text-sm font-bold uppercase tracking-widest ${getHealthTextColor()}`}
+                  >
+                    HP {playerHealth}/{playerMaxHealth}
+                  </span>
 
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setMobilePanel("action")}
-                className="shrink-0 h-8 px-3 font-mono uppercase tracking-widest border-chart-2/50 text-chart-2 hover:bg-chart-2/10"
-              >
-                Return
-              </Button>
+                  {mobileStatusTimerText && (
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                      • {mobileStatusTimerText}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1812,40 +1811,6 @@ export default function PlayPage() {
                                     proceed.
                                   </p>
                                 </div>
-
-                                {currentTutorialStep.actionLabel &&
-                                  !isTutorialComplete && (
-                                    <Button
-                                      type="button"
-                                      onClick={
-                                        currentTutorialStep.id ===
-                                        "defeat_training_drone"
-                                          ? startTrainingCombatRound
-                                          : handleTutorialAction
-                                      }
-                                      disabled={
-                                        isTutorialActionRunning ||
-                                        isInCombat ||
-                                        requiresPostCombatHeal ||
-                                        postCombatRecoveryComplete ||
-                                        (currentTutorialStep.id ===
-                                          "defeat_training_drone" &&
-                                          equippedGear.Hand !==
-                                            "Training Blade")
-                                      }
-                                      title={
-                                        currentTutorialStep.id ===
-                                          "defeat_training_drone" &&
-                                        equippedGear.Hand !== "Training Blade"
-                                          ? "Equip the Training Blade from Inventory Summary before engaging the drone."
-                                          : undefined
-                                      }
-                                      variant="outline"
-                                      className="lg:hidden w-full justify-center h-auto min-h-12 whitespace-normal text-center leading-tight text-xs font-mono uppercase tracking-widest border-chart-2/50 text-chart-2 hover:bg-chart-2/10 py-3 px-4"
-                                    >
-                                      {currentTutorialStep.actionLabel}
-                                    </Button>
-                                  )}
                               </div>
                             </div>
                           )}
@@ -1926,7 +1891,7 @@ export default function PlayPage() {
             } lg:block mt-auto w-full p-[2px] ${getCommandTourHighlightClass("chat")}`}
           >
             {isChatOpen ? (
-              <div className="glass-panel border border-primary/20 rounded-lg h-36 flex flex-col overflow-hidden">
+              <div className="glass-panel border border-primary/20 rounded-lg h-[52vh] min-h-[320px] lg:h-56 lg:min-h-0 flex flex-col overflow-hidden">
                 <div className="flex items-center justify-between border-b border-primary/20 px-4 py-2">
                   <h3 className="uppercase tracking-widest text-xs text-primary/70">
                     Player Chat
