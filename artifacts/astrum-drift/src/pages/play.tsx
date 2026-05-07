@@ -2593,10 +2593,10 @@ export default function PlayPage() {
                                       onClick={() =>
                                         equipInventoryItem(itemName)
                                       }
-                                      className={`rounded-md border px-2 py-1 text-left transition-all ${
+                                      className={`text-left transition-all ${
                                         shouldHighlightTrainingBladeEquip
-                                          ? "border-chart-2/70 bg-chart-2/10 text-chart-2 shadow-[0_0_18px_rgba(255,190,80,0.55)] animate-pulse"
-                                          : "border-transparent text-chart-2 hover:text-primary hover:underline"
+                                          ? "text-chart-2 font-bold drop-shadow-[0_0_8px_rgba(255,190,80,0.95)] animate-pulse"
+                                          : "text-chart-2 hover:text-primary hover:underline"
                                       }`}
                                       title="Equip Training Blade"
                                     >
