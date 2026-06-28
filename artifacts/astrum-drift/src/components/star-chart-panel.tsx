@@ -21,7 +21,7 @@ export function StarChartPanel({
   const currentLocation = getMainGameLocation(currentLocationId);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[80] bg-black/70 flex items-center justify-center p-4">
       <div className="glass-panel border border-primary/30 rounded-xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between border-b border-primary/20 p-4">
           <div>

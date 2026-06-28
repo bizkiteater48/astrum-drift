@@ -695,6 +695,12 @@ export default function PlayPage() {
     setShowCommandTour(false);
   };
 
+  const openStarChart = () => {
+    if (!isTutorialComplete) return;
+    closeCommandTour();
+    setShowStarChart(true);
+  };
+
   const closeLaunchIntro = () => {
     if (!player) return;
     localStorage.setItem(`astrumLaunchIntroSeen_${player.username}`, "true");
@@ -1930,7 +1936,7 @@ export default function PlayPage() {
                 <Button
                   variant="outline"
                   disabled={!isTutorialComplete}
-                  onClick={() => isTutorialComplete && setShowStarChart(true)}
+                  onClick={openStarChart}
                   className="justify-start font-mono uppercase tracking-widest border-primary/30 text-primary hover:bg-primary/10 disabled:opacity-40 disabled:cursor-not-allowed"
                   title={
                     isTutorialComplete
@@ -2512,7 +2518,7 @@ export default function PlayPage() {
                 <p className="text-xs text-primary mb-3">{idleCommandText}</p>
                 <Button
                   type="button"
-                  onClick={() => setShowStarChart(true)}
+                  onClick={openStarChart}
                   variant="outline"
                   className="w-full font-mono uppercase tracking-widest border-primary/50 text-primary hover:bg-primary/10"
                 >
