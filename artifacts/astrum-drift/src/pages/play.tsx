@@ -21,6 +21,17 @@ import defaultAvatarImg from "@/assets/default-avatar.png";
 
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { StarChartPanel } from "@/components/star-chart-panel";
+import {
+  getMainGameLocation,
+  MAIN_GAME_DIRECTIVE,
+  MAIN_GAME_START_LOCATION,
+  type MainGameAction,
+  type MainGameActionId,
+  type MainGameImageKey,
+  type MainGameLocationId,
+  type MainGameTravelLink,
+} from "@/lib/main-game";
 
 type TutorialStep = {
   id: string;
@@ -175,12 +186,13 @@ export default function PlayPage() {
     requiresPostCombatHeal: boolean;
     postCombatRecoveryComplete: boolean;
     isTutorialComplete: boolean;
+    mainGameLocationId?: MainGameLocationId;
     recentRewardMessages: string[];
     recentSystemNotice: string | null;
     lastRewardStepId: string | null;
   };
 
-  const TUTORIAL_SAVE_VERSION = 1;
+  const TUTORIAL_SAVE_VERSION = 2;
   const [currentTutorialActionCount, setCurrentTutorialActionCount] =
     useState(0);
   const [tutorialInventory, setTutorialInventory] = useState<
@@ -245,6 +257,17 @@ export default function PlayPage() {
   const [postCombatRecoveryComplete, setPostCombatRecoveryComplete] =
     useState(false);
   const [isTutorialComplete, setIsTutorialComplete] = useState(false);
+  const [mainGameLocationId, setMainGameLocationId] =
+    useState<MainGameLocationId>(MAIN_GAME_START_LOCATION);
+  const [showStarChart, setShowStarChart] = useState(false);
+  const [isMainGameActionRunning, setIsMainGameActionRunning] = useState(false);
+  const [mainGameTimerLeft, setMainGameTimerLeft] = useState<number | null>(
+    null,
+  );
+  const [pendingMainGameAction, setPendingMainGameAction] =
+    useState<MainGameAction | null>(null);
+  const [pendingMainGameTravel, setPendingMainGameTravel] =
+    useState<MainGameTravelLink | null>(null);
   const [isTutorialActionRunning, setIsTutorialActionRunning] = useState(false);
   const [profileView, setProfileView] = useState<
     "gear" | "skills" | "cargo" | "ship"
@@ -343,10 +366,16 @@ export default function PlayPage() {
     }
   };
 
-  const activeSkill = getActiveSkillFromTutorialStep();
+  const activeSkill = isTutorialComplete
+    ? (pendingMainGameAction?.skill ??
+      (pendingMainGameTravel ? "Navigation" : "Operations"))
+    : getActiveSkillFromTutorialStep();
+
+  const currentMainGameLocation = getMainGameLocation(mainGameLocationId);
 
   const hasMobileStatusAlert =
     isTutorialActionRunning ||
+    isMainGameActionRunning ||
     isInCombat ||
     isCombatRoundRunning ||
     requiresPostCombatHeal ||
@@ -358,16 +387,28 @@ export default function PlayPage() {
       ? "Recovery complete — return to action"
       : isInCombat || isCombatRoundRunning
         ? "Combat active — Training Drone"
-        : currentTutorialStep.type === "travel"
-          ? `Traveling — ${currentTutorialStep.actionLabel ?? "In Transit"}`
-          : `Action active — ${currentTutorialStep.actionLabel ?? "Training Action"}`;
+        : isMainGameActionRunning && pendingMainGameTravel
+          ? `Traveling — ${pendingMainGameTravel.label}`
+          : isMainGameActionRunning && pendingMainGameAction
+            ? `Action active — ${pendingMainGameAction.label}`
+            : currentTutorialStep.type === "travel"
+              ? `Traveling — ${currentTutorialStep.actionLabel ?? "In Transit"}`
+              : `Action active — ${currentTutorialStep.actionLabel ?? "Training Action"}`;
 
   const mobileStatusTimerText =
     combatTimerLeft !== null
       ? `Next exchange ${Math.ceil(combatTimerLeft)}s`
-      : tutorialTimerLeft !== null
-        ? `${Math.ceil(tutorialTimerLeft)}s remaining`
-        : "";
+      : mainGameTimerLeft !== null
+        ? `${Math.ceil(mainGameTimerLeft)}s remaining`
+        : tutorialTimerLeft !== null
+          ? `${Math.ceil(tutorialTimerLeft)}s remaining`
+          : "";
+
+  const idleCommandText = isTutorialComplete
+    ? currentMainGameLocation.actions.length === 0
+      ? "Open the Star Chart to travel to field operations."
+      : "Run a local action or open the Star Chart to travel."
+    : "Select the current training action to proceed.";
 
   const shouldHighlightLifeSupportGel =
     requiresPostCombatHeal && (tutorialInventory["Life Support Gel"] ?? 0) > 0;
@@ -468,6 +509,152 @@ export default function PlayPage() {
   };
 
   const tutorialViewportImage = getTutorialViewportImage();
+
+  const getMainGameImage = (imageKey: MainGameImageKey) => {
+    switch (imageKey) {
+      case "spaceport":
+        return spaceportImg;
+      case "wreck_site":
+        return wreckSiteImg;
+      case "bio_dome":
+        return bioDomeImg;
+      case "outpost_shop":
+        return outpostShopImg;
+      default:
+        return spaceportImg;
+    }
+  };
+
+  const displayLocationName = isTutorialComplete
+    ? currentMainGameLocation.name
+    : currentTutorialStep.location;
+
+  const displayZoneName = isTutorialComplete
+    ? currentMainGameLocation.systemName
+    : "Outpost One Training Zone";
+
+  const displayDirective = isTutorialComplete
+    ? MAIN_GAME_DIRECTIVE
+    : currentTutorialStep.objective;
+
+  const displayViewportImage = isTutorialComplete
+    ? isMainGameActionRunning && pendingMainGameTravel
+      ? trainingSectorTravelImg
+      : getMainGameImage(currentMainGameLocation.imageKey)
+    : tutorialViewportImage;
+
+  const executeMainGameAction = (action: MainGameAction) => {
+    if (action.id === "salvage_scrap_field") {
+      const roll = Math.random();
+      const item = roll < 0.7 ? "Scrap Metal" : "Wire Bundle";
+
+      setTutorialInventory((prev) => ({
+        ...prev,
+        [item]: (prev[item] ?? 0) + 1,
+      }));
+
+      addMessage(`[REWARD] Salvage complete: ${item} x1.`);
+      addRewardMessage(`${item} x1`);
+      return;
+    }
+
+    if (action.id === "harvest_fiber_field") {
+      setTutorialInventory((prev) => ({
+        ...prev,
+        Fiberleaf: (prev.Fiberleaf ?? 0) + 1,
+      }));
+
+      addMessage("[REWARD] Harvest complete: Fiberleaf x1.");
+      addRewardMessage("Fiberleaf x1");
+      return;
+    }
+
+    if (action.id === "sell_scrap_metal") {
+      const scrapCount = tutorialInventory["Scrap Metal"] ?? 0;
+
+      if (scrapCount < 1) {
+        addMessage("[ERROR] You need Scrap Metal to sell at the vendor.");
+        return;
+      }
+
+      setTutorialInventory((prev) => ({
+        ...prev,
+        "Scrap Metal": prev["Scrap Metal"] - 1,
+        Credits: (prev.Credits ?? 0) + 8,
+      }));
+
+      addMessage("[REWARD] Scrap Metal sold. Credits +8.");
+      addRewardMessage("Credits x8");
+    }
+  };
+
+  const executeMainGameTravel = (destination: MainGameTravelLink) => {
+    setMainGameLocationId(destination.locationId);
+    setRecentRewardMessages([]);
+    setRecentSystemNotice(null);
+    addMessage(
+      `[NAV] Arrived at ${getMainGameLocation(destination.locationId).name}.`,
+    );
+  };
+
+  const completeMainGameAction = () => {
+    if (pendingMainGameTravel) {
+      const destination = pendingMainGameTravel;
+      setPendingMainGameTravel(null);
+      executeMainGameTravel(destination);
+      return;
+    }
+
+    if (!pendingMainGameAction) return;
+
+    const action = pendingMainGameAction;
+    setPendingMainGameAction(null);
+    executeMainGameAction(action);
+  };
+
+  const handleMainGameAction = (action: MainGameAction) => {
+    if (isMainGameActionRunning) return;
+
+    if (
+      action.requiredHandItem &&
+      equippedGear.Hand !== action.requiredHandItem
+    ) {
+      setEquippedGear((prev) => ({
+        ...prev,
+        Hand: action.requiredHandItem,
+      }));
+      setRecentSystemNotice(
+        `${action.requiredHandItem} equipped. Hand slot controls active actions.`,
+      );
+    }
+
+    addMessage(`[ACTION] ${action.label} started.`);
+    setRecentRewardMessages([]);
+    setRecentSystemNotice(null);
+    setPendingMainGameTravel(null);
+
+    if (action.timerSec > 0) {
+      setPendingMainGameAction(action);
+      setMainGameTimerLeft(action.timerSec);
+      setIsMainGameActionRunning(true);
+      return;
+    }
+
+    executeMainGameAction(action);
+  };
+
+  const handleMainGameTravel = (destination: MainGameTravelLink) => {
+    if (isMainGameActionRunning) return;
+
+    setShowStarChart(false);
+    addMessage(`[NAV] Traveling to ${destination.label}...`);
+    setRecentRewardMessages([]);
+    setRecentSystemNotice(null);
+    setPendingMainGameAction(null);
+    setPendingMainGameTravel(destination);
+    setMainGameTimerLeft(destination.timerSec);
+    setIsMainGameActionRunning(true);
+  };
 
   const commandTourSteps = [
     {
@@ -584,7 +771,15 @@ export default function PlayPage() {
   const inventoryGroups = [
     {
       title: "Materials",
-      items: ["Iron Ore", "Refined Iron", "Bio Fiber", "Basic Chemical"],
+      items: [
+        "Iron Ore",
+        "Refined Iron",
+        "Bio Fiber",
+        "Basic Chemical",
+        "Scrap Metal",
+        "Wire Bundle",
+        "Fiberleaf",
+      ],
     },
     {
       title: "Consumables",
@@ -942,6 +1137,14 @@ export default function PlayPage() {
       });
 
       setIsTutorialComplete(true);
+      setMainGameLocationId(MAIN_GAME_START_LOCATION);
+      setEquippedGear({
+        Helmet: null,
+        Hand: "Basic Salvage Tool",
+        Suit: "Basic Suit",
+        "Module 1": null,
+        "Module 2": null,
+      });
 
       addMessage("[SYSTEM] Outpost One training complete.");
       addMessage(
@@ -1022,6 +1225,12 @@ export default function PlayPage() {
     setPostCombatRecoveryComplete(false);
 
     setIsTutorialComplete(false);
+    setMainGameLocationId(MAIN_GAME_START_LOCATION);
+    setShowStarChart(false);
+    setIsMainGameActionRunning(false);
+    setMainGameTimerLeft(null);
+    setPendingMainGameAction(null);
+    setPendingMainGameTravel(null);
     setIsTutorialActionRunning(false);
     setTutorialTimerLeft(null);
 
@@ -1171,6 +1380,26 @@ export default function PlayPage() {
     return () => window.clearTimeout(timer);
   }, [isTutorialActionRunning, tutorialTimerLeft]);
   useEffect(() => {
+    if (!isMainGameActionRunning || mainGameTimerLeft === null) return;
+
+    if (mainGameTimerLeft <= 0) {
+      setIsMainGameActionRunning(false);
+      setMainGameTimerLeft(null);
+      completeMainGameAction();
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setMainGameTimerLeft((prev) => {
+        if (prev === null) return null;
+
+        return Math.max(0, Number((prev - 0.05).toFixed(2)));
+      });
+    }, 50);
+
+    return () => window.clearTimeout(timer);
+  }, [isMainGameActionRunning, mainGameTimerLeft]);
+  useEffect(() => {
     if (!isCombatRoundRunning || combatTimerLeft === null) return;
 
     if (combatTimerLeft <= 0) {
@@ -1220,7 +1449,7 @@ export default function PlayPage() {
     let cancelled = false;
 
     const applySavedProgress = (saved: Partial<TutorialSaveData>) => {
-      if (saved.version !== TUTORIAL_SAVE_VERSION) {
+      if (saved.version !== 1 && saved.version !== 2) {
         return;
       }
 
@@ -1266,6 +1495,12 @@ export default function PlayPage() {
 
       if (typeof saved.isTutorialComplete === "boolean") {
         setIsTutorialComplete(saved.isTutorialComplete);
+      }
+
+      if (saved.mainGameLocationId) {
+        setMainGameLocationId(saved.mainGameLocationId);
+      } else if (saved.isTutorialComplete) {
+        setMainGameLocationId(MAIN_GAME_START_LOCATION);
       }
 
       if (Array.isArray(saved.recentRewardMessages)) {
@@ -1360,6 +1595,7 @@ export default function PlayPage() {
         requiresPostCombatHeal,
         postCombatRecoveryComplete,
         isTutorialComplete,
+        mainGameLocationId,
         recentRewardMessages,
         recentSystemNotice,
         lastRewardStepId,
@@ -1387,6 +1623,7 @@ export default function PlayPage() {
       requiresPostCombatHeal,
       postCombatRecoveryComplete,
       isTutorialComplete,
+      mainGameLocationId,
       recentRewardMessages,
       recentSystemNotice,
       lastRewardStepId,
@@ -1599,10 +1836,10 @@ export default function PlayPage() {
                 Location
               </p>
               <h2 className="text-xl font-bold text-primary uppercase tracking-widest">
-                {currentTutorialStep.location}
+                {displayLocationName}
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Outpost One Training Zone
+                {displayZoneName}
               </p>
             </div>
             {/* Dev Only: Tutorial Step Jump */}
@@ -1635,33 +1872,45 @@ export default function PlayPage() {
               </p>
 
               <div className="flex flex-col gap-2">
-                {currentTutorialStep.actionLabel && !isTutorialComplete && (
-                  <Button
-                    onClick={
-                      currentTutorialStep.id === "defeat_training_drone"
-                        ? startTrainingCombatRound
-                        : handleTutorialAction
-                    }
-                    disabled={
-                      isTutorialActionRunning ||
-                      isInCombat ||
-                      requiresPostCombatHeal ||
-                      postCombatRecoveryComplete ||
-                      (currentTutorialStep.id === "defeat_training_drone" &&
-                        equippedGear.Hand !== "Training Blade")
-                    }
-                    title={
-                      currentTutorialStep.id === "defeat_training_drone" &&
-                      equippedGear.Hand !== "Training Blade"
-                        ? "Equip the Training Blade from Inventory Summary before engaging the drone."
-                        : undefined
-                    }
-                    variant="outline"
-                    className="hidden lg:flex justify-start h-auto min-h-12 whitespace-normal text-left leading-tight text-xs font-mono uppercase tracking-widest border-chart-2/50 text-chart-2 hover:bg-chart-2/10 py-3 px-4"
-                  >
-                    {currentTutorialStep.actionLabel}
-                  </Button>
-                )}
+                {isTutorialComplete
+                  ? currentMainGameLocation.actions.map((action) => (
+                      <Button
+                        key={action.id}
+                        onClick={() => handleMainGameAction(action)}
+                        disabled={isMainGameActionRunning}
+                        variant="outline"
+                        className="hidden lg:flex justify-start h-auto min-h-12 whitespace-normal text-left leading-tight text-xs font-mono uppercase tracking-widest border-chart-2/50 text-chart-2 hover:bg-chart-2/10 py-3 px-4"
+                      >
+                        {action.label}
+                      </Button>
+                    ))
+                  : currentTutorialStep.actionLabel && (
+                      <Button
+                        onClick={
+                          currentTutorialStep.id === "defeat_training_drone"
+                            ? startTrainingCombatRound
+                            : handleTutorialAction
+                        }
+                        disabled={
+                          isTutorialActionRunning ||
+                          isInCombat ||
+                          requiresPostCombatHeal ||
+                          postCombatRecoveryComplete ||
+                          (currentTutorialStep.id === "defeat_training_drone" &&
+                            equippedGear.Hand !== "Training Blade")
+                        }
+                        title={
+                          currentTutorialStep.id === "defeat_training_drone" &&
+                          equippedGear.Hand !== "Training Blade"
+                            ? "Equip the Training Blade from Inventory Summary before engaging the drone."
+                            : undefined
+                        }
+                        variant="outline"
+                        className="hidden lg:flex justify-start h-auto min-h-12 whitespace-normal text-left leading-tight text-xs font-mono uppercase tracking-widest border-chart-2/50 text-chart-2 hover:bg-chart-2/10 py-3 px-4"
+                      >
+                        {currentTutorialStep.actionLabel}
+                      </Button>
+                    )}
               </div>
             </div>
 
@@ -1681,6 +1930,7 @@ export default function PlayPage() {
                 <Button
                   variant="outline"
                   disabled={!isTutorialComplete}
+                  onClick={() => isTutorialComplete && setShowStarChart(true)}
                   className="justify-start font-mono uppercase tracking-widest border-primary/30 text-primary hover:bg-primary/10 disabled:opacity-40 disabled:cursor-not-allowed"
                   title={
                     isTutorialComplete
@@ -1917,8 +2167,8 @@ export default function PlayPage() {
                   <div className="relative h-[34vh] border border-primary/30 bg-black box-glow overflow-hidden group rounded-lg">
                     <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-background/20 z-10 pointer-events-none" />
                     <img
-                      src={tutorialViewportImage}
-                      alt={`${currentTutorialStep.location} viewport`}
+                      src={displayViewportImage}
+                      alt={`${displayLocationName} viewport`}
                       className="w-full h-full object-cover opacity-80 mix-blend-screen scale-105 transition-transform duration-[20s] group-hover:scale-110 ease-linear"
                     />
 
@@ -1941,18 +2191,20 @@ export default function PlayPage() {
                     <div className="absolute bottom-0 left-0 right-0 z-20 glass-panel border border-chart-2/30 rounded-lg px-3 py-2">
                       <div className="flex items-center justify-between gap-4 mb-2">
                         <p className="text-[10px] text-chart-2 uppercase tracking-widest font-bold">
-                          Training Directive
+                          {isTutorialComplete
+                            ? "Command Directive"
+                            : "Training Directive"}
                         </p>
 
                         <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
                           {isTutorialComplete
-                            ? "Ready"
+                            ? "Main Game"
                             : `Step ${currentTutorialStepIndex + 1}/${tutorialSteps.length}`}
                         </span>
                       </div>
 
                       <p className="text-xs md:text-sm text-primary font-bold uppercase tracking-widest leading-snug">
-                        {currentTutorialStep.objective}
+                        {displayDirective}
                       </p>
                     </div>
                   </div>
@@ -2016,6 +2268,75 @@ export default function PlayPage() {
                           {combatMessage && (
                             <p className="text-xs text-chart-2 leading-relaxed mt-2">
                               {combatMessage}
+                            </p>
+                          )}
+                        </div>
+                      </>
+                    ) : isMainGameActionRunning && mainGameTimerLeft !== null ? (
+                      <>
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">
+                              {activeSkill} Level
+                            </p>
+                            <p className="text-lg font-bold text-primary uppercase tracking-widest">
+                              1
+                            </p>
+                          </div>
+
+                          <div className="text-right">
+                            <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">
+                              Experience
+                            </p>
+                            <p className="text-xs text-chart-2 font-bold">
+                              0/0
+                            </p>
+                          </div>
+                        </div>
+
+                        <Progress value={0} className="h-2 mb-3" />
+
+                        <div className="bg-background/50 border border-primary/10 rounded-lg px-3 py-2">
+                          <div className="flex items-center justify-between text-xs uppercase tracking-widest mb-2">
+                            <span className="text-muted-foreground">
+                              {pendingMainGameTravel
+                                ? "In Transit"
+                                : (pendingMainGameAction?.label ?? "Action")}
+                            </span>
+                            <span className="text-chart-2 font-bold">
+                              {Math.ceil(mainGameTimerLeft)}s
+                            </span>
+                          </div>
+
+                          <Progress
+                            value={
+                              pendingMainGameTravel
+                                ? Math.max(
+                                    0,
+                                    Math.min(
+                                      100,
+                                      (mainGameTimerLeft /
+                                        pendingMainGameTravel.timerSec) *
+                                        100,
+                                    ),
+                                  )
+                                : pendingMainGameAction
+                                  ? Math.max(
+                                      0,
+                                      Math.min(
+                                        100,
+                                        (mainGameTimerLeft /
+                                          pendingMainGameAction.timerSec) *
+                                          100,
+                                      ),
+                                    )
+                                  : 0
+                            }
+                            className="h-2"
+                          />
+                          {pendingMainGameTravel && (
+                            <p className="text-xs text-primary uppercase tracking-widest text-center mt-3">
+                              Chart course through the Verdant Rim...
                             </p>
                           )}
                         </div>
@@ -2093,8 +2414,7 @@ export default function PlayPage() {
                                     Awaiting Command
                                   </p>
                                   <p className="text-primary">
-                                    Select the current training action to
-                                    proceed.
+                                    {idleCommandText}
                                   </p>
                                 </div>
                               </div>
@@ -2159,8 +2479,51 @@ export default function PlayPage() {
               </div>
             )}
 
+          {mobilePanel === "action" &&
+            isTutorialComplete &&
+            !isMainGameActionRunning &&
+            currentMainGameLocation.actions.length > 0 && (
+              <div className="lg:hidden bg-background/50 border border-chart-2/30 rounded-lg px-3 py-3 text-center space-y-2">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2">
+                  Current Action
+                </p>
+                {currentMainGameLocation.actions.map((action) => (
+                  <Button
+                    key={action.id}
+                    type="button"
+                    onClick={() => handleMainGameAction(action)}
+                    variant="outline"
+                    className="w-full justify-center h-auto min-h-12 whitespace-normal text-center leading-tight text-xs font-mono uppercase tracking-widest border-chart-2/50 text-chart-2 hover:bg-chart-2/10 py-3 px-4"
+                  >
+                    {action.label}
+                  </Button>
+                ))}
+              </div>
+            )}
+
+          {mobilePanel === "action" &&
+            isTutorialComplete &&
+            !isMainGameActionRunning &&
+            currentMainGameLocation.actions.length === 0 && (
+              <div className="lg:hidden bg-background/50 border border-primary/30 rounded-lg px-3 py-3 text-center">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2">
+                  Navigation
+                </p>
+                <p className="text-xs text-primary mb-3">{idleCommandText}</p>
+                <Button
+                  type="button"
+                  onClick={() => setShowStarChart(true)}
+                  variant="outline"
+                  className="w-full font-mono uppercase tracking-widest border-primary/50 text-primary hover:bg-primary/10"
+                >
+                  Open Star Chart
+                </Button>
+              </div>
+            )}
+
           {recentSystemNotice !== null &&
             !isTutorialActionRunning &&
+            !isMainGameActionRunning &&
             !isInCombat &&
             !isCombatRoundRunning &&
             !requiresPostCombatHeal &&
@@ -3083,6 +3446,14 @@ export default function PlayPage() {
             </div>
           </div>
         </div>
+      )}
+      {showStarChart && (
+        <StarChartPanel
+          currentLocationId={mainGameLocationId}
+          isTraveling={isMainGameActionRunning}
+          onTravel={handleMainGameTravel}
+          onClose={() => setShowStarChart(false)}
+        />
       )}
     </div>
   );
