@@ -1,0 +1,7 @@
+{
+  "githubRemote": "origin",
+  "githubBranch": "main",
+  "replSshHost": "YOUR-REPL-UUID@YOUR-REPL-UUID-00-XXXXX.riker.replit.dev",
+  "replSshPort": 22,
+  "replWorkspace": "/home/runner/workspace"
+}

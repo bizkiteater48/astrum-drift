@@ -1,38 +1,40 @@
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
 import {
   getMainGameLocation,
+  listMainGameLocations,
+  type MainGameImageKey,
   type MainGameLocationId,
-  type MainGameTravelLink,
 } from "@/lib/main-game";
 
 type StarChartPanelProps = {
   currentLocationId: MainGameLocationId;
-  isTraveling: boolean;
-  onTravel: (destination: MainGameTravelLink) => void;
+  getLocationImage: (imageKey: MainGameImageKey) => string;
   onClose: () => void;
 };
 
 export function StarChartPanel({
   currentLocationId,
-  isTraveling,
-  onTravel,
+  getLocationImage,
   onClose,
 }: StarChartPanelProps) {
-  const currentLocation = getMainGameLocation(currentLocationId);
+  const [selectedLocationId, setSelectedLocationId] =
+    useState<MainGameLocationId>(currentLocationId);
+  const selectedLocation = getMainGameLocation(selectedLocationId);
+  const locations = listMainGameLocations();
 
   return (
     <div className="fixed inset-0 z-[80] bg-black/70 flex items-center justify-center p-4">
-      <div className="glass-panel border border-primary/30 rounded-xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+      <div className="glass-panel border border-primary/30 rounded-xl w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between border-b border-primary/20 p-4">
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-widest">
-              Navigation
+              Survey Archive
             </p>
             <h2 className="text-xl text-primary font-bold uppercase tracking-widest">
               Star Chart
             </h2>
             <p className="text-xs text-muted-foreground mt-1 uppercase tracking-widest">
-              Current: {currentLocation.name}
+              Area maps · Verdant Rim · Tier 1
             </p>
           </div>
 
@@ -45,39 +47,63 @@ export function StarChartPanel({
           </button>
         </div>
 
-        <div className="p-4 space-y-3 overflow-y-auto custom-scrollbar">
-          <p className="text-xs text-muted-foreground uppercase tracking-widest">
-            Verdant Rim · Tier 1 destinations
-          </p>
+        <div className="p-4 flex flex-col sm:flex-row gap-4 overflow-y-auto custom-scrollbar min-h-0">
+          <div className="sm:w-44 shrink-0 space-y-2">
+            <p className="text-xs text-muted-foreground uppercase tracking-widest">
+              Charted Areas
+            </p>
 
-          {currentLocation.travelDestinations.map((destination) => (
-            <div
-              key={destination.locationId}
-              className="rounded-lg border border-primary/15 bg-background/40 p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
-            >
-              <div>
+            {locations.map((location) => {
+              const isSelected = location.id === selectedLocationId;
+              const isCurrent = location.id === currentLocationId;
+
+              return (
+                <button
+                  key={location.id}
+                  type="button"
+                  onClick={() => setSelectedLocationId(location.id)}
+                  className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                    isSelected
+                      ? "border-primary/50 bg-primary/15 text-primary"
+                      : "border-primary/15 bg-background/40 text-muted-foreground hover:border-primary/30 hover:text-primary"
+                  }`}
+                >
+                  <p className="text-xs font-bold uppercase tracking-widest">
+                    {location.name}
+                  </p>
+                  {isCurrent && (
+                    <p className="text-[10px] text-chart-2 uppercase tracking-widest mt-1">
+                      Current position
+                    </p>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex-1 min-w-0 flex flex-col gap-3">
+            <div className="relative aspect-video w-full rounded-lg overflow-hidden border border-primary/20 bg-black">
+              <img
+                src={getLocationImage(selectedLocation.imageKey)}
+                alt={`${selectedLocation.name} area map`}
+                className="w-full h-full object-cover opacity-90"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-black/30 pointer-events-none" />
+              <div className="absolute bottom-0 left-0 right-0 p-3">
                 <p className="text-sm text-primary font-bold uppercase tracking-widest">
-                  {destination.label}
+                  {selectedLocation.name}
                 </p>
                 <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">
-                  Travel time: {destination.timerSec}s
+                  {selectedLocation.systemName}
                 </p>
               </div>
-
-              <Button
-                variant="outline"
-                disabled={
-                  isTraveling || destination.locationId === currentLocationId
-                }
-                onClick={() => onTravel(destination)}
-                className="font-mono uppercase tracking-widest border-chart-2/50 text-chart-2 hover:bg-chart-2/10"
-              >
-                {destination.locationId === currentLocationId
-                  ? "You are here"
-                  : "Engage Drive"}
-              </Button>
             </div>
-          ))}
+
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Tactical survey map for {selectedLocation.name}. Use Travel in the
+              Location panel to move between areas.
+            </p>
+          </div>
         </div>
       </div>
     </div>

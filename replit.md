@@ -62,3 +62,13 @@ A web-based, text-focused space mining MMORPG built on this monorepo.
 
 - `SESSION_SECRET` — set as a Replit secret.
 - `DATABASE_URL`, `PORT`, `BASE_PATH` — auto-provided by the workspace.
+
+### Deploy from Desktop (Cursor → Replit)
+
+Replit Agent git remotes (`subrepl-*` / `git@ssh.riker.replit.dev`) do **not** accept pushes from your PC. Use **GitHub + optional Repl SSH** instead:
+
+1. **GitHub:** Create a repo and connect the Repl (Git pane → Connect to GitHub).
+2. **Desktop:** `git remote add origin https://github.com/YOU/astrum-drift.git` then push once.
+3. **SSH key:** Public key at [replit.com/account#ssh-keys](https://replit.com/account#ssh-keys) (Desktop key: `~/.ssh/replit_astrum.pub`).
+4. **Config:** Copy `.replit-deploy.json.example` → `.replit-deploy.json`. Set `replSshHost` from Repl → + → SSH → Connect manually (the `user@….replit.dev` string).
+5. **Deploy:** `pwsh scripts/deploy-to-replit.ps1` — pushes to GitHub, SSHes into the Repl, runs `git pull`, then republish in Replit if needed.

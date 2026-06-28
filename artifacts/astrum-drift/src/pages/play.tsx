@@ -406,8 +406,8 @@ export default function PlayPage() {
 
   const idleCommandText = isTutorialComplete
     ? currentMainGameLocation.actions.length === 0
-      ? "Open the Star Chart to travel to field operations."
-      : "Run a local action or open the Star Chart to travel."
+      ? "Use Travel in the Location panel to reach field operations."
+      : "Run a local action or travel to another area."
     : "Select the current training action to proceed.";
 
   const shouldHighlightLifeSupportGel =
@@ -663,7 +663,7 @@ export default function PlayPage() {
     },
     {
       title: "Location & Actions",
-      text: "The left panel shows your current location, available actions, and utility tools like Messages, Star Chart, Codex, Forum, and Settings.",
+      text: "The left panel shows your current location, travel routes, available actions, and utility tools like Messages, Star Chart, Codex, Forum, and Settings.",
     },
     {
       title: "Training Directive",
@@ -1920,6 +1920,32 @@ export default function PlayPage() {
               </div>
             </div>
 
+            {isTutorialComplete &&
+              currentMainGameLocation.travelDestinations.length > 0 && (
+                <div className="border-t border-primary/20 pt-4">
+                  <p className="text-xs text-muted-foreground uppercase tracking-widest mb-3">
+                    Travel
+                  </p>
+
+                  <div className="flex flex-col gap-2">
+                    {currentMainGameLocation.travelDestinations.map(
+                      (destination) => (
+                        <Button
+                          key={destination.locationId}
+                          type="button"
+                          onClick={() => handleMainGameTravel(destination)}
+                          disabled={isMainGameActionRunning}
+                          variant="outline"
+                          className="justify-start h-auto min-h-10 whitespace-normal text-left leading-tight text-xs font-mono uppercase tracking-widest border-primary/40 text-primary hover:bg-primary/10 py-2 px-4"
+                        >
+                          {destination.label} · {destination.timerSec}s
+                        </Button>
+                      ),
+                    )}
+                  </div>
+                </div>
+              )}
+
             <div className="border-t border-primary/20 pt-4 mt-auto">
               <p className="text-xs text-muted-foreground uppercase tracking-widest mb-3">
                 Utility
@@ -1940,7 +1966,7 @@ export default function PlayPage() {
                   className="justify-start font-mono uppercase tracking-widest border-primary/30 text-primary hover:bg-primary/10 disabled:opacity-40 disabled:cursor-not-allowed"
                   title={
                     isTutorialComplete
-                      ? "Open Star Chart"
+                      ? "View area maps for the Verdant Rim"
                       : "Complete tutorial training to unlock the Star Chart"
                   }
                 >
@@ -2511,18 +2537,31 @@ export default function PlayPage() {
             isTutorialComplete &&
             !isMainGameActionRunning &&
             currentMainGameLocation.actions.length === 0 && (
-              <div className="lg:hidden bg-background/50 border border-primary/30 rounded-lg px-3 py-3 text-center">
+              <div className="lg:hidden bg-background/50 border border-primary/30 rounded-lg px-3 py-3 text-center space-y-2">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2">
-                  Navigation
+                  Travel
                 </p>
                 <p className="text-xs text-primary mb-3">{idleCommandText}</p>
+                {currentMainGameLocation.travelDestinations.map(
+                  (destination) => (
+                    <Button
+                      key={destination.locationId}
+                      type="button"
+                      onClick={() => handleMainGameTravel(destination)}
+                      variant="outline"
+                      className="w-full font-mono uppercase tracking-widest border-primary/50 text-primary hover:bg-primary/10"
+                    >
+                      {destination.label} · {destination.timerSec}s
+                    </Button>
+                  ),
+                )}
                 <Button
                   type="button"
                   onClick={openStarChart}
                   variant="outline"
-                  className="w-full font-mono uppercase tracking-widest border-primary/50 text-primary hover:bg-primary/10"
+                  className="w-full font-mono uppercase tracking-widest border-primary/30 text-muted-foreground hover:bg-primary/10"
                 >
-                  Open Star Chart
+                  View Star Chart
                 </Button>
               </div>
             )}
@@ -3456,8 +3495,7 @@ export default function PlayPage() {
       {showStarChart && (
         <StarChartPanel
           currentLocationId={mainGameLocationId}
-          isTraveling={isMainGameActionRunning}
-          onTravel={handleMainGameTravel}
+          getLocationImage={getMainGameImage}
           onClose={() => setShowStarChart(false)}
         />
       )}

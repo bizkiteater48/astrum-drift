@@ -42,7 +42,7 @@ export const MAIN_GAME_START_LOCATION: MainGameLocationId =
   "outpost_one_spaceport";
 
 export const MAIN_GAME_DIRECTIVE =
-  "Explore the Verdant Rim. Travel via the Star Chart and run field operations to build your starter operation.";
+  "Explore the Verdant Rim. Travel from the Location panel, run field operations, and use Star Chart to review area maps.";
 
 export const MAIN_GAME_LOCATIONS: Record<
   MainGameLocationId,
