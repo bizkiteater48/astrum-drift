@@ -24,10 +24,16 @@ import { Progress } from "@/components/ui/progress";
 import { MarketPanel } from "@/components/market-panel";
 import { StarChartPanel } from "@/components/star-chart-panel";
 import {
+  applyMainGameActionInventory,
+  canAffordMainGameAction,
   createDefaultSkillXp,
   getActionSkillXp,
+  getMainGameActionRecipeCost,
   getMainGameLocation,
+  isAutoLoopEligibleAction,
+  isInventoryFullForAction,
   isMarketLocation,
+  isProductionAction,
   MAIN_GAME_DIRECTIVE,
   MAIN_GAME_SKILLS,
   MAIN_GAME_START_LOCATION,
@@ -282,6 +288,8 @@ export default function PlayPage() {
     useState<MainGameAction | null>(null);
   const [pendingMainGameTravel, setPendingMainGameTravel] =
     useState<MainGameTravelLink | null>(null);
+  const [isMainGameAutoLoop, setIsMainGameAutoLoop] = useState(false);
+  const mainGameCancelledRef = useRef(false);
   const [isTutorialActionRunning, setIsTutorialActionRunning] = useState(false);
   const [profileView, setProfileView] = useState<
     "gear" | "skills" | "cargo" | "ship"
@@ -406,7 +414,7 @@ export default function PlayPage() {
         : isMainGameActionRunning && pendingMainGameTravel
           ? `Traveling — ${pendingMainGameTravel.label}`
           : isMainGameActionRunning && pendingMainGameAction
-            ? `Action active — ${pendingMainGameAction.label}`
+            ? `Action active — ${pendingMainGameAction.label}${isMainGameAutoLoop ? " · Auto-loop" : ""}`
             : currentTutorialStep.type === "travel"
               ? `Traveling — ${currentTutorialStep.actionLabel ?? "In Transit"}`
               : `Action active — ${currentTutorialStep.actionLabel ?? "Training Action"}`;
@@ -588,127 +596,113 @@ export default function PlayPage() {
       : getMainGameImage(currentMainGameLocation.imageKey)
     : tutorialViewportImage;
 
-  const executeMainGameAction = (action: MainGameAction) => {
-    if (action.id === "mine_copper_vein") {
-      setTutorialInventory((prev) => ({
-        ...prev,
-        "Copper Ore": (prev["Copper Ore"] ?? 0) + 1,
-      }));
+  const executeMainGameAction = (action: MainGameAction): boolean => {
+    if (action.requiredHandItem && equippedGear.Hand !== action.requiredHandItem) {
+      addMessage(
+        `[ERROR] ${action.requiredHandItem} must be equipped in Hand slot.`,
+      );
+      setRecentSystemNotice(
+        `${action.requiredHandItem} required. Equip from inventory first.`,
+      );
+      return false;
+    }
 
+    if (isProductionAction(action.id)) {
+      if (!canAffordMainGameAction(action.id, tutorialInventory)) {
+        const cost = getMainGameActionRecipeCost(action.id);
+        const costText = Object.entries(cost)
+          .map(([item, qty]) => `${item} x${qty}`)
+          .join(", ");
+        addMessage(`[ERROR] Fabrication requires ${costText}.`);
+        return false;
+      }
+    } else if (isInventoryFullForAction(action.id, tutorialInventory)) {
+      addMessage("[ERROR] Inventory full. Cannot collect more items.");
+      setRecentSystemNotice("Inventory full. Clear space to continue.");
+      return false;
+    }
+
+    const inventoryResult = applyMainGameActionInventory(
+      action.id,
+      tutorialInventory,
+    );
+
+    if (inventoryResult === null) {
+      if (isProductionAction(action.id)) {
+        const cost = getMainGameActionRecipeCost(action.id);
+        const costText = Object.entries(cost)
+          .map(([item, qty]) => `${item} x${qty}`)
+          .join(", ");
+        addMessage(`[ERROR] Fabrication requires ${costText}.`);
+      } else {
+        addMessage("[ERROR] Inventory full. Cannot collect more items.");
+        setRecentSystemNotice("Inventory full. Clear space to continue.");
+      }
+      return false;
+    }
+
+    if (inventoryResult !== tutorialInventory) {
+      setTutorialInventory(inventoryResult);
+    }
+
+    if (action.id === "mine_copper_vein") {
       addMessage("[REWARD] Mining complete: Copper Ore x1.");
       addRewardMessage("Copper Ore x1");
       awardSkillXp(action.id);
-      return;
+      return true;
     }
 
     if (action.id === "mine_silver_vein") {
-      setTutorialInventory((prev) => ({
-        ...prev,
-        "Silver Ore": (prev["Silver Ore"] ?? 0) + 1,
-      }));
-
       addMessage("[REWARD] Mining complete: Silver Ore x1.");
       addRewardMessage("Silver Ore x1");
       awardSkillXp(action.id);
-      return;
+      return true;
     }
 
     if (action.id === "mine_nickel_deposit") {
-      setTutorialInventory((prev) => ({
-        ...prev,
-        "Nickel Ore": (prev["Nickel Ore"] ?? 0) + 1,
-      }));
-
       addMessage("[REWARD] Mining complete: Nickel Ore x1.");
       addRewardMessage("Nickel Ore x1");
       awardSkillXp(action.id);
-      return;
+      return true;
     }
 
     if (action.id === "fabricate_bronze_bar") {
-      const copperCount = tutorialInventory["Copper Ore"] ?? 0;
-      const tinCount = tutorialInventory["Tin Ore"] ?? 0;
-
-      if (copperCount < 1 || tinCount < 1) {
-        addMessage(
-          "[ERROR] Fabrication requires Copper Ore x1 and Tin Ore x1.",
-        );
-        return;
-      }
-
-      setTutorialInventory((prev) => ({
-        ...prev,
-        "Copper Ore": prev["Copper Ore"] - 1,
-        "Tin Ore": prev["Tin Ore"] - 1,
-        "Bronze Bar": (prev["Bronze Bar"] ?? 0) + 1,
-      }));
-
       addMessage("[REWARD] Fabrication complete: Bronze Bar x1.");
       addRewardMessage("Bronze Bar x1");
       awardSkillXp(action.id);
-      return;
+      return true;
     }
 
     if (action.id === "fabricate_iron_bar") {
-      const ironCount = tutorialInventory["Iron Ore"] ?? 0;
-
-      if (ironCount < 1) {
-        addMessage("[ERROR] Fabrication requires Iron Ore x1.");
-        return;
-      }
-
-      setTutorialInventory((prev) => ({
-        ...prev,
-        "Iron Ore": prev["Iron Ore"] - 1,
-        "Iron Bar": (prev["Iron Bar"] ?? 0) + 1,
-      }));
-
       addMessage("[REWARD] Fabrication complete: Iron Bar x1.");
       addRewardMessage("Iron Bar x1");
       awardSkillXp(action.id);
-      return;
+      return true;
     }
 
     if (action.id === "harvest_fiberleaf") {
-      setTutorialInventory((prev) => ({
-        ...prev,
-        Fiberleaf: (prev.Fiberleaf ?? 0) + 1,
-      }));
-
       addMessage("[REWARD] Harvest complete: Fiberleaf x1.");
       addRewardMessage("Fiberleaf x1");
       awardSkillXp(action.id);
-      return;
+      return true;
     }
 
     if (action.id === "salvage_wreck_flats") {
-      setTutorialInventory((prev) => ({
-        ...prev,
-        "Scrap Metal": (prev["Scrap Metal"] ?? 0) + 1,
-        "Wire Bundle": (prev["Wire Bundle"] ?? 0) + 1,
-      }));
-
       addMessage(
         "[REWARD] Salvage complete: Scrap Metal x1, Wire Bundle x1.",
       );
       addRewardMessage("Scrap Metal x1, Wire Bundle x1");
       awardSkillXp(action.id);
-      return;
+      return true;
     }
 
     if (action.id === "salvage_hulk_yard") {
-      setTutorialInventory((prev) => ({
-        ...prev,
-        "Armor Plating": (prev["Armor Plating"] ?? 0) + 1,
-        Circuit: (prev.Circuit ?? 0) + 1,
-      }));
-
       addMessage(
         "[REWARD] Salvage complete: Armor Plating x1, Circuit x1.",
       );
       addRewardMessage("Armor Plating x1, Circuit x1");
       awardSkillXp(action.id);
-      return;
+      return true;
     }
 
     if (action.id === "craft_energy_cartridge") {
@@ -717,7 +711,7 @@ export default function PlayPage() {
       );
       addRewardMessage("Engineering stub — coming soon");
       awardSkillXp(action.id);
-      return;
+      return true;
     }
 
     if (action.id === "combat_balanced_enemy") {
@@ -726,7 +720,7 @@ export default function PlayPage() {
       );
       addRewardMessage("Balanced combat victory");
       awardSkillXp(action.id);
-      return;
+      return true;
     }
 
     if (action.id === "combat_dangerous_enemy") {
@@ -735,7 +729,7 @@ export default function PlayPage() {
       );
       addRewardMessage("Dangerous combat victory");
       awardSkillXp(action.id);
-      return;
+      return true;
     }
 
     if (action.id === "turn_in_beacon_request") {
@@ -744,7 +738,10 @@ export default function PlayPage() {
       );
       addRewardMessage("Navigation request logged");
       awardSkillXp(action.id);
+      return true;
     }
+
+    return false;
   };
 
   const executeMainGameTravel = (destination: MainGameTravelLink) => {
@@ -756,10 +753,63 @@ export default function PlayPage() {
     );
   };
 
+  const tryContinueMainGameAutoLoop = (
+    action: MainGameAction,
+    locationAtStart: MainGameLocationId,
+    nextInventory: Record<string, number>,
+  ) => {
+    if (!isMainGameAutoLoop || mainGameCancelledRef.current) return;
+
+    if (mainGameLocationId !== locationAtStart) {
+      setIsMainGameAutoLoop(false);
+      return;
+    }
+
+    const location = getMainGameLocation(locationAtStart);
+    if (!location.actions.some((entry) => entry.id === action.id)) {
+      setIsMainGameAutoLoop(false);
+      return;
+    }
+
+    if (
+      action.requiredHandItem &&
+      equippedGear.Hand !== action.requiredHandItem
+    ) {
+      setIsMainGameAutoLoop(false);
+      addMessage(
+        `[SYSTEM] Auto-loop stopped — ${action.requiredHandItem} no longer equipped.`,
+      );
+      return;
+    }
+
+    if (isProductionAction(action.id)) {
+      if (!canAffordMainGameAction(action.id, nextInventory)) {
+        setIsMainGameAutoLoop(false);
+        addMessage("[SYSTEM] Auto-loop stopped — insufficient materials.");
+        return;
+      }
+    } else if (isInventoryFullForAction(action.id, nextInventory)) {
+      setIsMainGameAutoLoop(false);
+      addMessage("[SYSTEM] Auto-loop stopped — inventory full.");
+      return;
+    }
+
+    setPendingMainGameAction(action);
+    setMainGameTimerLeft(action.timerSec);
+    setIsMainGameActionRunning(true);
+    addMessage(`[ACTION] Auto-loop: ${action.label} continuing...`);
+  };
+
   const completeMainGameAction = () => {
+    if (mainGameCancelledRef.current) {
+      mainGameCancelledRef.current = false;
+      return;
+    }
+
     if (pendingMainGameTravel) {
       const destination = pendingMainGameTravel;
       setPendingMainGameTravel(null);
+      setIsMainGameAutoLoop(false);
       executeMainGameTravel(destination);
       return;
     }
@@ -767,29 +817,111 @@ export default function PlayPage() {
     if (!pendingMainGameAction) return;
 
     const action = pendingMainGameAction;
+    const locationAtStart = mainGameLocationId;
     setPendingMainGameAction(null);
-    executeMainGameAction(action);
+
+    const nextInventory =
+      applyMainGameActionInventory(action.id, tutorialInventory) ??
+      tutorialInventory;
+    const success = executeMainGameAction(action);
+
+    if (!success) {
+      setIsMainGameAutoLoop(false);
+      return;
+    }
+
+    if (action.timerSec > 0 && isAutoLoopEligibleAction(action.id)) {
+      tryContinueMainGameAutoLoop(action, locationAtStart, nextInventory);
+    }
+  };
+
+  const ensureRequiredHandItemForAction = (
+    requiredHandItem: string,
+  ): boolean => {
+    if (equippedGear.Hand === requiredHandItem) return true;
+
+    const ownedCount = tutorialInventory[requiredHandItem] ?? 0;
+    if (ownedCount <= 0) {
+      addMessage(
+        `[ERROR] ${requiredHandItem} required. Acquire and equip from inventory first.`,
+      );
+      setRecentSystemNotice(
+        `${requiredHandItem} required for this action.`,
+      );
+      return false;
+    }
+
+    const availableQuantity = getAvailableInventoryQuantity(requiredHandItem);
+    if (availableQuantity <= 0 && equippedGear.Hand !== requiredHandItem) {
+      addMessage(
+        `[ERROR] ${requiredHandItem} required. Equip from inventory first.`,
+      );
+      setRecentSystemNotice(
+        `${requiredHandItem} required for this action.`,
+      );
+      return false;
+    }
+
+    setEquippedGear((prev) => ({
+      ...prev,
+      Hand: requiredHandItem,
+    }));
+    setRecentSystemNotice(
+      `${requiredHandItem} equipped. Hand slot controls active actions.`,
+    );
+    return true;
+  };
+
+  const cancelMainGameAction = () => {
+    mainGameCancelledRef.current = true;
+    setIsMainGameAutoLoop(false);
+    setIsMainGameActionRunning(false);
+    setMainGameTimerLeft(null);
+    setPendingMainGameAction(null);
+    setPendingMainGameTravel(null);
+    addMessage("[SYSTEM] Action cancelled.");
+    setRecentSystemNotice("Action cancelled.");
   };
 
   const handleMainGameAction = (action: MainGameAction) => {
     if (isMainGameActionRunning) return;
 
-    if (
-      action.requiredHandItem &&
-      equippedGear.Hand !== action.requiredHandItem
-    ) {
-      setEquippedGear((prev) => ({
-        ...prev,
-        Hand: action.requiredHandItem,
-      }));
-      setRecentSystemNotice(
-        `${action.requiredHandItem} equipped. Hand slot controls active actions.`,
-      );
+    if (action.requiredHandItem) {
+      if (!ensureRequiredHandItemForAction(action.requiredHandItem)) return;
     }
+
+    if (
+      isProductionAction(action.id) &&
+      !canAffordMainGameAction(action.id, tutorialInventory)
+    ) {
+      const cost = getMainGameActionRecipeCost(action.id);
+      const costText = Object.entries(cost)
+        .map(([item, qty]) => `${item} x${qty}`)
+        .join(", ");
+      addMessage(`[ERROR] Fabrication requires ${costText}.`);
+      return;
+    }
+
+    if (
+      !isProductionAction(action.id) &&
+      isInventoryFullForAction(action.id, tutorialInventory)
+    ) {
+      addMessage("[ERROR] Inventory full. Cannot start gathering.");
+      setRecentSystemNotice("Inventory full. Clear space to continue.");
+      return;
+    }
+
+    mainGameCancelledRef.current = false;
+    setIsMainGameAutoLoop(isAutoLoopEligibleAction(action.id));
 
     addMessage(`[ACTION] ${action.label} started.`);
     setRecentRewardMessages([]);
-    setRecentSystemNotice(null);
+    if (
+      !action.requiredHandItem ||
+      equippedGear.Hand === action.requiredHandItem
+    ) {
+      setRecentSystemNotice(null);
+    }
     setPendingMainGameTravel(null);
 
     if (action.timerSec > 0) {
@@ -805,6 +937,8 @@ export default function PlayPage() {
   const handleMainGameTravel = (destination: MainGameTravelLink) => {
     if (isMainGameActionRunning) return;
 
+    mainGameCancelledRef.current = false;
+    setIsMainGameAutoLoop(false);
     setShowStarChart(false);
     addMessage(`[NAV] Traveling to ${destination.label}...`);
     setRecentRewardMessages([]);
@@ -928,6 +1062,27 @@ export default function PlayPage() {
       );
 
       addMessage("[SYSTEM] Training Blade equipped from inventory.");
+      return;
+    }
+
+    const handTools = [
+      "Basic Mining Tool",
+      "Basic Harvesting Tool",
+      "Basic Salvage Tool",
+      "Basic Repair Kit",
+      "Basic Weapon",
+    ];
+
+    if (handTools.includes(itemName)) {
+      setEquippedGear((prev) => ({
+        ...prev,
+        Hand: itemName,
+      }));
+
+      setRecentSystemNotice(
+        `${itemName} equipped. Hand slot controls active actions.`,
+      );
+      addMessage(`[SYSTEM] ${itemName} equipped from inventory.`);
       return;
     }
 
@@ -1399,6 +1554,8 @@ export default function PlayPage() {
     setMainGameTimerLeft(null);
     setPendingMainGameAction(null);
     setPendingMainGameTravel(null);
+    setIsMainGameAutoLoop(false);
+    mainGameCancelledRef.current = false;
     setIsTutorialActionRunning(false);
     setTutorialTimerLeft(null);
 
@@ -2585,6 +2742,19 @@ export default function PlayPage() {
                               Chart course through the Verdant Rim...
                             </p>
                           )}
+                          {isMainGameAutoLoop && !pendingMainGameTravel && (
+                            <p className="text-xs text-chart-2 uppercase tracking-widest text-center mt-2">
+                              Auto-loop active
+                            </p>
+                          )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={cancelMainGameAction}
+                            className="w-full mt-3 font-mono uppercase tracking-widest border-destructive/50 text-destructive hover:bg-destructive/10"
+                          >
+                            Cancel
+                          </Button>
                         </div>
                       </>
                     ) : isTutorialActionRunning &&
@@ -2725,6 +2895,35 @@ export default function PlayPage() {
                   className="w-full justify-center h-auto min-h-12 whitespace-normal text-center leading-tight text-xs font-mono uppercase tracking-widest border-chart-2/50 text-chart-2 hover:bg-chart-2/10 py-3 px-4"
                 >
                   {currentTutorialStep.actionLabel}
+                </Button>
+              </div>
+            )}
+
+          {mobilePanel === "action" &&
+            isTutorialComplete &&
+            isMainGameActionRunning &&
+            mainGameTimerLeft !== null && (
+              <div className="lg:hidden bg-background/50 border border-chart-2/30 rounded-lg px-3 py-3 text-center space-y-2">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">
+                  {pendingMainGameTravel
+                    ? "In Transit"
+                    : (pendingMainGameAction?.label ?? "Action")}
+                </p>
+                <p className="text-sm text-chart-2 font-bold uppercase tracking-widest">
+                  {Math.ceil(mainGameTimerLeft)}s remaining
+                </p>
+                {isMainGameAutoLoop && !pendingMainGameTravel && (
+                  <p className="text-[10px] text-chart-2 uppercase tracking-widest">
+                    Auto-loop active
+                  </p>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={cancelMainGameAction}
+                  className="w-full font-mono uppercase tracking-widest border-destructive/50 text-destructive hover:bg-destructive/10"
+                >
+                  Cancel
                 </Button>
               </div>
             )}

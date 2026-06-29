@@ -815,3 +815,155 @@ export function listStarChartLocations(): MainGameLocation[] {
     (location) => location.locationType !== "spaceport",
   );
 }
+
+/** Phase B inventory cap — distinct item stacks (Credits excluded). */
+export const MAIN_GAME_INVENTORY_SLOT_LIMIT = 50;
+
+/** Per-material stack cap for Phase B gathering/production. */
+export const MAIN_GAME_INVENTORY_STACK_LIMIT = 1000;
+
+const GATHERING_ACTION_IDS: MainGameActionId[] = [
+  "mine_copper_vein",
+  "mine_silver_vein",
+  "mine_nickel_deposit",
+  "harvest_fiberleaf",
+  "salvage_wreck_flats",
+  "salvage_hulk_yard",
+];
+
+const PRODUCTION_ACTION_IDS: MainGameActionId[] = [
+  "fabricate_bronze_bar",
+  "fabricate_iron_bar",
+];
+
+export function isGatheringAction(actionId: MainGameActionId): boolean {
+  return GATHERING_ACTION_IDS.includes(actionId);
+}
+
+export function isProductionAction(actionId: MainGameActionId): boolean {
+  return PRODUCTION_ACTION_IDS.includes(actionId);
+}
+
+export function isAutoLoopEligibleAction(actionId: MainGameActionId): boolean {
+  return isGatheringAction(actionId) || isProductionAction(actionId);
+}
+
+export function getInventoryStackCount(
+  inventory: Record<string, number>,
+): number {
+  return Object.entries(inventory).filter(
+    ([key, qty]) => key !== "Credits" && qty > 0,
+  ).length;
+}
+
+/** Items gained when an action completes successfully. */
+export function getMainGameActionRewards(
+  actionId: MainGameActionId,
+): Record<string, number> {
+  switch (actionId) {
+    case "mine_copper_vein":
+      return { "Copper Ore": 1 };
+    case "mine_silver_vein":
+      return { "Silver Ore": 1 };
+    case "mine_nickel_deposit":
+      return { "Nickel Ore": 1 };
+    case "harvest_fiberleaf":
+      return { Fiberleaf: 1 };
+    case "salvage_wreck_flats":
+      return { "Scrap Metal": 1, "Wire Bundle": 1 };
+    case "salvage_hulk_yard":
+      return { "Armor Plating": 1, Circuit: 1 };
+    case "fabricate_bronze_bar":
+      return { "Bronze Bar": 1 };
+    case "fabricate_iron_bar":
+      return { "Iron Bar": 1 };
+    default:
+      return {};
+  }
+}
+
+/** Ingredients consumed when a production action completes. */
+export function getMainGameActionRecipeCost(
+  actionId: MainGameActionId,
+): Record<string, number> {
+  switch (actionId) {
+    case "fabricate_bronze_bar":
+      return { "Copper Ore": 1, "Tin Ore": 1 };
+    case "fabricate_iron_bar":
+      return { "Iron Ore": 1 };
+    default:
+      return {};
+  }
+}
+
+export function canAffordMainGameAction(
+  actionId: MainGameActionId,
+  inventory: Record<string, number>,
+): boolean {
+  const cost = getMainGameActionRecipeCost(actionId);
+  return Object.entries(cost).every(
+    ([item, qty]) => (inventory[item] ?? 0) >= qty,
+  );
+}
+
+export function wouldExceedInventoryCapacity(
+  inventory: Record<string, number>,
+  rewardItems: Record<string, number>,
+): boolean {
+  for (const [item, qty] of Object.entries(rewardItems)) {
+    if (qty <= 0) continue;
+    const current = inventory[item] ?? 0;
+    if (current + qty > MAIN_GAME_INVENTORY_STACK_LIMIT) return true;
+  }
+
+  const newStackCount = Object.entries(rewardItems).filter(
+    ([item, qty]) => qty > 0 && (inventory[item] ?? 0) === 0,
+  ).length;
+
+  if (newStackCount === 0) return false;
+
+  return (
+    getInventoryStackCount(inventory) + newStackCount >
+    MAIN_GAME_INVENTORY_SLOT_LIMIT
+  );
+}
+
+export function isInventoryFullForAction(
+  actionId: MainGameActionId,
+  inventory: Record<string, number>,
+): boolean {
+  const rewards = getMainGameActionRewards(actionId);
+  if (Object.keys(rewards).length === 0) return false;
+  return wouldExceedInventoryCapacity(inventory, rewards);
+}
+
+/** Apply a completed main-game action to inventory (pure). Returns null if unaffordable. */
+export function applyMainGameActionInventory(
+  actionId: MainGameActionId,
+  inventory: Record<string, number>,
+): Record<string, number> | null {
+  if (isProductionAction(actionId)) {
+    if (!canAffordMainGameAction(actionId, inventory)) return null;
+    const cost = getMainGameActionRecipeCost(actionId);
+    const rewards = getMainGameActionRewards(actionId);
+    const next = { ...inventory };
+    for (const [item, qty] of Object.entries(cost)) {
+      next[item] = (next[item] ?? 0) - qty;
+      if (next[item] <= 0) delete next[item];
+    }
+    for (const [item, qty] of Object.entries(rewards)) {
+      next[item] = (next[item] ?? 0) + qty;
+    }
+    return next;
+  }
+
+  const rewards = getMainGameActionRewards(actionId);
+  if (Object.keys(rewards).length === 0) return inventory;
+  if (wouldExceedInventoryCapacity(inventory, rewards)) return null;
+
+  const next = { ...inventory };
+  for (const [item, qty] of Object.entries(rewards)) {
+    next[item] = (next[item] ?? 0) + qty;
+  }
+  return next;
+}
