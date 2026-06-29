@@ -414,7 +414,7 @@ export default function PlayPage() {
         : isMainGameActionRunning && pendingMainGameTravel
           ? `Traveling — ${pendingMainGameTravel.label}`
           : isMainGameActionRunning && pendingMainGameAction
-            ? `Action active — ${pendingMainGameAction.label}${isMainGameAutoLoop ? " · Auto-loop" : ""}`
+            ? `Action active — ${pendingMainGameAction.label}`
             : currentTutorialStep.type === "travel"
               ? `Traveling — ${currentTutorialStep.actionLabel ?? "In Transit"}`
               : `Action active — ${currentTutorialStep.actionLabel ?? "Training Action"}`;
@@ -596,14 +596,17 @@ export default function PlayPage() {
       : getMainGameImage(currentMainGameLocation.imageKey)
     : tutorialViewportImage;
 
+  const getRequiredHandItemNotice = (action: MainGameAction): string => {
+    const tool = action.requiredHandItem!;
+    const verb = action.skill.toLowerCase();
+    return `Equip ${tool} from inventory before ${verb}.`;
+  };
+
   const executeMainGameAction = (action: MainGameAction): boolean => {
     if (action.requiredHandItem && equippedGear.Hand !== action.requiredHandItem) {
-      addMessage(
-        `[ERROR] ${action.requiredHandItem} must be equipped in Hand slot.`,
-      );
-      setRecentSystemNotice(
-        `${action.requiredHandItem} required. Equip from inventory first.`,
-      );
+      const notice = getRequiredHandItemNotice(action);
+      addMessage(`[ERROR] ${notice}`);
+      setRecentSystemNotice(notice);
       return false;
     }
 
@@ -835,43 +838,6 @@ export default function PlayPage() {
     }
   };
 
-  const ensureRequiredHandItemForAction = (
-    requiredHandItem: string,
-  ): boolean => {
-    if (equippedGear.Hand === requiredHandItem) return true;
-
-    const ownedCount = tutorialInventory[requiredHandItem] ?? 0;
-    if (ownedCount <= 0) {
-      addMessage(
-        `[ERROR] ${requiredHandItem} required. Acquire and equip from inventory first.`,
-      );
-      setRecentSystemNotice(
-        `${requiredHandItem} required for this action.`,
-      );
-      return false;
-    }
-
-    const availableQuantity = getAvailableInventoryQuantity(requiredHandItem);
-    if (availableQuantity <= 0 && equippedGear.Hand !== requiredHandItem) {
-      addMessage(
-        `[ERROR] ${requiredHandItem} required. Equip from inventory first.`,
-      );
-      setRecentSystemNotice(
-        `${requiredHandItem} required for this action.`,
-      );
-      return false;
-    }
-
-    setEquippedGear((prev) => ({
-      ...prev,
-      Hand: requiredHandItem,
-    }));
-    setRecentSystemNotice(
-      `${requiredHandItem} equipped. Hand slot controls active actions.`,
-    );
-    return true;
-  };
-
   const cancelMainGameAction = () => {
     mainGameCancelledRef.current = true;
     setIsMainGameAutoLoop(false);
@@ -886,8 +852,14 @@ export default function PlayPage() {
   const handleMainGameAction = (action: MainGameAction) => {
     if (isMainGameActionRunning) return;
 
-    if (action.requiredHandItem) {
-      if (!ensureRequiredHandItemForAction(action.requiredHandItem)) return;
+    if (
+      action.requiredHandItem &&
+      equippedGear.Hand !== action.requiredHandItem
+    ) {
+      const notice = getRequiredHandItemNotice(action);
+      addMessage(`[ERROR] ${notice}`);
+      setRecentSystemNotice(notice);
+      return;
     }
 
     if (
@@ -916,12 +888,7 @@ export default function PlayPage() {
 
     addMessage(`[ACTION] ${action.label} started.`);
     setRecentRewardMessages([]);
-    if (
-      !action.requiredHandItem ||
-      equippedGear.Hand === action.requiredHandItem
-    ) {
-      setRecentSystemNotice(null);
-    }
+    setRecentSystemNotice(null);
     setPendingMainGameTravel(null);
 
     if (action.timerSec > 0) {
@@ -2742,18 +2709,13 @@ export default function PlayPage() {
                               Chart course through the Verdant Rim...
                             </p>
                           )}
-                          {isMainGameAutoLoop && !pendingMainGameTravel && (
-                            <p className="text-xs text-chart-2 uppercase tracking-widest text-center mt-2">
-                              Auto-loop active
-                            </p>
-                          )}
                           <Button
                             type="button"
                             variant="outline"
                             onClick={cancelMainGameAction}
                             className="w-full mt-3 font-mono uppercase tracking-widest border-destructive/50 text-destructive hover:bg-destructive/10"
                           >
-                            Cancel
+                            {pendingMainGameTravel ? "Cancel" : "Stop"}
                           </Button>
                         </div>
                       </>
@@ -2912,18 +2874,13 @@ export default function PlayPage() {
                 <p className="text-sm text-chart-2 font-bold uppercase tracking-widest">
                   {Math.ceil(mainGameTimerLeft)}s remaining
                 </p>
-                {isMainGameAutoLoop && !pendingMainGameTravel && (
-                  <p className="text-[10px] text-chart-2 uppercase tracking-widest">
-                    Auto-loop active
-                  </p>
-                )}
                 <Button
                   type="button"
                   variant="outline"
                   onClick={cancelMainGameAction}
                   className="w-full font-mono uppercase tracking-widest border-destructive/50 text-destructive hover:bg-destructive/10"
                 >
-                  Cancel
+                  {pendingMainGameTravel ? "Cancel" : "Stop"}
                 </Button>
               </div>
             )}
