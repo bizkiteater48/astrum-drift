@@ -38,7 +38,7 @@ export function StarChartPanel({
               Star Chart
             </h2>
             <p className="text-xs text-muted-foreground mt-1 uppercase tracking-widest">
-              Planetary & settlement maps · Verdant Rim · Tier 1
+              Planetary & settlement maps · Verdant Rim · 5 Planets
             </p>
           </div>
 

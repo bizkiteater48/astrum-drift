@@ -21,17 +21,24 @@ import defaultAvatarImg from "@/assets/default-avatar.png";
 
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { MarketPanel } from "@/components/market-panel";
 import { StarChartPanel } from "@/components/star-chart-panel";
 import {
+  createDefaultSkillXp,
+  getActionSkillXp,
   getMainGameLocation,
+  isMarketLocation,
   MAIN_GAME_DIRECTIVE,
+  MAIN_GAME_SKILLS,
   MAIN_GAME_START_LOCATION,
+  MATERIAL_INVENTORY_GROUPS,
   normalizeMainGameLocationId,
   TUTORIAL_DEPART_TIMER_SEC,
   type MainGameAction,
   type MainGameImageKey,
   type MainGameLocationId,
   type MainGameTravelLink,
+  type SkillId,
 } from "@/lib/main-game";
 
 type TutorialStep = {
@@ -189,12 +196,13 @@ export default function PlayPage() {
     postCombatRecoveryComplete: boolean;
     isTutorialComplete: boolean;
     mainGameLocationId?: MainGameLocationId;
+    skillXp?: Record<string, number>;
     recentRewardMessages: string[];
     recentSystemNotice: string | null;
     lastRewardStepId: string | null;
   };
 
-  const TUTORIAL_SAVE_VERSION = 3;
+  const TUTORIAL_SAVE_VERSION = 4;
   const [currentTutorialActionCount, setCurrentTutorialActionCount] =
     useState(0);
   const [tutorialInventory, setTutorialInventory] = useState<
@@ -262,6 +270,10 @@ export default function PlayPage() {
   const [mainGameLocationId, setMainGameLocationId] =
     useState<MainGameLocationId>(MAIN_GAME_START_LOCATION);
   const [showStarChart, setShowStarChart] = useState(false);
+  const [showMarketPanel, setShowMarketPanel] = useState(false);
+  const [skillXp, setSkillXp] = useState<Record<SkillId, number>>(
+    createDefaultSkillXp(),
+  );
   const [isMainGameActionRunning, setIsMainGameActionRunning] = useState(false);
   const [mainGameTimerLeft, setMainGameTimerLeft] = useState<number | null>(
     null,
@@ -278,10 +290,12 @@ export default function PlayPage() {
   const [expandedInventoryGroups, setExpandedInventoryGroups] = useState<
     Record<string, boolean>
   >({
-    Materials: true,
+    Ores: true,
+    Bars: true,
+    Harvest: true,
+    Salvage: true,
     Consumables: true,
     Equipment: true,
-    Salvage: true,
     Vehicles: true,
   });
 
@@ -531,9 +545,29 @@ export default function PlayPage() {
       case "bio_dome":
       case "harvest_fen":
         return bioDomeImg;
+      case "wreck_site":
+        return wreckSiteImg;
+      case "combat_arena":
+        return trainingGroundsImg;
+      case "relay_station":
+        return trainingSectorTravelImg;
       default:
         return spaceportImg;
     }
+  };
+
+  const awardSkillXp = (actionId: MainGameAction["id"]) => {
+    const award = getActionSkillXp(actionId);
+    if (!award) return;
+
+    setSkillXp((prev) => ({
+      ...prev,
+      [award.skill]: (prev[award.skill] ?? 0) + award.xp,
+    }));
+
+    addMessage(
+      `[XP] ${award.skill.charAt(0).toUpperCase() + award.skill.slice(1)} +${award.xp} XP.`,
+    );
   };
 
   const displayLocationName = isTutorialComplete
@@ -563,6 +597,31 @@ export default function PlayPage() {
 
       addMessage("[REWARD] Mining complete: Copper Ore x1.");
       addRewardMessage("Copper Ore x1");
+      awardSkillXp(action.id);
+      return;
+    }
+
+    if (action.id === "mine_silver_vein") {
+      setTutorialInventory((prev) => ({
+        ...prev,
+        "Silver Ore": (prev["Silver Ore"] ?? 0) + 1,
+      }));
+
+      addMessage("[REWARD] Mining complete: Silver Ore x1.");
+      addRewardMessage("Silver Ore x1");
+      awardSkillXp(action.id);
+      return;
+    }
+
+    if (action.id === "mine_nickel_deposit") {
+      setTutorialInventory((prev) => ({
+        ...prev,
+        "Nickel Ore": (prev["Nickel Ore"] ?? 0) + 1,
+      }));
+
+      addMessage("[REWARD] Mining complete: Nickel Ore x1.");
+      addRewardMessage("Nickel Ore x1");
+      awardSkillXp(action.id);
       return;
     }
 
@@ -586,6 +645,7 @@ export default function PlayPage() {
 
       addMessage("[REWARD] Fabrication complete: Bronze Bar x1.");
       addRewardMessage("Bronze Bar x1");
+      awardSkillXp(action.id);
       return;
     }
 
@@ -605,6 +665,7 @@ export default function PlayPage() {
 
       addMessage("[REWARD] Fabrication complete: Iron Bar x1.");
       addRewardMessage("Iron Bar x1");
+      awardSkillXp(action.id);
       return;
     }
 
@@ -616,6 +677,73 @@ export default function PlayPage() {
 
       addMessage("[REWARD] Harvest complete: Fiberleaf x1.");
       addRewardMessage("Fiberleaf x1");
+      awardSkillXp(action.id);
+      return;
+    }
+
+    if (action.id === "salvage_wreck_flats") {
+      setTutorialInventory((prev) => ({
+        ...prev,
+        "Scrap Metal": (prev["Scrap Metal"] ?? 0) + 1,
+        "Wire Bundle": (prev["Wire Bundle"] ?? 0) + 1,
+      }));
+
+      addMessage(
+        "[REWARD] Salvage complete: Scrap Metal x1, Wire Bundle x1.",
+      );
+      addRewardMessage("Scrap Metal x1, Wire Bundle x1");
+      awardSkillXp(action.id);
+      return;
+    }
+
+    if (action.id === "salvage_hulk_yard") {
+      setTutorialInventory((prev) => ({
+        ...prev,
+        "Armor Plating": (prev["Armor Plating"] ?? 0) + 1,
+        Circuit: (prev.Circuit ?? 0) + 1,
+      }));
+
+      addMessage(
+        "[REWARD] Salvage complete: Armor Plating x1, Circuit x1.",
+      );
+      addRewardMessage("Armor Plating x1, Circuit x1");
+      awardSkillXp(action.id);
+      return;
+    }
+
+    if (action.id === "craft_energy_cartridge") {
+      addMessage(
+        "[SYSTEM] Energy Cartridge recipe data coming soon. Engineering bay reserved.",
+      );
+      addRewardMessage("Engineering stub — coming soon");
+      awardSkillXp(action.id);
+      return;
+    }
+
+    if (action.id === "combat_balanced_enemy") {
+      addMessage(
+        "[REWARD] Combat complete: Balanced opponent defeated. Combat data logged.",
+      );
+      addRewardMessage("Balanced combat victory");
+      awardSkillXp(action.id);
+      return;
+    }
+
+    if (action.id === "combat_dangerous_enemy") {
+      addMessage(
+        "[REWARD] Combat complete: Dangerous hostile neutralized. High-risk engagement logged.",
+      );
+      addRewardMessage("Dangerous combat victory");
+      awardSkillXp(action.id);
+      return;
+    }
+
+    if (action.id === "turn_in_beacon_request") {
+      addMessage(
+        "[NAV] Navigation request submitted at Beacon Relay. Request board turn-in coming soon.",
+      );
+      addRewardMessage("Navigation request logged");
+      awardSkillXp(action.id);
     }
   };
 
@@ -807,16 +935,20 @@ export default function PlayPage() {
   };
   const inventoryGroups = [
     {
-      title: "Materials",
-      items: [
-        "Iron Ore",
-        "Refined Iron",
-        "Bio Fiber",
-        "Basic Chemical",
-        "Scrap Metal",
-        "Wire Bundle",
-        "Fiberleaf",
-      ],
+      title: "Ores",
+      items: [...MATERIAL_INVENTORY_GROUPS.Ores],
+    },
+    {
+      title: "Bars",
+      items: [...MATERIAL_INVENTORY_GROUPS.Bars],
+    },
+    {
+      title: "Harvest",
+      items: [...MATERIAL_INVENTORY_GROUPS.Harvest],
+    },
+    {
+      title: "Salvage",
+      items: [...MATERIAL_INVENTORY_GROUPS.Salvage],
     },
     {
       title: "Consumables",
@@ -838,10 +970,6 @@ export default function PlayPage() {
         "Basic Salvage Tool",
         "Basic Repair Kit",
       ],
-    },
-    {
-      title: "Salvage",
-      items: ["Damaged Scrap", "Salvage Parts"],
     },
     {
       title: "Vehicles",
@@ -1265,6 +1393,8 @@ export default function PlayPage() {
     setIsTutorialComplete(false);
     setMainGameLocationId(MAIN_GAME_START_LOCATION);
     setShowStarChart(false);
+    setShowMarketPanel(false);
+    setSkillXp(createDefaultSkillXp());
     setIsMainGameActionRunning(false);
     setMainGameTimerLeft(null);
     setPendingMainGameAction(null);
@@ -1497,7 +1627,12 @@ export default function PlayPage() {
     let cancelled = false;
 
     const applySavedProgress = (saved: Partial<TutorialSaveData>) => {
-      if (saved.version !== 1 && saved.version !== 2) {
+      if (
+        saved.version !== 1 &&
+        saved.version !== 2 &&
+        saved.version !== 3 &&
+        saved.version !== 4
+      ) {
         return;
       }
 
@@ -1551,6 +1686,13 @@ export default function PlayPage() {
         );
       } else if (saved.isTutorialComplete) {
         setMainGameLocationId(MAIN_GAME_START_LOCATION);
+      }
+
+      if (saved.skillXp && typeof saved.skillXp === "object") {
+        setSkillXp({
+          ...createDefaultSkillXp(),
+          ...saved.skillXp,
+        });
       }
 
       if (Array.isArray(saved.recentRewardMessages)) {
@@ -1646,6 +1788,7 @@ export default function PlayPage() {
         postCombatRecoveryComplete,
         isTutorialComplete,
         mainGameLocationId,
+        skillXp,
         recentRewardMessages,
         recentSystemNotice,
         lastRewardStepId,
@@ -1674,6 +1817,7 @@ export default function PlayPage() {
       postCombatRecoveryComplete,
       isTutorialComplete,
       mainGameLocationId,
+      skillXp,
       recentRewardMessages,
       recentSystemNotice,
       lastRewardStepId,
@@ -2032,6 +2176,16 @@ export default function PlayPage() {
                 >
                   Star Chart
                 </Button>
+
+                {isTutorialComplete && isMarketLocation(currentMainGameLocation) && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowMarketPanel(true)}
+                    className="justify-start font-mono uppercase tracking-widest border-primary/30 text-primary hover:bg-primary/10"
+                  >
+                    Market
+                  </Button>
+                )}
 
                 <Button
                   variant="outline"
@@ -2866,56 +3020,26 @@ export default function PlayPage() {
                       </p>
 
                       <div className="grid grid-cols-2 gap-2">
-                        <div className="flex justify-between text-xs bg-background/50 border border-primary/10 rounded-lg p-2">
-                          <span className="text-primary">Mining</span>
-                          <span className="text-chart-2">
-                            {player.miningLevel}
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between text-xs bg-background/50 border border-primary/10 rounded-lg p-2">
-                          <span className="text-primary">Combat</span>
-                          <span className="text-chart-2">1</span>
-                        </div>
-
-                        <div className="flex justify-between text-xs bg-background/50 border border-primary/10 rounded-lg p-2">
-                          <span className="text-primary">Fabrication</span>
-                          <span className="text-chart-2">1</span>
-                        </div>
-
-                        <div className="flex justify-between text-xs bg-background/50 border border-primary/10 rounded-lg p-2">
-                          <span className="text-primary">Harvesting</span>
-                          <span className="text-chart-2">1</span>
-                        </div>
-
-                        <div className="flex justify-between text-xs bg-background/50 border border-primary/10 rounded-lg p-2">
-                          <span className="text-primary">Synthesis</span>
-                          <span className="text-chart-2">1</span>
-                        </div>
-
-                        <div className="flex justify-between text-xs bg-background/50 border border-primary/10 rounded-lg p-2">
-                          <span className="text-primary">Salvaging</span>
-                          <span className="text-chart-2">1</span>
-                        </div>
-
-                        <div className="flex justify-between text-xs bg-background/50 border border-primary/10 rounded-lg p-2">
-                          <span className="text-primary">Engineering</span>
-                          <span className="text-chart-2">1</span>
-                        </div>
-
-                        <div className="flex justify-between text-xs bg-background/50 border border-primary/10 rounded-lg p-2">
-                          <span className="text-primary">Navigation</span>
-                          <span className="text-chart-2">1</span>
-                        </div>
+                        {MAIN_GAME_SKILLS.map((skill) => (
+                          <div
+                            key={skill.id}
+                            className="flex justify-between text-xs bg-background/50 border border-primary/10 rounded-lg p-2"
+                          >
+                            <span className="text-primary">{skill.label}</span>
+                            <span className="text-chart-2">
+                              {skillXp[skill.id] ?? 0} XP
+                            </span>
+                          </div>
+                        ))}
 
                         <div className="flex justify-between text-xs bg-background/50 border border-primary/10 rounded-lg p-2">
                           <span className="text-primary">Trading</span>
-                          <span className="text-chart-2">1</span>
+                          <span className="text-chart-2">0 XP</span>
                         </div>
 
                         <div className="flex justify-between text-xs bg-background/50 border border-primary/10 rounded-lg p-2">
                           <span className="text-primary">Tracking</span>
-                          <span className="text-chart-2">1</span>
+                          <span className="text-chart-2">0 XP</span>
                         </div>
                       </div>
                     </>
@@ -3575,6 +3699,12 @@ export default function PlayPage() {
           currentLocationId={mainGameLocationId}
           getLocationImage={getMainGameImage}
           onClose={() => setShowStarChart(false)}
+        />
+      )}
+      {showMarketPanel && (
+        <MarketPanel
+          locationId={mainGameLocationId}
+          onClose={() => setShowMarketPanel(false)}
         />
       )}
     </div>
