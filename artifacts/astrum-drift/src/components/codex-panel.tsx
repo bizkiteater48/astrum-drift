@@ -103,6 +103,76 @@ function CodexEntryDetail({ entry }: { entry: CodexEntry }) {
         {entry.description}
       </p>
 
+      {entry.stats && Object.keys(entry.stats).length > 0 && (
+        <div className="rounded-lg border border-primary/15 bg-background/40 p-3 space-y-2">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+            Stats
+          </p>
+          <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+            {Object.entries(entry.stats).map(([label, value]) => (
+              <div key={label} className="min-w-0">
+                <dt className="text-[10px] text-muted-foreground uppercase tracking-widest truncate">
+                  {label}
+                </dt>
+                <dd className="text-xs text-primary font-mono truncate">
+                  {value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
+
+      {entry.recipe && (
+        <div className="rounded-lg border border-primary/10 bg-background/30 px-3 py-2">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+            Recipe
+          </p>
+          <p className="text-xs text-chart-2 mt-0.5 leading-relaxed">
+            {entry.recipe}
+          </p>
+        </div>
+      )}
+
+      {entry.requirements && (
+        <div className="rounded-lg border border-primary/10 bg-background/30 px-3 py-2">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+            Requirements
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+            {entry.requirements}
+          </p>
+        </div>
+      )}
+
+      {entry.drops && (
+        <div className="rounded-lg border border-chart-2/20 bg-chart-2/5 px-3 py-2">
+          <p className="text-[10px] text-chart-2 uppercase tracking-widest font-bold">
+            Drop Table
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+            {entry.drops}
+          </p>
+        </div>
+      )}
+
+      {entry.codeNote && (
+        <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2">
+          <p className="text-[10px] text-destructive uppercase tracking-widest font-bold">
+            Code vs Design
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+            {entry.codeNote}
+          </p>
+        </div>
+      )}
+
+      {entry.sourceDoc && (
+        <p className="text-[10px] text-muted-foreground/70 uppercase tracking-widest">
+          Source: {entry.sourceDoc}
+        </p>
+      )}
+
       {entry.enabledActions && entry.enabledActions.length > 0 && (
         <div className="rounded-lg border border-primary/15 bg-background/40 p-3 space-y-2">
           <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
