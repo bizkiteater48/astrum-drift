@@ -57,6 +57,18 @@ type TutorialStep = {
   requiredCompletions?: number;
 };
 
+const HAND_EQUIP_ITEMS = [
+  "Training Blade",
+  "Basic Mining Tool",
+  "Basic Harvesting Tool",
+  "Basic Salvage Tool",
+  "Basic Repair Kit",
+  "Basic Weapon",
+] as const;
+
+const isHandEquipItem = (itemName: string) =>
+  (HAND_EQUIP_ITEMS as readonly string[]).includes(itemName);
+
 const tutorialSteps: TutorialStep[] = [
   {
     id: "mine_iron_ore",
@@ -1032,15 +1044,7 @@ export default function PlayPage() {
       return;
     }
 
-    const handTools = [
-      "Basic Mining Tool",
-      "Basic Harvesting Tool",
-      "Basic Salvage Tool",
-      "Basic Repair Kit",
-      "Basic Weapon",
-    ];
-
-    if (handTools.includes(itemName)) {
+    if (isHandEquipItem(itemName) && itemName !== "Training Blade") {
       setEquippedGear((prev) => ({
         ...prev,
         Hand: itemName,
@@ -3412,21 +3416,21 @@ export default function PlayPage() {
                                   key={itemName}
                                   className="flex items-center justify-between gap-2 text-xs"
                                 >
-                                  {itemName === "Training Blade" &&
-                                  currentTutorialStep.id ===
-                                    "defeat_training_drone" &&
-                                  equippedGear.Hand !== "Training Blade" ? (
+                                  {isHandEquipItem(itemName) ? (
                                     <button
                                       type="button"
                                       onClick={() =>
                                         equipInventoryItem(itemName)
                                       }
                                       className={`text-left transition-all ${
+                                        itemName === "Training Blade" &&
                                         shouldHighlightTrainingBladeEquip
                                           ? "text-chart-2 font-bold drop-shadow-[0_0_8px_rgba(255,190,80,0.95)] animate-pulse"
-                                          : "text-chart-2 hover:text-primary hover:underline"
+                                          : equippedGear.Hand === itemName
+                                            ? "text-chart-2 font-semibold"
+                                            : "text-primary hover:text-chart-2 hover:underline"
                                       }`}
-                                      title="Equip Training Blade"
+                                      title={`Equip ${itemName}`}
                                     >
                                       {itemName}
                                     </button>
