@@ -17,7 +17,7 @@ export const playersTable = pgTable("players", {
   experience: integer("experience").notNull().default(0),
   currentLocation: text("current_location")
     .notNull()
-    .default("Earth Orbit"),
+    .default("Outpost One"),
   miningLevel: integer("mining_level").notNull().default(1),
   combatLevel: integer("combat_level").notNull().default(1),
   fabricationLevel: integer("fabrication_level").notNull().default(1),

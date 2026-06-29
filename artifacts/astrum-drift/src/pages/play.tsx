@@ -26,8 +26,9 @@ import {
   getMainGameLocation,
   MAIN_GAME_DIRECTIVE,
   MAIN_GAME_START_LOCATION,
+  normalizeMainGameLocationId,
+  TUTORIAL_DEPART_TIMER_SEC,
   type MainGameAction,
-  type MainGameActionId,
   type MainGameImageKey,
   type MainGameLocationId,
   type MainGameTravelLink,
@@ -165,6 +166,7 @@ const tutorialSteps: TutorialStep[] = [
     objective: "Complete Outpost One training and step into the unknown...",
     type: "complete",
     actionLabel: "Complete Training",
+    timerSec: TUTORIAL_DEPART_TIMER_SEC,
   },
 ];
 export default function PlayPage() {
@@ -192,7 +194,7 @@ export default function PlayPage() {
     lastRewardStepId: string | null;
   };
 
-  const TUTORIAL_SAVE_VERSION = 2;
+  const TUTORIAL_SAVE_VERSION = 3;
   const [currentTutorialActionCount, setCurrentTutorialActionCount] =
     useState(0);
   const [tutorialInventory, setTutorialInventory] = useState<
@@ -405,9 +407,13 @@ export default function PlayPage() {
           : "";
 
   const idleCommandText = isTutorialComplete
-    ? currentMainGameLocation.actions.length === 0
-      ? "Use Travel in the Location panel to reach field operations."
-      : "Run a local action or travel to another area."
+    ? currentMainGameLocation.locationType === "spaceport"
+      ? "Use Travel to depart for planetary orbital zones."
+      : currentMainGameLocation.locationType === "planet_orbit"
+        ? "Travel to a surface settlement for field operations."
+        : currentMainGameLocation.actions.length === 0
+          ? "Use Travel to return to orbit or reach another settlement."
+          : "Run a local action or travel to another area."
     : "Select the current training action to proceed.";
 
   const shouldHighlightLifeSupportGel =
@@ -483,7 +489,8 @@ export default function PlayPage() {
     }
 
     if (
-      currentTutorialStep.type === "travel" &&
+      (currentTutorialStep.type === "travel" ||
+        currentTutorialStep.id === "complete_tutorial") &&
       isTutorialActionRunning &&
       tutorialTimerLeft !== null
     ) {
@@ -514,12 +521,16 @@ export default function PlayPage() {
     switch (imageKey) {
       case "spaceport":
         return spaceportImg;
-      case "wreck_site":
-        return wreckSiteImg;
-      case "bio_dome":
-        return bioDomeImg;
-      case "outpost_shop":
+      case "planet_orbit":
+        return earthOrbitImg;
+      case "settlement_hub":
         return outpostShopImg;
+      case "mining_site":
+      case "fabrication_yard":
+        return industrialYardImg;
+      case "bio_dome":
+      case "harvest_fen":
+        return bioDomeImg;
       default:
         return spaceportImg;
     }
@@ -544,21 +555,60 @@ export default function PlayPage() {
     : tutorialViewportImage;
 
   const executeMainGameAction = (action: MainGameAction) => {
-    if (action.id === "salvage_scrap_field") {
-      const roll = Math.random();
-      const item = roll < 0.7 ? "Scrap Metal" : "Wire Bundle";
-
+    if (action.id === "mine_copper_vein") {
       setTutorialInventory((prev) => ({
         ...prev,
-        [item]: (prev[item] ?? 0) + 1,
+        "Copper Ore": (prev["Copper Ore"] ?? 0) + 1,
       }));
 
-      addMessage(`[REWARD] Salvage complete: ${item} x1.`);
-      addRewardMessage(`${item} x1`);
+      addMessage("[REWARD] Mining complete: Copper Ore x1.");
+      addRewardMessage("Copper Ore x1");
       return;
     }
 
-    if (action.id === "harvest_fiber_field") {
+    if (action.id === "fabricate_bronze_bar") {
+      const copperCount = tutorialInventory["Copper Ore"] ?? 0;
+      const tinCount = tutorialInventory["Tin Ore"] ?? 0;
+
+      if (copperCount < 1 || tinCount < 1) {
+        addMessage(
+          "[ERROR] Fabrication requires Copper Ore x1 and Tin Ore x1.",
+        );
+        return;
+      }
+
+      setTutorialInventory((prev) => ({
+        ...prev,
+        "Copper Ore": prev["Copper Ore"] - 1,
+        "Tin Ore": prev["Tin Ore"] - 1,
+        "Bronze Bar": (prev["Bronze Bar"] ?? 0) + 1,
+      }));
+
+      addMessage("[REWARD] Fabrication complete: Bronze Bar x1.");
+      addRewardMessage("Bronze Bar x1");
+      return;
+    }
+
+    if (action.id === "fabricate_iron_bar") {
+      const ironCount = tutorialInventory["Iron Ore"] ?? 0;
+
+      if (ironCount < 1) {
+        addMessage("[ERROR] Fabrication requires Iron Ore x1.");
+        return;
+      }
+
+      setTutorialInventory((prev) => ({
+        ...prev,
+        "Iron Ore": prev["Iron Ore"] - 1,
+        "Iron Bar": (prev["Iron Bar"] ?? 0) + 1,
+      }));
+
+      addMessage("[REWARD] Fabrication complete: Iron Bar x1.");
+      addRewardMessage("Iron Bar x1");
+      return;
+    }
+
+    if (action.id === "harvest_fiberleaf") {
       setTutorialInventory((prev) => ({
         ...prev,
         Fiberleaf: (prev.Fiberleaf ?? 0) + 1,
@@ -566,25 +616,6 @@ export default function PlayPage() {
 
       addMessage("[REWARD] Harvest complete: Fiberleaf x1.");
       addRewardMessage("Fiberleaf x1");
-      return;
-    }
-
-    if (action.id === "sell_scrap_metal") {
-      const scrapCount = tutorialInventory["Scrap Metal"] ?? 0;
-
-      if (scrapCount < 1) {
-        addMessage("[ERROR] You need Scrap Metal to sell at the vendor.");
-        return;
-      }
-
-      setTutorialInventory((prev) => ({
-        ...prev,
-        "Scrap Metal": prev["Scrap Metal"] - 1,
-        Credits: (prev.Credits ?? 0) + 8,
-      }));
-
-      addMessage("[REWARD] Scrap Metal sold. Credits +8.");
-      addRewardMessage("Credits x8");
     }
   };
 
@@ -1146,7 +1177,7 @@ export default function PlayPage() {
       setMainGameLocationId(MAIN_GAME_START_LOCATION);
       setEquippedGear({
         Helmet: null,
-        Hand: "Basic Salvage Tool",
+        Hand: "Basic Mining Tool",
         Suit: "Basic Suit",
         "Module 1": null,
         "Module 2": null,
@@ -1156,9 +1187,10 @@ export default function PlayPage() {
       addMessage(
         "[SYSTEM] Temporary training equipment has been returned to Outpost One.",
       );
+      addMessage("[NAV] Arrived at Outpost One Main Spaceport.");
       addMessage("[REWARD] Official starter kit issued.");
       setRecentSystemNotice(
-        "Training complete. Your official starter kit has been issued.",
+        "Training complete. Welcome to Outpost One Main Spaceport.",
       );
       addRewardMessage("Official Starter Kit Issued");
       return;
@@ -1298,6 +1330,12 @@ export default function PlayPage() {
       `[TUTORIAL] ${currentTutorialStep.actionLabel ?? currentTutorialStep.objective} started.`,
     );
 
+    if (currentTutorialStep.id === "complete_tutorial") {
+      addMessage(
+        "[NAV] Departing training spaceport for Outpost One Main Spaceport...",
+      );
+    }
+
     const timer = currentTutorialStep.timerSec ?? 0;
 
     if (timer > 0) {
@@ -1430,7 +1468,11 @@ export default function PlayPage() {
         `[SYSTEM] Authentication successful. Welcome aboard, Commander ${player.username}.`,
       );
       addMessage(
-        `[SYSTEM] Ship systems online. Current location: ${player.currentLocation}.`,
+        `[SYSTEM] Ship systems online. Current location: ${
+          player.currentLocation === "Earth Orbit"
+            ? "Outpost One"
+            : player.currentLocation
+        }.`,
       );
     }
   }, [player, messages.length]);
@@ -1504,7 +1546,9 @@ export default function PlayPage() {
       }
 
       if (saved.mainGameLocationId) {
-        setMainGameLocationId(saved.mainGameLocationId);
+        setMainGameLocationId(
+          normalizeMainGameLocationId(saved.mainGameLocationId),
+        );
       } else if (saved.isTutorialComplete) {
         setMainGameLocationId(MAIN_GAME_START_LOCATION);
       }
@@ -1921,7 +1965,9 @@ export default function PlayPage() {
             </div>
 
             {isTutorialComplete &&
-              currentMainGameLocation.travelDestinations.length > 0 && (
+              (currentMainGameLocation.travelDestinations.length > 0 ||
+                (currentMainGameLocation.lockedPlanetDepartures?.length ?? 0) >
+                  0) && (
                 <div className="border-t border-primary/20 pt-4">
                   <p className="text-xs text-muted-foreground uppercase tracking-widest mb-3">
                     Travel
@@ -1939,6 +1985,20 @@ export default function PlayPage() {
                           className="justify-start h-auto min-h-10 whitespace-normal text-left leading-tight text-xs font-mono uppercase tracking-widest border-primary/40 text-primary hover:bg-primary/10 py-2 px-4"
                         >
                           {destination.label} · {destination.timerSec}s
+                        </Button>
+                      ),
+                    )}
+                    {currentMainGameLocation.lockedPlanetDepartures?.map(
+                      (locked) => (
+                        <Button
+                          key={locked.planetId}
+                          type="button"
+                          disabled
+                          variant="outline"
+                          title={locked.lockedReason}
+                          className="justify-start h-auto min-h-10 whitespace-normal text-left leading-tight text-xs font-mono uppercase tracking-widest border-primary/20 text-muted-foreground opacity-50 cursor-not-allowed py-2 px-4"
+                        >
+                          {locked.label} · {locked.lockedReason}
                         </Button>
                       ),
                     )}
@@ -2403,7 +2463,8 @@ export default function PlayPage() {
                         <div className="bg-background/50 border border-primary/10 rounded-lg px-3 py-2">
                           <div className="flex items-center justify-between text-xs uppercase tracking-widest mb-2">
                             <span className="text-muted-foreground">
-                              {currentTutorialStep.type === "travel"
+                              {currentTutorialStep.type === "travel" ||
+                              currentTutorialStep.id === "complete_tutorial"
                                 ? "In Transit"
                                 : currentTutorialStep.actionLabel}
                             </span>
@@ -2428,9 +2489,12 @@ export default function PlayPage() {
                             }
                             className="h-2"
                           />
-                          {currentTutorialStep.type === "travel" && (
+                          {(currentTutorialStep.type === "travel" ||
+                            currentTutorialStep.id === "complete_tutorial") && (
                             <p className="text-xs text-primary uppercase tracking-widest text-center mt-3">
-                              Moving through Outpost One training sector...
+                              {currentTutorialStep.id === "complete_tutorial"
+                                ? "Departing training spaceport for Outpost One Main Spaceport..."
+                                : "Moving through Outpost One training sector..."}
                             </p>
                           )}
                         </div>
@@ -2552,6 +2616,20 @@ export default function PlayPage() {
                       className="w-full font-mono uppercase tracking-widest border-primary/50 text-primary hover:bg-primary/10"
                     >
                       {destination.label} · {destination.timerSec}s
+                    </Button>
+                  ),
+                )}
+                {currentMainGameLocation.lockedPlanetDepartures?.map(
+                  (locked) => (
+                    <Button
+                      key={locked.planetId}
+                      type="button"
+                      disabled
+                      variant="outline"
+                      title={locked.lockedReason}
+                      className="w-full font-mono uppercase tracking-widest border-primary/20 text-muted-foreground opacity-50 cursor-not-allowed"
+                    >
+                      {locked.label} · {locked.lockedReason}
                     </Button>
                   ),
                 )}

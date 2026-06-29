@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   getMainGameLocation,
-  listMainGameLocations,
+  listStarChartLocations,
   type MainGameImageKey,
   type MainGameLocationId,
 } from "@/lib/main-game";
@@ -17,10 +17,14 @@ export function StarChartPanel({
   getLocationImage,
   onClose,
 }: StarChartPanelProps) {
+  const chartLocations = listStarChartLocations();
+  const initialChartLocationId =
+    chartLocations.find((location) => location.id === currentLocationId)?.id ??
+    chartLocations[0]?.id ??
+    currentLocationId;
   const [selectedLocationId, setSelectedLocationId] =
-    useState<MainGameLocationId>(currentLocationId);
+    useState<MainGameLocationId>(initialChartLocationId);
   const selectedLocation = getMainGameLocation(selectedLocationId);
-  const locations = listMainGameLocations();
 
   return (
     <div className="fixed inset-0 z-[80] bg-black/70 flex items-center justify-center p-4">
@@ -34,7 +38,7 @@ export function StarChartPanel({
               Star Chart
             </h2>
             <p className="text-xs text-muted-foreground mt-1 uppercase tracking-widest">
-              Area maps · Verdant Rim · Tier 1
+              Planetary & settlement maps · Verdant Rim · Tier 1
             </p>
           </div>
 
@@ -53,9 +57,13 @@ export function StarChartPanel({
               Charted Areas
             </p>
 
-            {locations.map((location) => {
+            {chartLocations.map((location) => {
               const isSelected = location.id === selectedLocationId;
               const isCurrent = location.id === currentLocationId;
+              const layerLabel =
+                location.locationType === "planet_orbit"
+                  ? "Orbital"
+                  : "Settlement";
 
               return (
                 <button
@@ -71,6 +79,9 @@ export function StarChartPanel({
                   <p className="text-xs font-bold uppercase tracking-widest">
                     {location.name}
                   </p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">
+                    {layerLabel}
+                  </p>
                   {isCurrent && (
                     <p className="text-[10px] text-chart-2 uppercase tracking-widest mt-1">
                       Current position
@@ -85,7 +96,7 @@ export function StarChartPanel({
             <div className="relative aspect-video w-full rounded-lg overflow-hidden border border-primary/20 bg-black">
               <img
                 src={getLocationImage(selectedLocation.imageKey)}
-                alt={`${selectedLocation.name} area map`}
+                alt={`${selectedLocation.name} survey map`}
                 className="w-full h-full object-cover opacity-90"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-black/30 pointer-events-none" />
@@ -100,8 +111,8 @@ export function StarChartPanel({
             </div>
 
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Tactical survey map for {selectedLocation.name}. Use Travel in the
-              Location panel to move between areas.
+              Tactical survey map for {selectedLocation.name}. Travel from the
+              Location panel to reach charted orbital zones and settlements.
             </p>
           </div>
         </div>
