@@ -21,6 +21,7 @@ import defaultAvatarImg from "@/assets/default-avatar.png";
 
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { CodexPanel } from "@/components/codex-panel";
 import { MarketPanel } from "@/components/market-panel";
 import { StarChartPanel } from "@/components/star-chart-panel";
 import {
@@ -289,6 +290,7 @@ export default function PlayPage() {
     useState<MainGameLocationId>(MAIN_GAME_START_LOCATION);
   const [showStarChart, setShowStarChart] = useState(false);
   const [showMarketPanel, setShowMarketPanel] = useState(false);
+  const [showCodexPanel, setShowCodexPanel] = useState(false);
   const [skillXp, setSkillXp] = useState<Record<SkillId, number>>(
     createDefaultSkillXp(),
   );
@@ -919,6 +921,7 @@ export default function PlayPage() {
     mainGameCancelledRef.current = false;
     setIsMainGameAutoLoop(false);
     setShowStarChart(false);
+    setShowCodexPanel(false);
     addMessage(`[NAV] Traveling to ${destination.label}...`);
     setRecentRewardMessages([]);
     setRecentSystemNotice(null);
@@ -1520,6 +1523,7 @@ export default function PlayPage() {
     setMainGameLocationId(MAIN_GAME_START_LOCATION);
     setShowStarChart(false);
     setShowMarketPanel(false);
+    setShowCodexPanel(false);
     setSkillXp(createDefaultSkillXp());
     setIsMainGameActionRunning(false);
     setMainGameTimerLeft(null);
@@ -2317,6 +2321,7 @@ export default function PlayPage() {
 
                 <Button
                   variant="outline"
+                  onClick={() => setShowCodexPanel(true)}
                   className="justify-start font-mono uppercase tracking-widest border-primary/30 text-primary hover:bg-primary/10"
                 >
                   Codex
@@ -3866,6 +3871,9 @@ export default function PlayPage() {
           locationId={mainGameLocationId}
           onClose={() => setShowMarketPanel(false)}
         />
+      )}
+      {showCodexPanel && (
+        <CodexPanel onClose={() => setShowCodexPanel(false)} />
       )}
     </div>
   );
