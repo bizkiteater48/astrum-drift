@@ -1,7 +1,13 @@
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import {
   CODEX_CATEGORIES,
   getCodexEntriesByCategory,
@@ -238,6 +244,9 @@ function getToolRequirement(entry: CodexEntry): string {
 
 function CodexToolsTable({ entries }: { entries: CodexEntry[] }) {
   const groups = useMemo(() => groupToolEntries(entries), [entries]);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   if (entries.length === 0) {
     return (
@@ -248,53 +257,80 @@ function CodexToolsTable({ entries }: { entries: CodexEntry[] }) {
   }
 
   return (
-    <div className="space-y-6">
-      {groups.map((group) => (
-        <section key={group.label}>
-          <h3 className="text-xs text-primary font-bold uppercase tracking-widest mb-2 sticky top-0 bg-background/95 py-1 z-10">
-            {group.label}
-          </h3>
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-primary/20">
-                <th className="text-[10px] text-muted-foreground uppercase tracking-widest font-normal py-2 pr-3">
-                  Name
-                </th>
-                <th className="text-[10px] text-muted-foreground uppercase tracking-widest font-normal py-2 pr-3 w-24">
-                  Skill
-                </th>
-                <th className="text-[10px] text-muted-foreground uppercase tracking-widest font-normal py-2 pr-3 w-28">
-                  Equip Level
-                </th>
-                <th className="text-[10px] text-muted-foreground uppercase tracking-widest font-normal py-2">
-                  Recipe
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {group.entries.map((entry) => (
-                <tr
-                  key={entry.id}
-                  className="border-b border-primary/10 hover:bg-primary/5"
-                >
-                  <td className="text-xs text-primary uppercase tracking-widest py-2 pr-3">
-                    {entry.name}
-                  </td>
-                  <td className="text-[10px] text-muted-foreground uppercase tracking-widest py-2 pr-3">
-                    {entry.skill ?? "—"}
-                  </td>
-                  <td className="text-[10px] text-muted-foreground uppercase tracking-widest py-2 pr-3 leading-relaxed">
-                    {getToolRequirement(entry)}
-                  </td>
-                  <td className="text-[10px] text-chart-2 py-2 leading-relaxed">
-                    {entry.recipe ?? "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      ))}
+    <div className="space-y-2">
+      {groups.map((group) => {
+        const isOpen = expandedGroups.has(group.label);
+        return (
+          <Collapsible
+            key={group.label}
+            open={isOpen}
+            onOpenChange={(open) => {
+              setExpandedGroups((prev) => {
+                const next = new Set(prev);
+                if (open) next.add(group.label);
+                else next.delete(group.label);
+                return next;
+              });
+            }}
+            className="border border-primary/15 rounded-sm overflow-hidden"
+          >
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left bg-background/95 hover:bg-primary/5 transition-colors sticky top-0 z-10"
+              >
+                <ChevronDown
+                  className={cn(
+                    "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200",
+                    isOpen && "rotate-180",
+                  )}
+                />
+                <h3 className="flex-1 text-xs text-primary font-bold uppercase tracking-widest">
+                  {group.label}
+                </h3>
+                <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                  {group.entries.length}
+                </span>
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-t border-primary/20 bg-primary/5">
+                    <th className="text-[10px] text-muted-foreground uppercase tracking-widest font-normal py-2 px-3">
+                      Name
+                    </th>
+                    <th className="text-[10px] text-muted-foreground uppercase tracking-widest font-normal py-2 pr-3 w-28">
+                      Equip Level
+                    </th>
+                    <th className="text-[10px] text-muted-foreground uppercase tracking-widest font-normal py-2 pr-3">
+                      Recipe
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {group.entries.map((entry) => (
+                    <tr
+                      key={entry.id}
+                      className="border-b border-primary/10 hover:bg-primary/5"
+                    >
+                      <td className="text-xs text-primary uppercase tracking-widest py-2 px-3">
+                        {entry.name}
+                      </td>
+                      <td className="text-[10px] text-muted-foreground uppercase tracking-widest py-2 pr-3 leading-relaxed">
+                        {getToolRequirement(entry)}
+                      </td>
+                      <td className="text-[10px] text-chart-2 py-2 pr-3 leading-relaxed">
+                        {entry.recipe ?? "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CollapsibleContent>
+          </Collapsible>
+        );
+      })}
     </div>
   );
 }
