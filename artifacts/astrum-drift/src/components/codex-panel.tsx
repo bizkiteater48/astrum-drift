@@ -321,6 +321,65 @@ export function CodexPanel({ onClose }: CodexPanelProps) {
         </div>
 
         <div className="flex-1 min-h-0 flex flex-col sm:flex-row gap-0 sm:gap-4 px-4 pb-4 overflow-hidden">
+          {activeCategory === "enemies" ? (
+            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+              <table className="w-full text-left border-collapse">
+                <thead className="sticky top-0 bg-background/95 z-10">
+                  <tr className="border-b border-primary/20">
+                    <th className="text-[10px] text-muted-foreground uppercase tracking-widest font-normal py-2 pr-3">
+                      Name
+                    </th>
+                    <th className="text-[10px] text-muted-foreground uppercase tracking-widest font-normal py-2 pr-3 w-14">
+                      CL
+                    </th>
+                    <th className="text-[10px] text-muted-foreground uppercase tracking-widest font-normal py-2 pr-3 w-14">
+                      XP
+                    </th>
+                    <th className="text-[10px] text-muted-foreground uppercase tracking-widest font-normal py-2">
+                      Location
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredEntries.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="text-xs text-muted-foreground py-8 text-center uppercase tracking-widest"
+                      >
+                        No matches
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredEntries.map((entry) => (
+                      <tr
+                        key={entry.id}
+                        className="border-b border-primary/10 hover:bg-primary/5"
+                      >
+                        <td className="text-xs text-primary uppercase tracking-widest py-2 pr-3">
+                          {entry.name}
+                        </td>
+                        <td className="text-xs text-chart-2 font-mono py-2 pr-3">
+                          {entry.stats?.CL ?? "—"}
+                        </td>
+                        <td className="text-xs text-chart-2 font-mono py-2 pr-3">
+                          {entry.stats?.XP ?? "—"}
+                        </td>
+                        <td className="text-[10px] text-muted-foreground uppercase tracking-widest py-2 leading-relaxed">
+                          {entry.stats?.Location ?? "—"}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-4 px-1 leading-relaxed">
+                All enemies shown. Locations are provisional until combat zones
+                are locked in.
+              </p>
+            </div>
+          ) : (
+            <>
           <div className="sm:w-52 shrink-0 flex flex-col min-h-0 border-b sm:border-b-0 sm:border-r border-primary/15 pb-3 sm:pb-0 sm:pr-3">
             <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2 shrink-0">
               {activeCategoryMeta?.label ?? "Entries"}
@@ -374,6 +433,8 @@ export function CodexPanel({ onClose }: CodexPanelProps) {
               </div>
             )}
           </div>
+            </>
+          )}
         </div>
       </div>
     </div>

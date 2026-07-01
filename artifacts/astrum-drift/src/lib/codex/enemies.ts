@@ -1,4 +1,4 @@
-import type { CodexEntry, CodexThreatLevel } from "./types";
+import type { CodexEntry } from "./types";
 
 /** [combatLevel, name, family, profile, xp, hp, attack, defense, accuracyPct] */
 const ENEMY_ROWS: readonly (readonly [
@@ -109,133 +109,117 @@ const ENEMY_ROWS: readonly (readonly [
   [200, "Solar Revenant", "Plasma Creature", "Dangerous", 6720, 1205, 277, 40, 82],
 ];
 
-const PROFILE_INTEL: Record<string, string> = {
-  Training:
-    "Acclimation only; beatable without heavy healing. No credit drops. No Extermination Tag.",
-  Balanced:
-    "Standard fight; fair with current-tier gear. 25% credit drop chance. 10% Extermination Tag chance.",
-  Tank: "Longer fight; higher HP and defense. 35% credit drop. 10% Extermination Tag. May rarely drop defensive gear (~0.03%).",
-  Dangerous:
-    "Higher damage; punishes weak armor. 35% credit drop. 10% Extermination Tag. May rarely drop offensive gear (~0.03%).",
-  Elite:
-    "High-risk, high-reward; expect healing. 50% credit drop. 10% Extermination Tag. Best normal-enemy special gear chance.",
-};
-
-const PROFILE_THREAT: Record<string, CodexThreatLevel> = {
-  Training: "low",
-  Balanced: "moderate",
-  Tank: "moderate",
-  Dangerous: "high",
-  Elite: "extreme",
-};
-
-const CREDIT_DROP: Record<string, string> = {
-  Training: "0%",
-  Balanced: "25%",
-  Tank: "35%",
-  Dangerous: "35%",
-  Elite: "50%",
-};
-
 function slugify(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+
+/** Provisional habitat until combat zones are wired in main-game.ts */
+export function getProvisionalEnemyLocation(
+  combatLevel: number,
+  profile: string,
+  family: string,
+): string {
+  if (profile === "Training") {
+    return "Outpost One · training sectors";
+  }
+
+  switch (family) {
+    case "Sporeborn":
+      return combatLevel <= 90
+        ? "Verdant Mire · Spore Fen"
+        : "Verdant Mire · deep bio zones";
+    case "Drone":
+    case "Ancient Machine":
+      return combatLevel <= 70
+        ? "Scrapreach · Wreck Flats"
+        : "Scrapreach · Hulk Yard";
+    case "Outlaw":
+      return combatLevel <= 90
+        ? "Scrapreach · frontier routes"
+        : "Obsidian Crown · outlaw trails";
+    case "Rift Creature":
+    case "Void Creature":
+      return "Obsidian Crown · rift fields";
+    case "Plasma Creature":
+      return "Obsidian Crown · plasma rifts";
+    default:
+      break;
+  }
+
+  if (combatLevel <= 20) return "Aurelia Prime · Copper Flats";
+  if (combatLevel <= 45) return "Aurelia Prime · surface routes";
+  if (combatLevel <= 70) return "Verdant Mire · fen margins";
+  if (combatLevel <= 95) return "Shimmer Coast · Silver Shallows";
+  if (combatLevel <= 130) return "Shimmer Coast · Drift Arena";
+  if (combatLevel <= 165) return "Obsidian Crown · Hunter's Ring";
+  return "Obsidian Crown · deep frontier";
 }
 
 function buildEnemyEntry(
   row: readonly [number, string, string, string, number, number, number, number, number],
   index: number,
 ): CodexEntry {
-  const [combatLevel, name, family, profile, xp, hp, attack, defense, accuracyPct] =
-    row;
+  const [combatLevel, name, family, profile, xp] = row;
+  const location = getProvisionalEnemyLocation(combatLevel, profile, family);
   const id = `enemy-${slugify(name)}-${combatLevel}-${index}`;
 
   return {
     id,
     category: "enemies",
     name,
-    subtitle: `${family} · CL ${combatLevel} · ${profile}`,
-    description: `${name} is a ${profile.toLowerCase()} ${family.toLowerCase()} contact charted at Combat Level ${combatLevel} in the Verdant Rim benchmark roster.`,
-    tags: [family.toLowerCase(), profile.toLowerCase(), `cl-${combatLevel}`],
+    subtitle: `CL ${combatLevel} · ${xp} XP`,
+    description: "",
+    tags: [family.toLowerCase(), `cl-${combatLevel}`],
     stats: {
-      "Combat Level": combatLevel,
-      "Combat XP": xp,
-      HP: hp,
-      Attack: attack,
-      Defense: defense,
-      "Accuracy %": accuracyPct,
-      "Credit Drop": CREDIT_DROP[profile] ?? "—",
-      "Tag Drop": profile === "Training" ? "None" : "10% Extermination Tag",
+      CL: combatLevel,
+      XP: xp,
+      Location: location,
     },
-    threatLevel: PROFILE_THREAT[profile] ?? "moderate",
-    intelNotes: PROFILE_INTEL[profile],
-    sourceDoc: "Astrum_Drift_Combat_Enemy_Benchmark_Final.xlsx",
   };
 }
 
 const BENCHMARK_ENEMIES = ENEMY_ROWS.map(buildEnemyEntry);
 
-/** Tutorial combatant — in-game name differs from benchmark roster */
 const TRAINING_DRONE: CodexEntry = {
   id: "enemy-training-drone",
   category: "enemies",
   name: "Training Drone",
-  subtitle: "Outpost One · Training · Synthetic Hostile",
-  description:
-    "A non-lethal combat drone used during Outpost One orientation. Emits predictable attack patterns and drops Damaged Scrap on defeat.",
-  tags: ["training", "synthetic", "drone", "outpost one"],
+  subtitle: "CL — · Tutorial XP",
+  description: "",
+  tags: ["training", "drone"],
   stats: {
-    Profile: "Training",
-    "Combat XP": "Tutorial",
-    "Credit Drop": "0%",
-    "Tag Drop": "None",
+    CL: "Tutorial",
+    XP: "Tutorial",
+    Location: "Outpost One · training yard",
   },
-  threatLevel: "low",
-  intelNotes:
-    "Equip the Training Blade before engagement. After disabling the drone, apply Life Support Gel to complete post-combat recovery.",
-  codeNote:
-    "Tutorial-only enemy in main-game.ts; not listed in the full combat benchmark roster (Broken Drone / Patrol Drone serve similar training roles in design docs).",
-  sourceDoc: "main-game.ts + Astrum_Drift_Combat_Enemy_Benchmark_Final.xlsx",
 };
 
-/** Verdant Rim field stubs mapped to benchmark profiles */
 const FIELD_STUB_ENEMIES: CodexEntry[] = [
   {
     id: "enemy-balanced-opponent",
     category: "enemies",
     name: "Balanced Opponent",
-    subtitle: "Drift Arena · Balanced Profile",
-    description:
-      "Sanctioned sparring partner at Shimmer Coast's Drift Arena. Represents the Balanced enemy profile at moderate combat levels.",
-    tags: ["arena", "balanced", "shimmer coast", "field stub"],
+    subtitle: "CL varies · Arena XP",
+    description: "",
+    tags: ["arena"],
     stats: {
-      Profile: "Balanced",
-      "Target Kill Time": "30–45 sec",
-      "Credit Drop": "25%",
+      CL: "Varies",
+      XP: "Varies",
+      Location: "Shimmer Coast · Drift Arena",
     },
-    threatLevel: "moderate",
-    intelNotes:
-      "Requires Basic Weapon equipped. Full round-based arena combat is a field stub in the current build.",
-    codeNote: "Placeholder name in play.tsx; benchmark uses named enemies like Small Crawler or Patrol Drone.",
-    sourceDoc: "Astrum_Drift_Combat_Enemy_Benchmark_Final.xlsx",
   },
   {
     id: "enemy-dangerous-hostile",
     category: "enemies",
     name: "Dangerous Hostile",
-    subtitle: "Hunter's Ring · Dangerous Profile",
-    description:
-      "High-risk frontier combatant at Obsidian Crown's Hunter's Ring. Represents the Dangerous profile for experienced pilots.",
-    tags: ["frontier", "dangerous", "obsidian crown", "field stub"],
+    subtitle: "CL varies · Frontier XP",
+    description: "",
+    tags: ["frontier"],
     stats: {
-      Profile: "Dangerous",
-      "Target Kill Time": "35–55 sec",
-      "Credit Drop": "35%",
+      CL: "Varies",
+      XP: "Varies",
+      Location: "Obsidian Crown · Hunter's Ring",
     },
-    threatLevel: "high",
-    intelNotes:
-      "Requires Basic Weapon equipped. Awards higher combat XP than balanced arena fights.",
-    codeNote: "Placeholder name in play.tsx; benchmark roster includes Dustfang, Cave Stalker, etc.",
-    sourceDoc: "Astrum_Drift_Combat_Enemy_Benchmark_Final.xlsx",
   },
 ];
 

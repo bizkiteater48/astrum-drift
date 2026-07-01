@@ -16,7 +16,18 @@ export const CODEX_ENTRIES: CodexEntry[] = [
 export function getCodexEntriesByCategory(
   category: CodexCategory,
 ): CodexEntry[] {
-  return CODEX_ENTRIES.filter((entry) => entry.category === category);
+  const entries = CODEX_ENTRIES.filter((entry) => entry.category === category);
+  if (category === "enemies") {
+    return [...entries].sort((a, b) => {
+      const clA = a.stats?.CL;
+      const clB = b.stats?.CL;
+      const numA = typeof clA === "number" ? clA : Number.MAX_SAFE_INTEGER;
+      const numB = typeof clB === "number" ? clB : Number.MAX_SAFE_INTEGER;
+      if (numA !== numB) return numA - numB;
+      return a.name.localeCompare(b.name);
+    });
+  }
+  return entries;
 }
 
 export function getCodexEntryById(id: string): CodexEntry | undefined {
