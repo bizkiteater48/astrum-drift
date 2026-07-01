@@ -816,6 +816,166 @@ export function listStarChartLocations(): MainGameLocation[] {
   );
 }
 
+const STAR_CHART_PLANET_ORDER: MainGamePlanetId[] = [
+  "aurelia_prime",
+  "verdant_mire",
+  "scrapreach",
+  "shimmer_coast",
+  "obsidian_crown",
+];
+
+const STAR_CHART_SYSTEM_META: Record<
+  MainGameSystemId,
+  { name: string; description: string }
+> = {
+  verdant_rim: {
+    name: "Verdant Rim",
+    description:
+      "Five-planet frontier system anchored by Outpost One orbital station.",
+  },
+};
+
+export type StarChartSystem = {
+  id: MainGameSystemId;
+  name: string;
+  description: string;
+  planetCount: number;
+};
+
+export type StarChartPlanet = {
+  id: MainGamePlanetId;
+  name: string;
+  subtitle: string;
+  orbitLocationId: MainGameLocationId;
+};
+
+export type StarChartSystemDetail = {
+  system: StarChartSystem;
+  spaceport: MainGameLocation;
+  planets: StarChartPlanet[];
+};
+
+export type StarChartSettlement = {
+  location: MainGameLocation;
+  actions: MainGameAction[];
+};
+
+export type StarChartPlanetDetail = {
+  planet: StarChartPlanet;
+  settlements: StarChartSettlement[];
+};
+
+function getPlanetSubtitle(orbitLocation: MainGameLocation): string {
+  return orbitLocation.systemName.replace(/ · Verdant Rim$/, "");
+}
+
+export function listStarChartSystems(): StarChartSystem[] {
+  const systemIds = new Set(
+    listMainGameLocations().map((location) => location.systemId),
+  );
+
+  return Array.from(systemIds).map((systemId) => {
+    const meta = STAR_CHART_SYSTEM_META[systemId];
+    const planetCount = listMainGameLocations().filter(
+      (location) =>
+        location.systemId === systemId &&
+        location.locationType === "planet_orbit",
+    ).length;
+
+    return {
+      id: systemId,
+      name: meta.name,
+      description: meta.description,
+      planetCount,
+    };
+  });
+}
+
+export function getStarChartSystemDetail(
+  systemId: MainGameSystemId,
+): StarChartSystemDetail {
+  const locations = listMainGameLocations().filter(
+    (location) => location.systemId === systemId,
+  );
+  const spaceport = locations.find(
+    (location) => location.locationType === "spaceport",
+  );
+  if (!spaceport) {
+    throw new Error(`Star chart system missing spaceport: ${systemId}`);
+  }
+
+  const orbitByPlanet = new Map(
+    locations
+      .filter(
+        (location): location is MainGameLocation & { planetId: MainGamePlanetId } =>
+          location.locationType === "planet_orbit" && !!location.planetId,
+      )
+      .map((location) => [location.planetId, location]),
+  );
+
+  const planets = STAR_CHART_PLANET_ORDER.filter((planetId) =>
+    orbitByPlanet.has(planetId),
+  ).map((planetId) => {
+    const orbit = orbitByPlanet.get(planetId)!;
+    return {
+      id: planetId,
+      name: orbit.name,
+      subtitle: getPlanetSubtitle(orbit),
+      orbitLocationId: orbit.id,
+    };
+  });
+
+  return {
+    system: listStarChartSystems().find((system) => system.id === systemId)!,
+    spaceport,
+    planets,
+  };
+}
+
+export function getStarChartPlanetDetail(
+  planetId: MainGamePlanetId,
+): StarChartPlanetDetail {
+  const orbit = listMainGameLocations().find(
+    (location) =>
+      location.locationType === "planet_orbit" && location.planetId === planetId,
+  );
+  if (!orbit?.planetId) {
+    throw new Error(`Star chart planet missing orbit: ${planetId}`);
+  }
+
+  const planet: StarChartPlanet = {
+    id: planetId,
+    name: orbit.name,
+    subtitle: getPlanetSubtitle(orbit),
+    orbitLocationId: orbit.id,
+  };
+
+  const settlements = listMainGameLocations()
+    .filter(
+      (location) =>
+        location.locationType === "settlement" && location.planetId === planetId,
+    )
+    .map((location) => ({
+      location,
+      actions: location.actions,
+    }));
+
+  return { planet, settlements };
+}
+
+export function getStarChartContextForLocation(
+  locationId: MainGameLocationId,
+): {
+  systemId: MainGameSystemId;
+  planetId?: MainGamePlanetId;
+} {
+  const location = getMainGameLocation(locationId);
+  return {
+    systemId: location.systemId,
+    planetId: location.planetId,
+  };
+}
+
 /** Phase B inventory cap — distinct item stacks (Credits excluded). */
 export const MAIN_GAME_INVENTORY_SLOT_LIMIT = 50;
 
