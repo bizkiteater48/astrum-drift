@@ -1,0 +1,21 @@
+name: Sync Replit workspace
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  pull-on-replit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull latest on Replit
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.REPLIT_SSH_HOST }}
+          username: ${{ secrets.REPLIT_SSH_USER }}
+          key: ${{ secrets.REPLIT_SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/runner/workspace
+            git fetch origin
+            git reset --hard origin/main
+            pnpm install --frozen-lockfile
