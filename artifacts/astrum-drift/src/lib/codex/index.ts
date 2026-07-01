@@ -60,6 +60,7 @@ export function searchCodexEntries(
       entry.codeNote ?? "",
       entry.sourceDoc ?? "",
       entry.requirements ?? "",
+      entry.toolGroup ?? "",
       ...(entry.enabledActions ?? []),
       ...entry.tags,
       ...Object.entries(entry.stats ?? {}).map(([k, v]) => `${k} ${v}`),
@@ -71,4 +72,39 @@ export function searchCodexEntries(
   });
 }
 
-export { CODEX_CATEGORIES } from "./types";
+export const TOOL_GROUP_ORDER = [
+  "Field Gear",
+  "Mining Tools",
+  "Salvaging Cutters",
+  "Harvesting Extractors",
+  "Melee Weapons",
+  "Ranged Weapons",
+  "Armor",
+] as const;
+
+export type ToolGroupLabel = (typeof TOOL_GROUP_ORDER)[number];
+
+export function groupToolEntries(
+  entries: CodexEntry[],
+): { label: ToolGroupLabel | "Other"; entries: CodexEntry[] }[] {
+  const map = new Map<string, CodexEntry[]>();
+  for (const entry of entries) {
+    const label = entry.toolGroup ?? "Other";
+    const bucket = map.get(label) ?? [];
+    bucket.push(entry);
+    map.set(label, bucket);
+  }
+
+  const ordered = TOOL_GROUP_ORDER.filter((label) => map.has(label)).map(
+    (label) => ({
+      label,
+      entries: map.get(label)!,
+    }),
+  );
+
+  if (map.has("Other")) {
+    ordered.push({ label: "Other", entries: map.get("Other")! });
+  }
+
+  return ordered;
+}

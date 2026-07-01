@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import {
   CODEX_CATEGORIES,
   getCodexEntriesByCategory,
+  groupToolEntries,
   searchCodexEntries,
   type CodexCategory,
   type CodexEntry,
@@ -227,6 +228,76 @@ function CodexEntryDetail({ entry }: { entry: CodexEntry }) {
   );
 }
 
+function getToolRequirement(entry: CodexEntry): string {
+  if (entry.requirements) return entry.requirements;
+  const engLevel = entry.stats?.["Engineering Level"];
+  if (engLevel !== undefined) return `Engineering ${engLevel}`;
+  return "—";
+}
+
+function CodexToolsTable({ entries }: { entries: CodexEntry[] }) {
+  const groups = useMemo(() => groupToolEntries(entries), [entries]);
+
+  if (entries.length === 0) {
+    return (
+      <p className="text-xs text-muted-foreground py-8 text-center uppercase tracking-widest">
+        No matches
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {groups.map((group) => (
+        <section key={group.label}>
+          <h3 className="text-xs text-primary font-bold uppercase tracking-widest mb-2 sticky top-0 bg-background/95 py-1 z-10">
+            {group.label}
+          </h3>
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-primary/20">
+                <th className="text-[10px] text-muted-foreground uppercase tracking-widest font-normal py-2 pr-3">
+                  Name
+                </th>
+                <th className="text-[10px] text-muted-foreground uppercase tracking-widest font-normal py-2 pr-3 w-24">
+                  Skill
+                </th>
+                <th className="text-[10px] text-muted-foreground uppercase tracking-widest font-normal py-2 pr-3 w-28">
+                  Requirement
+                </th>
+                <th className="text-[10px] text-muted-foreground uppercase tracking-widest font-normal py-2">
+                  Recipe
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {group.entries.map((entry) => (
+                <tr
+                  key={entry.id}
+                  className="border-b border-primary/10 hover:bg-primary/5"
+                >
+                  <td className="text-xs text-primary uppercase tracking-widest py-2 pr-3">
+                    {entry.name}
+                  </td>
+                  <td className="text-[10px] text-muted-foreground uppercase tracking-widest py-2 pr-3">
+                    {entry.skill ?? "—"}
+                  </td>
+                  <td className="text-[10px] text-muted-foreground uppercase tracking-widest py-2 pr-3 leading-relaxed">
+                    {getToolRequirement(entry)}
+                  </td>
+                  <td className="text-[10px] text-chart-2 py-2 leading-relaxed">
+                    {entry.recipe ?? "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 export function CodexPanel({ onClose }: CodexPanelProps) {
   const [activeCategory, setActiveCategory] =
     useState<CodexCategory>("tools");
@@ -377,6 +448,10 @@ export function CodexPanel({ onClose }: CodexPanelProps) {
                 All enemies shown. Locations are provisional until combat zones
                 are locked in.
               </p>
+            </div>
+          ) : activeCategory === "tools" ? (
+            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+              <CodexToolsTable entries={filteredEntries} />
             </div>
           ) : (
             <>

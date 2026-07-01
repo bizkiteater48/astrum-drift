@@ -32,6 +32,8 @@ export type CodexEntry = {
   locationLayer?: string;
   planet?: string;
   contentTier?: number;
+  /** Tools tab section header (Mining Tools, Melee Weapons, etc.) */
+  toolGroup?: string;
 };
 
 export const CODEX_CATEGORIES: {

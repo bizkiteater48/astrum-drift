@@ -4,92 +4,6 @@ const FAB_SOURCE = "Astrum_Drift_Mining_Fabrication_Final.xlsx";
 const ENG_SOURCE =
   "Astrum_Drift_Engineering_Salvaging_Master_READY_Vehicle_Repair.xlsx";
 
-const TRAINING_TOOLS: CodexEntry[] = [
-  {
-    id: "training-cutter",
-    category: "tools",
-    name: "Training Cutter",
-    subtitle: "Mining · Training Gear",
-    description:
-      "Lightweight plasma cutter issued during Outpost One orientation for safe ore extraction in controlled industrial yards.",
-    tags: ["mining", "training", "hand slot"],
-    skill: "Mining",
-    tier: "training",
-    enabledActions: ["Mine Iron Ore"],
-    sourceDoc: "main-game.ts",
-  },
-  {
-    id: "training-tool",
-    category: "tools",
-    name: "Training Tool",
-    subtitle: "Fabrication · Training Gear",
-    description:
-      "Multi-purpose bench tool for refining ore, fabricating blades, and synthesizing consumables during the training arc.",
-    tags: ["fabrication", "synthesis", "training", "hand slot"],
-    skill: "Fabrication",
-    tier: "training",
-    enabledActions: [
-      "Refine Iron Ore",
-      "Fabricate Training Blade",
-      "Synthesize Life Support Gel",
-    ],
-    sourceDoc: "main-game.ts",
-  },
-  {
-    id: "training-harvester",
-    category: "tools",
-    name: "Training Harvester",
-    subtitle: "Harvesting · Training Gear",
-    description:
-      "Bio-field sampler for collecting organic compounds inside the Bio Dome training habitat.",
-    tags: ["harvesting", "training", "hand slot"],
-    skill: "Harvesting",
-    tier: "training",
-    enabledActions: ["Harvest Bio Samples"],
-    sourceDoc: "main-game.ts",
-  },
-  {
-    id: "training-salvage-tool",
-    category: "tools",
-    name: "Training Salvage Tool",
-    subtitle: "Salvaging · Training Gear",
-    description:
-      "Compact cutting torch and pry kit for stripping wreckage without damaging recoverable components.",
-    tags: ["salvaging", "training", "hand slot"],
-    skill: "Salvaging",
-    tier: "training",
-    enabledActions: ["Salvage Wreckage"],
-    sourceDoc: "main-game.ts",
-  },
-  {
-    id: "training-repair-kit",
-    category: "tools",
-    name: "Training Repair Kit",
-    subtitle: "Engineering · Training Gear",
-    description:
-      "Field repair kit with micro-welders and spare fasteners. Used to restore the Training Rover after salvage recovery.",
-    tags: ["engineering", "training", "hand slot"],
-    skill: "Engineering",
-    tier: "training",
-    enabledActions: ["Repair Training Rover"],
-    sourceDoc: "main-game.ts",
-  },
-  {
-    id: "training-blade",
-    category: "tools",
-    name: "Training Blade",
-    subtitle: "Combat · Training Gear",
-    description:
-      "Balanced mono-edge forged from Refined Iron during training. Required to engage the Training Drone safely.",
-    tags: ["combat", "training", "hand slot", "weapon", "melee"],
-    skill: "Combat",
-    tier: "training",
-    enabledActions: ["Fight Training Drone"],
-    stats: { Attack: 3, "Material Band": "Refined Iron" },
-    sourceDoc: "main-game.ts",
-  },
-];
-
 const FIELD_STUB_TOOLS: CodexEntry[] = [
   {
     id: "basic-mining-tool",
@@ -101,6 +15,7 @@ const FIELD_STUB_TOOLS: CodexEntry[] = [
     tags: ["mining", "field", "hand slot"],
     skill: "Mining",
     tier: "field",
+    toolGroup: "Field Gear",
     enabledActions: [
       "Mine Copper Vein",
       "Mine Silver Vein",
@@ -123,6 +38,7 @@ const FIELD_STUB_TOOLS: CodexEntry[] = [
     tags: ["harvesting", "field", "hand slot"],
     skill: "Harvesting",
     tier: "field",
+    toolGroup: "Field Gear",
     enabledActions: ["Harvest Fiberleaf"],
     codeNote: "In-game Basic Harvesting Tool; design doc Basic Extractor (3 Sensor Parts + 2 Wire Bundle).",
     recipe: "3 Sensor Parts + 2 Wire Bundle",
@@ -138,6 +54,7 @@ const FIELD_STUB_TOOLS: CodexEntry[] = [
     tags: ["salvaging", "field", "hand slot"],
     skill: "Salvaging",
     tier: "field",
+    toolGroup: "Field Gear",
     enabledActions: [
       "Salvage Scrap Metal & Wire",
       "Salvage Armor Plating & Circuit",
@@ -156,6 +73,7 @@ const FIELD_STUB_TOOLS: CodexEntry[] = [
     tags: ["engineering", "field", "hand slot"],
     skill: "Engineering",
     tier: "field",
+    toolGroup: "Field Gear",
     enabledActions: ["Craft Energy Cartridge"],
     codeNote: "In-game Basic Repair Kit; design doc uses Basic Tech Kit for engineering crafts.",
     sourceDoc: `${ENG_SOURCE} + main-game.ts`,
@@ -170,6 +88,7 @@ const FIELD_STUB_TOOLS: CodexEntry[] = [
     tags: ["combat", "field", "hand slot", "weapon"],
     skill: "Combat",
     tier: "field",
+    toolGroup: "Field Gear",
     enabledActions: ["Engage Balanced Opponent", "Engage Dangerous Hostile"],
     stats: { "Melee Equivalent": "Bronze Blade", Attack: 3 },
     sourceDoc: `${FAB_SOURCE} + main-game.ts`,
@@ -259,6 +178,7 @@ function toolEntry(
   skill: string,
   skillTag: string,
   source: string,
+  toolGroup: string,
 ): CodexEntry {
   return {
     id: `tool-${tool.name.toLowerCase().replace(/\s+/g, "-")}`,
@@ -269,6 +189,7 @@ function toolEntry(
     tags: [skillTag, tool.tier.toLowerCase(), "equipment"],
     skill,
     tier: tool.tier,
+    toolGroup,
     recipe: tool.recipe,
     requirements: tool.engLevel
       ? `Engineering Level ${tool.engLevel}`
@@ -376,6 +297,7 @@ function meleeEntries(): CodexEntry[] {
         tags: ["combat", "melee", "fabrication", band.band.toLowerCase()],
         skill: "Combat",
         tier: band.band,
+        toolGroup: "Melee Weapons",
         recipe: recipes[type.toLowerCase() as "spear" | "blade" | "axe"],
         stats: { Attack: attack, Type: type },
         sourceDoc: FAB_SOURCE,
@@ -451,6 +373,7 @@ function rangedEntries(): CodexEntry[] {
         tags: ["combat", "ranged", "engineering", row.tier.toLowerCase()],
         skill: "Engineering",
         tier: row.tier,
+        toolGroup: "Ranged Weapons",
         recipe: weapon.recipe,
         stats: {
           Attack: weapon.atk,
@@ -493,6 +416,7 @@ function armorEntries(): CodexEntry[] {
       tags: ["combat", "armor", "fabrication", band.toLowerCase()],
       skill: "Combat",
       tier: band,
+      toolGroup: "Armor",
       recipe,
       stats: { Defense: defense ?? "—", Slot: isHelmet ? "Helmet" : "Suit" },
       sourceDoc: FAB_SOURCE,
@@ -501,11 +425,16 @@ function armorEntries(): CodexEntry[] {
 }
 
 export const TOOL_ENTRIES: CodexEntry[] = [
-  ...TRAINING_TOOLS,
   ...FIELD_STUB_TOOLS,
-  ...MINING_TOOLS.map((t) => toolEntry(t, "Mining", "mining", FAB_SOURCE)),
-  ...SALVAGE_CUTTERS.map((t) => toolEntry(t, "Salvaging", "salvaging", ENG_SOURCE)),
-  ...HARVEST_EXTRACTORS.map((t) => toolEntry(t, "Harvesting", "harvesting", ENG_SOURCE)),
+  ...MINING_TOOLS.map((t) =>
+    toolEntry(t, "Mining", "mining", FAB_SOURCE, "Mining Tools"),
+  ),
+  ...SALVAGE_CUTTERS.map((t) =>
+    toolEntry(t, "Salvaging", "salvaging", ENG_SOURCE, "Salvaging Cutters"),
+  ),
+  ...HARVEST_EXTRACTORS.map((t) =>
+    toolEntry(t, "Harvesting", "harvesting", ENG_SOURCE, "Harvesting Extractors"),
+  ),
   ...meleeEntries(),
   ...rangedEntries(),
   ...armorEntries(),
