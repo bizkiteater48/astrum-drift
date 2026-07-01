@@ -34,6 +34,9 @@ export type CodexEntry = {
   contentTier?: number;
   /** Tools tab section header (Mining Tools, Melee Weapons, etc.) */
   toolGroup?: string;
+  /** Skill level required to equip / use */
+  equipLevel?: number;
+  equipSkill?: string;
 };
 
 export const CODEX_CATEGORIES: {

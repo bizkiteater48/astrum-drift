@@ -229,9 +229,10 @@ function CodexEntryDetail({ entry }: { entry: CodexEntry }) {
 }
 
 function getToolRequirement(entry: CodexEntry): string {
+  if (entry.equipSkill && entry.equipLevel !== undefined) {
+    return `${entry.equipSkill} ${entry.equipLevel}`;
+  }
   if (entry.requirements) return entry.requirements;
-  const engLevel = entry.stats?.["Engineering Level"];
-  if (engLevel !== undefined) return `Engineering ${engLevel}`;
   return "—";
 }
 
@@ -263,7 +264,7 @@ function CodexToolsTable({ entries }: { entries: CodexEntry[] }) {
                   Skill
                 </th>
                 <th className="text-[10px] text-muted-foreground uppercase tracking-widest font-normal py-2 pr-3 w-28">
-                  Requirement
+                  Equip Level
                 </th>
                 <th className="text-[10px] text-muted-foreground uppercase tracking-widest font-normal py-2">
                   Recipe

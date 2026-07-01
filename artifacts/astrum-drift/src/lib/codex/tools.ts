@@ -4,6 +4,36 @@ const FAB_SOURCE = "Astrum_Drift_Mining_Fabrication_Final.xlsx";
 const ENG_SOURCE =
   "Astrum_Drift_Engineering_Salvaging_Master_READY_Vehicle_Repair.xlsx";
 
+/** MeleeWeaponsTable / armor — Combat level required to equip by material band */
+const COMBAT_BAND_EQUIP_LEVEL: Record<string, number> = {
+  Bronze: 1,
+  Iron: 10,
+  Steel: 15,
+  Nickel: 35,
+  Titanium: 60,
+  Tungsten: 75,
+  Cobalt: 90,
+  Platinum: 110,
+  Iridium: 125,
+  Palladium: 145,
+  Meteoric: 175,
+  Void: 200,
+};
+
+/** Engineering ranged tiers — Combat level required to equip */
+const RANGED_EQUIP_LEVEL: Record<string, number> = {
+  Prototype: 40,
+  Reinforced: 80,
+  Calibrated: 100,
+  Precision: 110,
+  Hardened: 125,
+  "Void-Tuned": 175,
+};
+
+function formatEquipRequirement(skill: string, level: number): string {
+  return `${skill} ${level}`;
+}
+
 const FIELD_STUB_TOOLS: CodexEntry[] = [
   {
     id: "basic-mining-tool",
@@ -16,6 +46,8 @@ const FIELD_STUB_TOOLS: CodexEntry[] = [
     skill: "Mining",
     tier: "field",
     toolGroup: "Field Gear",
+    equipSkill: "Mining",
+    equipLevel: 1,
     enabledActions: [
       "Mine Copper Vein",
       "Mine Silver Vein",
@@ -39,6 +71,8 @@ const FIELD_STUB_TOOLS: CodexEntry[] = [
     skill: "Harvesting",
     tier: "field",
     toolGroup: "Field Gear",
+    equipSkill: "Harvesting",
+    equipLevel: 1,
     enabledActions: ["Harvest Fiberleaf"],
     codeNote: "In-game Basic Harvesting Tool; design doc Basic Extractor (3 Sensor Parts + 2 Wire Bundle).",
     recipe: "3 Sensor Parts + 2 Wire Bundle",
@@ -55,6 +89,8 @@ const FIELD_STUB_TOOLS: CodexEntry[] = [
     skill: "Salvaging",
     tier: "field",
     toolGroup: "Field Gear",
+    equipSkill: "Salvaging",
+    equipLevel: 1,
     enabledActions: [
       "Salvage Scrap Metal & Wire",
       "Salvage Armor Plating & Circuit",
@@ -74,6 +110,8 @@ const FIELD_STUB_TOOLS: CodexEntry[] = [
     skill: "Engineering",
     tier: "field",
     toolGroup: "Field Gear",
+    equipSkill: "Engineering",
+    equipLevel: 1,
     enabledActions: ["Craft Energy Cartridge"],
     codeNote: "In-game Basic Repair Kit; design doc uses Basic Tech Kit for engineering crafts.",
     sourceDoc: `${ENG_SOURCE} + main-game.ts`,
@@ -89,6 +127,8 @@ const FIELD_STUB_TOOLS: CodexEntry[] = [
     skill: "Combat",
     tier: "field",
     toolGroup: "Field Gear",
+    equipSkill: "Combat",
+    equipLevel: 1,
     enabledActions: ["Engage Balanced Opponent", "Engage Dangerous Hostile"],
     stats: { "Melee Equivalent": "Bronze Blade", Attack: 3 },
     sourceDoc: `${FAB_SOURCE} + main-game.ts`,
@@ -99,78 +139,86 @@ type ToolTier = {
   name: string;
   tier: string;
   recipe: string;
-  engLevel?: number;
+  equipLevel: number;
 };
 
 const MINING_TOOLS: ToolTier[] = [
-  { name: "Basic Pickaxe", tier: "Basic", recipe: "2 Bronze Bars" },
-  { name: "Reinforced Pickaxe", tier: "Reinforced", recipe: "4 Steel Bars" },
+  { name: "Basic Pickaxe", tier: "Basic", recipe: "2 Bronze Bars", equipLevel: 1 },
+  { name: "Reinforced Pickaxe", tier: "Reinforced", recipe: "4 Steel Bars", equipLevel: 20 },
   {
     name: "Improved Pickaxe",
     tier: "Improved",
     recipe: "4 Steel Bars + 1 Nickel Bar",
+    equipLevel: 30,
   },
   {
     name: "Prototype Mining Drill",
     tier: "Prototype",
     recipe: "5 Nickel Bars + 1 Quartz",
+    equipLevel: 40,
   },
   {
     name: "Advanced Mining Drill",
     tier: "Advanced",
     recipe: "6 Tungsten Bars + 2 Quartz",
+    equipLevel: 80,
   },
   {
     name: "Precision Mining Drill",
     tier: "Precision",
     recipe: "7 Cobalt Bars + 3 Quartz",
+    equipLevel: 100,
   },
   {
     name: "Hardened Bore Drill",
     tier: "Hardened",
     recipe: "8 Iridium Bars + 3 Quartz",
+    equipLevel: 125,
   },
   {
     name: "High-Output Bore Drill",
     tier: "High-Output",
     recipe: "9 Palladium Bars + 4 Quartz",
+    equipLevel: 150,
   },
   {
     name: "Void-Tuned Excavator",
     tier: "Void-Tuned",
     recipe: "10 Meteoric Bars + 5 Quartz",
+    equipLevel: 175,
   },
   {
     name: "Plasma Excavator",
     tier: "Plasma",
     recipe: "12 Void Bars + 6 Quartz",
+    equipLevel: 200,
   },
 ];
 
 const SALVAGE_CUTTERS: ToolTier[] = [
-  { name: "Basic Cutter", tier: "Basic", recipe: "3 Scrap Metal + 2 Wire Bundle", engLevel: 1 },
-  { name: "Reinforced Cutter", tier: "Reinforced", recipe: "5 Scrap Metal + 3 Wire Bundle + 2 Circuit Board", engLevel: 10 },
-  { name: "Improved Cutter", tier: "Improved", recipe: "6 Armor Plating + 4 Circuit Board + 2 Power Cell", engLevel: 20 },
-  { name: "Prototype Cutter", tier: "Prototype", recipe: "10 Armor Plating + 6 Circuit Board + 4 Power Cell + 2 Servo Motor", engLevel: 35 },
-  { name: "Advanced Cutter", tier: "Advanced", recipe: "18 Armor Plating + 10 Circuit Board + 8 Power Cell + 5 Servo Motor", engLevel: 50 },
-  { name: "Precision Cutter", tier: "Precision", recipe: "28 Armor Plating + 14 Circuit Board + 14 Power Cell + 8 Servo Motor + 1 Tech Core", engLevel: 75 },
-  { name: "Hardened Cutter", tier: "Hardened", recipe: "45 Armor Plating + 22 Circuit Board + 24 Power Cell + 14 Servo Motor + 2 Tech Core", engLevel: 100 },
-  { name: "High-Output Cutter", tier: "High-Output", recipe: "70 Armor Plating + 35 Circuit Board + 38 Power Cell + 24 Servo Motor + 4 Tech Core", engLevel: 150 },
-  { name: "Void-Tuned Cutter", tier: "Void-Tuned", recipe: "110 Armor Plating + 55 Circuit Board + 65 Power Cell + 40 Servo Motor + 8 Tech Core", engLevel: 175 },
-  { name: "Plasma Cutter", tier: "Plasma", recipe: "170 Armor Plating + 85 Circuit Board + 100 Power Cell + 65 Servo Motor + 14 Tech Core + 1 Ancient Tech Core", engLevel: 200 },
+  { name: "Basic Cutter", tier: "Basic", recipe: "3 Scrap Metal + 2 Wire Bundle", equipLevel: 1 },
+  { name: "Reinforced Cutter", tier: "Reinforced", recipe: "5 Scrap Metal + 3 Wire Bundle + 2 Circuit Board", equipLevel: 10 },
+  { name: "Improved Cutter", tier: "Improved", recipe: "6 Armor Plating + 4 Circuit Board + 2 Power Cell", equipLevel: 20 },
+  { name: "Prototype Cutter", tier: "Prototype", recipe: "10 Armor Plating + 6 Circuit Board + 4 Power Cell + 2 Servo Motor", equipLevel: 35 },
+  { name: "Advanced Cutter", tier: "Advanced", recipe: "18 Armor Plating + 10 Circuit Board + 8 Power Cell + 5 Servo Motor", equipLevel: 50 },
+  { name: "Precision Cutter", tier: "Precision", recipe: "28 Armor Plating + 14 Circuit Board + 14 Power Cell + 8 Servo Motor + 1 Tech Core", equipLevel: 75 },
+  { name: "Hardened Cutter", tier: "Hardened", recipe: "45 Armor Plating + 22 Circuit Board + 24 Power Cell + 14 Servo Motor + 2 Tech Core", equipLevel: 100 },
+  { name: "High-Output Cutter", tier: "High-Output", recipe: "70 Armor Plating + 35 Circuit Board + 38 Power Cell + 24 Servo Motor + 4 Tech Core", equipLevel: 150 },
+  { name: "Void-Tuned Cutter", tier: "Void-Tuned", recipe: "110 Armor Plating + 55 Circuit Board + 65 Power Cell + 40 Servo Motor + 8 Tech Core", equipLevel: 175 },
+  { name: "Plasma Cutter", tier: "Plasma", recipe: "170 Armor Plating + 85 Circuit Board + 100 Power Cell + 65 Servo Motor + 14 Tech Core + 1 Ancient Tech Core", equipLevel: 200 },
 ];
 
 const HARVEST_EXTRACTORS: ToolTier[] = [
-  { name: "Basic Extractor", tier: "Basic", recipe: "3 Sensor Parts + 2 Wire Bundle", engLevel: 1 },
-  { name: "Reinforced Extractor", tier: "Reinforced", recipe: "5 Sensor Parts + 3 Circuit Board + 2 Wire Bundle", engLevel: 10 },
-  { name: "Improved Extractor", tier: "Improved", recipe: "8 Sensor Parts + 5 Circuit Board + 2 Power Cell", engLevel: 20 },
-  { name: "Prototype Extractor", tier: "Prototype", recipe: "12 Sensor Parts + 7 Circuit Board + 4 Power Cell + 1 Servo Motor", engLevel: 35 },
-  { name: "Advanced Extractor", tier: "Advanced", recipe: "22 Sensor Parts + 12 Circuit Board + 8 Power Cell + 4 Servo Motor", engLevel: 50 },
-  { name: "Precision Extractor", tier: "Precision", recipe: "35 Sensor Parts + 18 Circuit Board + 14 Power Cell + 7 Servo Motor + 1 Tech Core", engLevel: 75 },
-  { name: "Hardened Extractor", tier: "Hardened", recipe: "55 Sensor Parts + 28 Circuit Board + 24 Power Cell + 12 Servo Motor + 2 Tech Core", engLevel: 100 },
-  { name: "High-Output Extractor", tier: "High-Output", recipe: "85 Sensor Parts + 42 Circuit Board + 38 Power Cell + 20 Servo Motor + 4 Tech Core", engLevel: 150 },
-  { name: "Void-Tuned Extractor", tier: "Void-Tuned", recipe: "130 Sensor Parts + 65 Circuit Board + 65 Power Cell + 34 Servo Motor + 8 Tech Core", engLevel: 175 },
-  { name: "Plasma Extractor", tier: "Plasma", recipe: "200 Sensor Parts + 100 Circuit Board + 100 Power Cell + 55 Servo Motor + 14 Tech Core + 1 Ancient Tech Core", engLevel: 200 },
+  { name: "Basic Extractor", tier: "Basic", recipe: "3 Sensor Parts + 2 Wire Bundle", equipLevel: 1 },
+  { name: "Reinforced Extractor", tier: "Reinforced", recipe: "5 Sensor Parts + 3 Circuit Board + 2 Wire Bundle", equipLevel: 10 },
+  { name: "Improved Extractor", tier: "Improved", recipe: "8 Sensor Parts + 5 Circuit Board + 2 Power Cell", equipLevel: 20 },
+  { name: "Prototype Extractor", tier: "Prototype", recipe: "12 Sensor Parts + 7 Circuit Board + 4 Power Cell + 1 Servo Motor", equipLevel: 35 },
+  { name: "Advanced Extractor", tier: "Advanced", recipe: "22 Sensor Parts + 12 Circuit Board + 8 Power Cell + 4 Servo Motor", equipLevel: 50 },
+  { name: "Precision Extractor", tier: "Precision", recipe: "35 Sensor Parts + 18 Circuit Board + 14 Power Cell + 7 Servo Motor + 1 Tech Core", equipLevel: 75 },
+  { name: "Hardened Extractor", tier: "Hardened", recipe: "55 Sensor Parts + 28 Circuit Board + 24 Power Cell + 12 Servo Motor + 2 Tech Core", equipLevel: 100 },
+  { name: "High-Output Extractor", tier: "High-Output", recipe: "85 Sensor Parts + 42 Circuit Board + 38 Power Cell + 20 Servo Motor + 4 Tech Core", equipLevel: 150 },
+  { name: "Void-Tuned Extractor", tier: "Void-Tuned", recipe: "130 Sensor Parts + 65 Circuit Board + 65 Power Cell + 34 Servo Motor + 8 Tech Core", equipLevel: 175 },
+  { name: "Plasma Extractor", tier: "Plasma", recipe: "200 Sensor Parts + 100 Circuit Board + 100 Power Cell + 55 Servo Motor + 14 Tech Core + 1 Ancient Tech Core", equipLevel: 200 },
 ];
 
 function toolEntry(
@@ -191,12 +239,12 @@ function toolEntry(
     tier: tool.tier,
     toolGroup,
     recipe: tool.recipe,
-    requirements: tool.engLevel
-      ? `Engineering Level ${tool.engLevel}`
-      : "Fabrication recipe",
+    equipSkill: skill,
+    equipLevel: tool.equipLevel,
+    requirements: formatEquipRequirement(skill, tool.equipLevel),
     stats: {
       "Durability Tier": tool.tier,
-      ...(tool.engLevel ? { "Engineering Level": tool.engLevel } : {}),
+      "Equip Level": tool.equipLevel,
     },
     sourceDoc: source,
   };
@@ -288,6 +336,7 @@ function meleeEntries(): CodexEntry[] {
       const attack =
         type === "Spear" ? band.spear : type === "Blade" ? band.blade : band.axe;
       const name = `${band.band} ${type}`;
+      const equipLevel = COMBAT_BAND_EQUIP_LEVEL[band.band];
       entries.push({
         id: `weapon-${band.band.toLowerCase()}-${type.toLowerCase()}`,
         category: "tools",
@@ -299,7 +348,10 @@ function meleeEntries(): CodexEntry[] {
         tier: band.band,
         toolGroup: "Melee Weapons",
         recipe: recipes[type.toLowerCase() as "spear" | "blade" | "axe"],
-        stats: { Attack: attack, Type: type },
+        equipSkill: "Combat",
+        equipLevel,
+        requirements: formatEquipRequirement("Combat", equipLevel),
+        stats: { Attack: attack, Type: type, "Equip Level": equipLevel },
         sourceDoc: FAB_SOURCE,
       });
     }
@@ -364,6 +416,7 @@ function rangedEntries(): CodexEntry[] {
       const weapon = row[kind];
       const baseName = names[kind];
       const name = `${row.tier} ${baseName}`;
+      const equipLevel = RANGED_EQUIP_LEVEL[row.tier];
       entries.push({
         id: `weapon-${row.tier.toLowerCase()}-${kind}`,
         category: "tools",
@@ -375,10 +428,14 @@ function rangedEntries(): CodexEntry[] {
         tier: row.tier,
         toolGroup: "Ranged Weapons",
         recipe: weapon.recipe,
+        equipSkill: "Combat",
+        equipLevel,
+        requirements: formatEquipRequirement("Combat", equipLevel),
         stats: {
           Attack: weapon.atk,
           Accuracy: weapon.acc,
           Ammo: "1 Energy Cartridge / attack",
+          "Equip Level": equipLevel,
         },
         sourceDoc: ENG_SOURCE,
       });
@@ -407,6 +464,7 @@ function armorEntries(): CodexEntry[] {
     const isHelmet = name.includes("Helmet");
     const band = name.split(" ")[0];
     const defense = isHelmet ? MELEE_BANDS.find((b) => b.band === band)?.helmet : MELEE_BANDS.find((b) => b.band === band)?.suit;
+    const equipLevel = COMBAT_BAND_EQUIP_LEVEL[band] ?? 1;
     return {
       id: `armor-${name.toLowerCase().replace(/\s+/g, "-")}`,
       category: "tools",
@@ -418,7 +476,14 @@ function armorEntries(): CodexEntry[] {
       tier: band,
       toolGroup: "Armor",
       recipe,
-      stats: { Defense: defense ?? "—", Slot: isHelmet ? "Helmet" : "Suit" },
+      equipSkill: "Combat",
+      equipLevel,
+      requirements: formatEquipRequirement("Combat", equipLevel),
+      stats: {
+        Defense: defense ?? "—",
+        Slot: isHelmet ? "Helmet" : "Suit",
+        "Equip Level": equipLevel,
+      },
       sourceDoc: FAB_SOURCE,
     };
   });
