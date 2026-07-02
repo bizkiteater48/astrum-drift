@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ChevronLeft } from "lucide-react";
+import { LocationSurveyImage } from "@/components/placeholder-art-overlay";
 import {
   formatMarketTaxRate,
   getMainGameLocation,
@@ -196,28 +197,28 @@ function SystemView({
         <p className="text-xs text-muted-foreground uppercase tracking-widest">
           Orbital Hub
         </p>
-        <div className="rounded-lg border border-primary/20 overflow-hidden bg-black/40">
-          <div className="relative aspect-[21/9] w-full">
-            <img
-              src={getLocationImage(spaceport.imageKey)}
-              alt={`${spaceport.name} survey map`}
-              className="w-full h-full object-cover opacity-90"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-black/20 pointer-events-none" />
-            <div className="absolute bottom-0 left-0 right-0 p-3">
-              <p className="text-sm text-primary font-bold uppercase tracking-widest">
-                {spaceport.name}
+        <div className="relative rounded-lg border border-primary/20 overflow-hidden bg-black/40 aspect-[21/9] w-full">
+          <LocationSurveyImage
+            src={getLocationImage(spaceport.imageKey)}
+            alt={`${spaceport.name} survey map`}
+            imageKey={spaceport.imageKey}
+            containerClassName="absolute inset-0"
+            className="w-full h-full object-cover opacity-90"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-black/20 pointer-events-none z-[1]" />
+          <div className="absolute bottom-0 left-0 right-0 p-3 z-[2]">
+            <p className="text-sm text-primary font-bold uppercase tracking-widest">
+              {spaceport.name}
+            </p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">
+              Spaceport · P2P Tax{" "}
+              {formatMarketTaxRate(getMarketTaxRate(spaceport))}
+            </p>
+            {isAtSpaceport && (
+              <p className="text-[10px] text-chart-2 uppercase tracking-widest mt-1">
+                Current position
               </p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">
-                Spaceport · P2P Tax{" "}
-                {formatMarketTaxRate(getMarketTaxRate(spaceport))}
-              </p>
-              {isAtSpaceport && (
-                <p className="text-[10px] text-chart-2 uppercase tracking-widest mt-1">
-                  Current position
-                </p>
-              )}
-            </div>
+            )}
           </div>
         </div>
       </section>
@@ -265,13 +266,15 @@ function PlanetView({
   return (
     <div className="space-y-4">
       <div className="relative aspect-video w-full rounded-lg overflow-hidden border border-primary/20 bg-black">
-        <img
+        <LocationSurveyImage
           src={getLocationImage(orbit.imageKey)}
           alt={`${planet.name} orbital survey`}
+          imageKey={orbit.imageKey}
+          containerClassName="absolute inset-0"
           className="w-full h-full object-cover opacity-90"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-black/30 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 right-0 p-3">
+        <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-black/30 pointer-events-none z-[1]" />
+        <div className="absolute bottom-0 left-0 right-0 p-3 z-[2]">
           <p className="text-sm text-primary font-bold uppercase tracking-widest">
             {planet.name}
           </p>
@@ -303,13 +306,14 @@ function PlanetView({
                 }`}
               >
                 <div className="flex gap-3">
-                  <div className="w-20 h-14 shrink-0 rounded overflow-hidden border border-primary/20 bg-black">
-                    <img
-                      src={getLocationImage(location.imageKey)}
-                      alt={location.name}
-                      className="w-full h-full object-cover opacity-90"
-                    />
-                  </div>
+                  <LocationSurveyImage
+                    src={getLocationImage(location.imageKey)}
+                    alt={location.name}
+                    imageKey={location.imageKey}
+                    containerClassName="w-20 h-14 shrink-0 rounded border border-primary/20 bg-black"
+                    className="w-full h-full object-cover opacity-90"
+                    variant="compact"
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold uppercase tracking-widest text-primary">
                       {location.name}

@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { CodexPanel } from "@/components/codex-panel";
 import { MarketPanel } from "@/components/market-panel";
+import { PlaceholderArtOverlay } from "@/components/placeholder-art-overlay";
 import { StarChartPanel } from "@/components/star-chart-panel";
 import {
   applyMainGameActionInventory,
@@ -33,6 +34,7 @@ import {
   getMainGameLocation,
   isAutoLoopEligibleAction,
   isInventoryFullForAction,
+  isMainGamePlaceholderImage,
   isMarketLocation,
   isProductionAction,
   MAIN_GAME_DIRECTIVE,
@@ -609,6 +611,12 @@ export default function PlayPage() {
       ? trainingSectorTravelImg
       : getMainGameImage(currentMainGameLocation.imageKey)
     : tutorialViewportImage;
+
+  const showMainGameViewportPlaceholder =
+    isTutorialComplete &&
+    (isMainGameActionRunning && pendingMainGameTravel
+      ? true
+      : isMainGamePlaceholderImage(currentMainGameLocation.imageKey));
 
   const getRequiredHandItemNotice = (action: MainGameAction): string => {
     const tool = action.requiredHandItem!;
@@ -2550,6 +2558,18 @@ export default function PlayPage() {
                       alt={`${displayLocationName} viewport`}
                       className="w-full h-full object-cover opacity-80 mix-blend-screen scale-105 transition-transform duration-[20s] group-hover:scale-110 ease-linear"
                     />
+                    {showMainGameViewportPlaceholder && (
+                      <PlaceholderArtOverlay
+                        imageKey={
+                          isMainGameActionRunning && pendingMainGameTravel
+                            ? undefined
+                            : currentMainGameLocation.imageKey
+                        }
+                        forceShow={
+                          isMainGameActionRunning && pendingMainGameTravel
+                        }
+                      />
+                    )}
 
                     <div className="absolute top-4 right-4 z-20 flex items-center gap-2 glass-panel px-3 py-1.5 rounded-lg">
                       <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />

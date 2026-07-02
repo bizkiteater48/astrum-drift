@@ -45,6 +45,27 @@ export type MainGameImageKey =
   | "combat_arena"
   | "relay_station";
 
+/** Survey art still reuses tutorial placeholders until main-game assets ship. */
+export const MAIN_GAME_PLACEHOLDER_IMAGE_KEYS: ReadonlySet<MainGameImageKey> =
+  new Set([
+    "spaceport",
+    "planet_orbit",
+    "settlement_hub",
+    "mining_site",
+    "fabrication_yard",
+    "bio_dome",
+    "harvest_fen",
+    "wreck_site",
+    "combat_arena",
+    "relay_station",
+  ]);
+
+export function isMainGamePlaceholderImage(
+  imageKey: MainGameImageKey,
+): boolean {
+  return MAIN_GAME_PLACEHOLDER_IMAGE_KEYS.has(imageKey);
+}
+
 export type MainGameActionId =
   | "mine_copper_vein"
   | "fabricate_bronze_bar"
