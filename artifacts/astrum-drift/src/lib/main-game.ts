@@ -132,7 +132,15 @@ export const P2P_TRADE_TAX_MAIN_SETTLEMENT = 0.08;
 export const MAIN_GAME_START_LOCATION: MainGameLocationId =
   "outpost_one_spaceport";
 
-export const TUTORIAL_DEPART_TIMER_SEC = 15;
+/** Shortened timers while building the main game — restore per-action values before release. */
+export const MAIN_GAME_BUILD_TIMER_SEC = 5;
+
+export const TUTORIAL_DEPART_TIMER_SEC = MAIN_GAME_BUILD_TIMER_SEC;
+
+export function getEffectiveBuildTimer(designedTimerSec: number): number {
+  if (designedTimerSec <= 0) return designedTimerSec;
+  return MAIN_GAME_BUILD_TIMER_SEC;
+}
 
 export const MAIN_GAME_DIRECTIVE =
   "Explore the Verdant Rim. Depart from Outpost One to reach planetary orbit, then travel to surface settlements for field operations. Use Star Chart to review survey maps.";

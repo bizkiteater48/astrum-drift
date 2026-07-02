@@ -31,6 +31,7 @@ import {
   createDefaultSkillXp,
   getActionSkillXp,
   getMainGameActionRecipeCost,
+  getEffectiveBuildTimer,
   getMainGameLocation,
   isAutoLoopEligibleAction,
   isInventoryFullForAction,
@@ -820,7 +821,7 @@ export default function PlayPage() {
     }
 
     setPendingMainGameAction(action);
-    setMainGameTimerLeft(action.timerSec);
+    setMainGameTimerLeft(getEffectiveBuildTimer(action.timerSec));
     setIsMainGameActionRunning(true);
     addMessage(`[ACTION] Auto-loop: ${action.label} continuing...`);
   };
@@ -915,7 +916,7 @@ export default function PlayPage() {
 
     if (action.timerSec > 0) {
       setPendingMainGameAction(action);
-      setMainGameTimerLeft(action.timerSec);
+      setMainGameTimerLeft(getEffectiveBuildTimer(action.timerSec));
       setIsMainGameActionRunning(true);
       return;
     }
@@ -935,7 +936,7 @@ export default function PlayPage() {
     setRecentSystemNotice(null);
     setPendingMainGameAction(null);
     setPendingMainGameTravel(destination);
-    setMainGameTimerLeft(destination.timerSec);
+    setMainGameTimerLeft(getEffectiveBuildTimer(destination.timerSec));
     setIsMainGameActionRunning(true);
   };
 
@@ -1194,7 +1195,7 @@ export default function PlayPage() {
     setRecentRewardMessages([]);
     setIsInCombat(true);
     setCombatMessage("Combat engaged. Training Drone is hostile.");
-    setCombatTimerLeft(currentTutorialStep.timerSec ?? 5);
+    setCombatTimerLeft(getEffectiveBuildTimer(currentTutorialStep.timerSec ?? 5));
     setIsCombatRoundRunning(true);
   };
 
@@ -1250,7 +1251,7 @@ export default function PlayPage() {
       `[COMBAT] You hit the Training Drone for ${playerDamage}. Drone hit you for ${droneDamage}.`,
     );
 
-    setCombatTimerLeft(currentTutorialStep.timerSec ?? 5);
+    setCombatTimerLeft(getEffectiveBuildTimer(currentTutorialStep.timerSec ?? 5));
     setIsCombatRoundRunning(true);
   };
 
@@ -1470,7 +1471,7 @@ export default function PlayPage() {
         `[TUTORIAL] Progress: ${nextActionCount}/${requiredCompletions}`,
       );
 
-      const nextTimer = currentTutorialStep.timerSec ?? 0;
+      const nextTimer = getEffectiveBuildTimer(currentTutorialStep.timerSec ?? 0);
 
       if (nextTimer > 0) {
         setTutorialTimerLeft(nextTimer);
@@ -1606,7 +1607,7 @@ export default function PlayPage() {
       );
     }
 
-    const timer = currentTutorialStep.timerSec ?? 0;
+    const timer = getEffectiveBuildTimer(currentTutorialStep.timerSec ?? 0);
 
     if (timer > 0) {
       setTutorialTimerLeft(timer);
@@ -2268,7 +2269,7 @@ export default function PlayPage() {
                           variant="outline"
                           className="justify-start h-auto min-h-10 whitespace-normal text-left leading-tight text-xs font-mono uppercase tracking-widest border-primary/40 text-primary hover:bg-primary/10 py-2 px-4"
                         >
-                          {destination.label} · {destination.timerSec}s
+                          {destination.label} · {getEffectiveBuildTimer(destination.timerSec)}s
                         </Button>
                       ),
                     )}
@@ -2409,7 +2410,9 @@ export default function PlayPage() {
                             Math.min(
                               100,
                               (combatTimerLeft /
-                                (currentTutorialStep.timerSec ?? 5)) *
+                                getEffectiveBuildTimer(
+                                  currentTutorialStep.timerSec ?? 5,
+                                )) *
                                 100,
                             ),
                           )
@@ -2710,7 +2713,9 @@ export default function PlayPage() {
                                     Math.min(
                                       100,
                                       (mainGameTimerLeft /
-                                        pendingMainGameTravel.timerSec) *
+                                        getEffectiveBuildTimer(
+                                          pendingMainGameTravel.timerSec,
+                                        )) *
                                         100,
                                     ),
                                   )
@@ -2720,7 +2725,9 @@ export default function PlayPage() {
                                       Math.min(
                                         100,
                                         (mainGameTimerLeft /
-                                          pendingMainGameAction.timerSec) *
+                                          getEffectiveBuildTimer(
+                                            pendingMainGameAction.timerSec,
+                                          )) *
                                           100,
                                       ),
                                     )
@@ -2785,13 +2792,17 @@ export default function PlayPage() {
 
                           <Progress
                             value={
-                              currentTutorialStep.timerSec
+                              getEffectiveBuildTimer(
+                                currentTutorialStep.timerSec ?? 0,
+                              )
                                 ? Math.max(
                                     0,
                                     Math.min(
                                       100,
                                       (tutorialTimerLeft /
-                                        currentTutorialStep.timerSec) *
+                                        getEffectiveBuildTimer(
+                                          currentTutorialStep.timerSec ?? 0,
+                                        )) *
                                         100,
                                     ),
                                   )
@@ -2949,7 +2960,7 @@ export default function PlayPage() {
                       variant="outline"
                       className="w-full font-mono uppercase tracking-widest border-primary/50 text-primary hover:bg-primary/10"
                     >
-                      {destination.label} · {destination.timerSec}s
+                      {destination.label} · {getEffectiveBuildTimer(destination.timerSec)}s
                     </Button>
                   ),
                 )}

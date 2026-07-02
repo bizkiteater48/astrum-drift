@@ -7,6 +7,7 @@ import {
   getMarketTaxRate,
   getStarChartContextForLocation,
   getStarChartPlanetDetail,
+  getEffectiveBuildTimer,
   getStarChartSystemDetail,
   isMarketLocation,
   listStarChartSystems,
@@ -345,7 +346,7 @@ function PlanetView({
                           {action.label}
                         </p>
                         <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                          {action.skill} · {action.timerSec}s
+                          {action.skill} · {getEffectiveBuildTimer(action.timerSec)}s
                           {action.requiredHandItem
                             ? ` · ${action.requiredHandItem}`
                             : ""}
