@@ -806,6 +806,10 @@ export function isMarketLocation(location: MainGameLocation): boolean {
   );
 }
 
+export function isNpcExchangeLocation(location: MainGameLocation): boolean {
+  return location.locationType === "spaceport";
+}
+
 export function getMarketTaxRate(location: MainGameLocation): number {
   return location.locationType === "spaceport"
     ? P2P_TRADE_TAX_SPACEPORT

@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { CodexPanel } from "@/components/codex-panel";
 import { MarketPanel } from "@/components/market-panel";
+import { applyNpcSell } from "@/lib/npc-economy";
 import { SurveyArtPlaceholder } from "@/components/placeholder-art-overlay";
 import { StarChartPanel } from "@/components/star-chart-panel";
 import {
@@ -276,6 +277,32 @@ export default function PlayPage() {
     const equippedQuantity = equippedItemCounts[itemName] ?? 0;
 
     return Math.max(0, ownedQuantity - equippedQuantity);
+  };
+
+  const handleNpcSell = (itemName: string, quantity: number) => {
+    const available = getAvailableInventoryQuantity(itemName);
+    const sellQty = Math.min(quantity, available);
+    if (sellQty <= 0) {
+      addMessage(`[ERROR] No ${itemName} available to sell.`);
+      setRecentSystemNotice(`No ${itemName} available to sell.`);
+      return;
+    }
+
+    const result = applyNpcSell(tutorialInventory, itemName, sellQty);
+    if (!result) {
+      addMessage(`[ERROR] ${itemName} cannot be sold to the NPC vendor.`);
+      setRecentSystemNotice(`${itemName} is not accepted by the vendor.`);
+      return;
+    }
+
+    setTutorialInventory(result.inventory);
+    addMessage(
+      `[MARKET] Sold ${itemName} ×${sellQty} for ${result.creditsEarned} credits.`,
+    );
+    setRecentRewardMessages([`Credits +${result.creditsEarned}`]);
+    setRecentSystemNotice(
+      `Sold ${itemName} ×${sellQty} for ${result.creditsEarned} credits.`,
+    );
   };
   const [enemyHealth, setEnemyHealth] = useState(60);
   const [targetIntel, setTargetIntel] = useState<Record<string, number>>({
@@ -3895,6 +3922,9 @@ export default function PlayPage() {
       {showMarketPanel && (
         <MarketPanel
           locationId={mainGameLocationId}
+          inventory={tutorialInventory}
+          getAvailableQuantity={getAvailableInventoryQuantity}
+          onNpcSell={handleNpcSell}
           onClose={() => setShowMarketPanel(false)}
         />
       )}
