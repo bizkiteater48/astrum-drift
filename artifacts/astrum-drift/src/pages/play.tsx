@@ -23,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { CodexPanel } from "@/components/codex-panel";
 import { MarketPanel } from "@/components/market-panel";
-import { PlaceholderArtOverlay } from "@/components/placeholder-art-overlay";
+import { SurveyArtPlaceholder } from "@/components/placeholder-art-overlay";
 import { StarChartPanel } from "@/components/star-chart-panel";
 import {
   applyMainGameActionInventory,
@@ -2553,21 +2553,16 @@ export default function PlayPage() {
                 >
                   <div className="relative h-[34vh] border border-primary/30 bg-black box-glow overflow-hidden group rounded-lg">
                     <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-background/20 z-10 pointer-events-none" />
-                    <img
-                      src={displayViewportImage}
-                      alt={`${displayLocationName} viewport`}
-                      className="w-full h-full object-cover opacity-80 mix-blend-screen scale-105 transition-transform duration-[20s] group-hover:scale-110 ease-linear"
-                    />
-                    {showMainGameViewportPlaceholder && (
-                      <PlaceholderArtOverlay
-                        imageKey={
-                          isMainGameActionRunning && pendingMainGameTravel
-                            ? undefined
-                            : currentMainGameLocation.imageKey
-                        }
-                        forceShow={
-                          isMainGameActionRunning && pendingMainGameTravel
-                        }
+                    {showMainGameViewportPlaceholder ? (
+                      <SurveyArtPlaceholder
+                        subtitle={displayLocationName}
+                        className="absolute inset-0 z-0"
+                      />
+                    ) : (
+                      <img
+                        src={displayViewportImage}
+                        alt={`${displayLocationName} viewport`}
+                        className="w-full h-full object-cover opacity-80 mix-blend-screen scale-105 transition-transform duration-[20s] group-hover:scale-110 ease-linear"
                       />
                     )}
 

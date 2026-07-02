@@ -4,38 +4,27 @@ import {
 } from "@/lib/main-game";
 import { cn } from "@/lib/utils";
 
-type PlaceholderArtOverlayProps = {
-  imageKey?: MainGameImageKey;
-  /** Use for frames that reuse tutorial art without an image key (e.g. travel). */
-  forceShow?: boolean;
+type SurveyArtPlaceholderProps = {
+  subtitle?: string;
   className?: string;
   variant?: "default" | "compact";
 };
 
-export function PlaceholderArtOverlay({
-  imageKey,
-  forceShow = false,
+export function SurveyArtPlaceholder({
+  subtitle,
   className,
   variant = "default",
-}: PlaceholderArtOverlayProps) {
-  const show =
-    forceShow || (imageKey ? isMainGamePlaceholderImage(imageKey) : false);
-  if (!show) return null;
-
+}: SurveyArtPlaceholderProps) {
   if (variant === "compact") {
     return (
       <div
         className={cn(
-          "absolute top-0.5 right-0.5 z-10 pointer-events-none",
+          "flex h-full w-full flex-col items-center justify-center gap-0.5 bg-gradient-to-br from-background via-primary/5 to-background text-center",
           className,
         )}
-        title="Placeholder survey art"
       >
-        <span className="flex items-center gap-0.5 rounded border border-amber-400/40 bg-black/70 px-1 py-px">
-          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-          <span className="text-[7px] font-bold uppercase tracking-widest text-amber-200">
-            Draft
-          </span>
+        <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+          TBD
         </span>
       </div>
     );
@@ -43,16 +32,41 @@ export function PlaceholderArtOverlay({
 
   return (
     <div
-      className={cn("absolute inset-0 z-10 pointer-events-none", className)}
+      className={cn(
+        "relative flex h-full w-full flex-col items-center justify-center gap-2 overflow-hidden bg-gradient-to-br from-background via-primary/10 to-background text-center",
+        className,
+      )}
     >
-      <div className="absolute top-2 left-2 flex items-center gap-1.5 rounded border border-amber-400/40 bg-black/55 backdrop-blur-sm px-2 py-1">
-        <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
-        <span className="text-[9px] font-bold uppercase tracking-widest text-amber-100">
-          Draft Survey Art
-        </span>
+      <div
+        className="pointer-events-none absolute inset-0 opacity-20"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(120,180,255,0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(120,180,255,0.15) 1px, transparent 1px)",
+          backgroundSize: "24px 24px",
+        }}
+      />
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-25">
+        <div className="h-24 w-24 rounded-full border border-primary/30" />
+        <div className="absolute h-px w-16 bg-primary/40" />
+        <div className="absolute h-16 w-px bg-primary/40" />
       </div>
+      <p className="relative z-[1] text-sm font-bold uppercase tracking-[0.25em] text-primary">
+        Image Coming Soon
+      </p>
+      {subtitle && (
+        <p className="relative z-[1] max-w-[90%] text-[10px] uppercase tracking-widest text-muted-foreground">
+          {subtitle}
+        </p>
+      )}
     </div>
   );
+}
+
+function shouldUsePlaceholderArt(
+  imageKey?: MainGameImageKey,
+  forceShow = false,
+): boolean {
+  return forceShow || (imageKey ? isMainGamePlaceholderImage(imageKey) : false);
 }
 
 type LocationSurveyImageProps = {
@@ -72,10 +86,15 @@ export function LocationSurveyImage({
   containerClassName,
   variant = "default",
 }: LocationSurveyImageProps) {
+  const usePlaceholder = shouldUsePlaceholderArt(imageKey);
+
   return (
     <div className={cn("relative overflow-hidden", containerClassName)}>
-      <img src={src} alt={alt} className={className} />
-      <PlaceholderArtOverlay imageKey={imageKey} variant={variant} />
+      {usePlaceholder ? (
+        <SurveyArtPlaceholder subtitle={alt} variant={variant} />
+      ) : (
+        <img src={src} alt={alt} className={className} />
+      )}
     </div>
   );
 }
