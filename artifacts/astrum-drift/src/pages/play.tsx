@@ -7,7 +7,9 @@ import {
   useGetChatMessages,
   useSendChatMessage,
   getGetChatMessagesQueryKey,
+  ApiError,
   type ChatChannel,
+  type ChatMessageList,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Power, Terminal } from "lucide-react";
@@ -397,6 +399,7 @@ export default function PlayPage() {
   const [activeChatChannel, setActiveChatChannel] =
     useState<ChatChannelId>("global");
   const [chatDraft, setChatDraft] = useState("");
+  const [chatSendError, setChatSendError] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [showLaunchIntro, setShowLaunchIntro] = useState(true);
   const [showCommandTour, setShowCommandTour] = useState(true);
@@ -420,7 +423,11 @@ export default function PlayPage() {
 
   const logoutMutation = useLogout();
 
-  const { data: chatData } = useGetChatMessages(
+  const {
+    data: chatData,
+    isError: isChatLoadError,
+    error: chatLoadError,
+  } = useGetChatMessages(
     activeChatChannel as ChatChannel,
     undefined,
     {
@@ -447,26 +454,45 @@ export default function PlayPage() {
   };
 
   const activeChannelMessages = chatData?.messages ?? [];
+  const chatLoadErrorMessage =
+    isChatLoadError && chatLoadError instanceof ApiError
+      ? (chatLoadError.data as { error?: string } | null)?.error ??
+        chatLoadError.message
+      : isChatLoadError
+        ? "Unable to load chat messages."
+        : null;
   const isChatInputEnabled =
     activeChatChannel !== "clan" &&
     Boolean(player?.username) &&
-    !sendChatMutation.isPending;
+    !sendChatMutation.isPending &&
+    !chatLoadErrorMessage;
 
   const sendChatMessage = async () => {
     const trimmed = chatDraft.trim();
     if (!trimmed || !player?.username || activeChatChannel === "clan") return;
 
+    setChatSendError(null);
+
     try {
-      await sendChatMutation.mutateAsync({
+      const result = await sendChatMutation.mutateAsync({
         channel: activeChatChannel as ChatChannel,
         data: { text: trimmed },
       });
       setChatDraft("");
-      await queryClient.invalidateQueries({
-        queryKey: getGetChatMessagesQueryKey(activeChatChannel as ChatChannel),
-      });
-    } catch {
-      addMessage("[SYSTEM] Failed to send chat message.");
+
+      const queryKey = getGetChatMessagesQueryKey(
+        activeChatChannel as ChatChannel,
+      );
+      queryClient.setQueryData<ChatMessageList>(queryKey, (current) => ({
+        messages: [...(current?.messages ?? []), result.message],
+      }));
+      await queryClient.invalidateQueries({ queryKey });
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? (error.data as { error?: string } | null)?.error ?? error.message
+          : "Failed to send chat message.";
+      setChatSendError(message);
     }
   };
 
@@ -3152,7 +3178,10 @@ export default function PlayPage() {
                       <button
                         key={channel.id}
                         type="button"
-                        onClick={() => setActiveChatChannel(channel.id)}
+                        onClick={() => {
+                          setActiveChatChannel(channel.id);
+                          setChatSendError(null);
+                        }}
                         className={`h-6 px-2 rounded border text-[10px] uppercase tracking-widest whitespace-nowrap shrink-0 ${
                           activeChatChannel === channel.id
                             ? "border-primary/50 bg-primary/15 text-primary"
@@ -3174,7 +3203,11 @@ export default function PlayPage() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-2">
-                  {activeChannelMessages.length === 0 ? (
+                  {chatLoadErrorMessage ? (
+                    <div className="text-xs text-destructive uppercase tracking-widest">
+                      {chatLoadErrorMessage}
+                    </div>
+                  ) : activeChannelMessages.length === 0 ? (
                     <div className="text-xs text-muted-foreground uppercase tracking-widest">
                       {CHAT_CHANNEL_EMPTY_TEXT[activeChatChannel]}
                     </div>
@@ -3192,11 +3225,20 @@ export default function PlayPage() {
                   <div ref={chatEndRef} />
                 </div>
 
-                <div className="border-t border-primary/20 px-4 py-2 flex gap-2">
+                <div className="border-t border-primary/20 px-4 py-2 flex flex-col gap-2">
+                  {chatSendError && (
+                    <p className="text-[10px] text-destructive uppercase tracking-widest">
+                      {chatSendError}
+                    </p>
+                  )}
+                  <div className="flex gap-2">
                   <input
                     type="text"
                     value={chatDraft}
-                    onChange={(event) => setChatDraft(event.target.value)}
+                    onChange={(event) => {
+                      setChatDraft(event.target.value);
+                      if (chatSendError) setChatSendError(null);
+                    }}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
                         event.preventDefault();
@@ -3216,6 +3258,7 @@ export default function PlayPage() {
                   >
                     Send
                   </button>
+                  </div>
                 </div>
               </div>
             ) : (

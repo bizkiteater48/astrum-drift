@@ -57,32 +57,37 @@ router.get("/chat/:channel/messages", requireAuth, async (req, res): Promise<voi
     return;
   }
 
-  if (after !== undefined) {
+  try {
+    if (after !== undefined) {
+      const rows = await db
+        .select()
+        .from(chatMessagesTable)
+        .where(
+          and(
+            eq(chatMessagesTable.channel, channel),
+            gt(chatMessagesTable.id, after),
+          ),
+        )
+        .orderBy(asc(chatMessagesTable.id))
+        .limit(limit);
+
+      res.status(200).json({ messages: rows.map(serializeChatMessage) });
+      return;
+    }
+
     const rows = await db
       .select()
       .from(chatMessagesTable)
-      .where(
-        and(
-          eq(chatMessagesTable.channel, channel),
-          gt(chatMessagesTable.id, after),
-        ),
-      )
-      .orderBy(asc(chatMessagesTable.id))
+      .where(eq(chatMessagesTable.channel, channel))
+      .orderBy(desc(chatMessagesTable.id))
       .limit(limit);
 
+    rows.reverse();
     res.status(200).json({ messages: rows.map(serializeChatMessage) });
-    return;
+  } catch (err) {
+    req.log.error({ err, channel }, "Failed to load chat messages");
+    res.status(503).json({ error: "Chat is temporarily unavailable" });
   }
-
-  const rows = await db
-    .select()
-    .from(chatMessagesTable)
-    .where(eq(chatMessagesTable.channel, channel))
-    .orderBy(desc(chatMessagesTable.id))
-    .limit(limit);
-
-  rows.reverse();
-  res.status(200).json({ messages: rows.map(serializeChatMessage) });
 });
 
 router.post(
@@ -119,17 +124,22 @@ router.post(
       return;
     }
 
-    const [inserted] = await db
-      .insert(chatMessagesTable)
-      .values({
-        channel,
-        playerId,
-        username: player.username,
-        text,
-      })
-      .returning();
+    try {
+      const [inserted] = await db
+        .insert(chatMessagesTable)
+        .values({
+          channel,
+          playerId,
+          username: player.username,
+          text,
+        })
+        .returning();
 
-    res.status(201).json({ message: serializeChatMessage(inserted!) });
+      res.status(201).json({ message: serializeChatMessage(inserted!) });
+    } catch (err) {
+      req.log.error({ err, channel, playerId }, "Failed to send chat message");
+      res.status(503).json({ error: "Chat is temporarily unavailable" });
+    }
   },
 );
 
