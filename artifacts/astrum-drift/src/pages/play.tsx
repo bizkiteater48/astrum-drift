@@ -12,7 +12,7 @@ import {
   type ChatMessageList,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Power, Terminal } from "lucide-react";
+import { Loader2, Power, Terminal, Globe, Coins, Shield, CircleHelp } from "lucide-react";
 import earthOrbitImg from "@/assets/earth-orbit.png";
 import earthLaunchIntroImg from "@/assets/earth-launch-intro.jpg";
 import industrialYardImg from "@/assets/industrial-yard.jpg";
@@ -81,10 +81,10 @@ const isHandEquipItem = (itemName: string) =>
   (HAND_EQUIP_ITEMS as readonly string[]).includes(itemName);
 
 const CHAT_CHANNELS = [
-  { id: "global", label: "Global" },
-  { id: "trade", label: "Trade" },
-  { id: "clan", label: "Clan" },
-  { id: "help", label: "Help" },
+  { id: "global", label: "Global", Icon: Globe },
+  { id: "trade", label: "Trade", Icon: Coins },
+  { id: "clan", label: "Clan", Icon: Shield },
+  { id: "help", label: "Help", Icon: CircleHelp },
 ] as const;
 
 type ChatChannelId = (typeof CHAT_CHANNELS)[number]["id"];
@@ -3217,19 +3217,23 @@ export default function PlayPage() {
                     {CHAT_CHANNELS.map((channel) => {
                       const channelStyle = CHAT_CHANNEL_STYLES[channel.id];
                       const isActive = activeChatChannel === channel.id;
+                      const ChannelIcon = channel.Icon;
 
                       return (
                       <button
                         key={channel.id}
                         type="button"
+                        aria-label={`${channel.label} chat`}
+                        aria-current={isActive ? "true" : undefined}
                         onClick={() => {
                           setActiveChatChannel(channel.id);
                           setChatSendError(null);
                         }}
-                        className={`h-6 px-2 rounded border text-[10px] uppercase tracking-widest whitespace-nowrap shrink-0 ${
+                        className={`inline-flex items-center gap-1 h-6 px-2 rounded border text-[10px] uppercase tracking-widest whitespace-nowrap shrink-0 ${
                           isActive ? channelStyle.tabActive : channelStyle.tabInactive
                         }`}
                       >
+                        <ChannelIcon className="size-3 shrink-0" aria-hidden="true" />
                         {channel.label}
                       </button>
                       );
