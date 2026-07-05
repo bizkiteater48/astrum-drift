@@ -103,6 +103,41 @@ const CHAT_CHANNEL_PLACEHOLDER: Record<ChatChannelId, string> = {
   help: "Message Help chat…",
 };
 
+const CHAT_CHANNEL_STYLES: Record<
+  ChatChannelId,
+  {
+    tabActive: string;
+    tabInactive: string;
+    author: string;
+    messageBorder: string;
+  }
+> = {
+  global: {
+    tabActive: "border-primary/50 bg-primary/15 text-primary",
+    tabInactive: "border-primary/20 text-primary/60 hover:bg-primary/10",
+    author: "text-primary",
+    messageBorder: "border-l-primary/50",
+  },
+  trade: {
+    tabActive: "border-chart-2/50 bg-chart-2/15 text-chart-2",
+    tabInactive: "border-chart-2/25 text-chart-2/60 hover:bg-chart-2/10",
+    author: "text-chart-2",
+    messageBorder: "border-l-chart-2/50",
+  },
+  clan: {
+    tabActive: "border-chart-3/50 bg-chart-3/15 text-chart-3",
+    tabInactive: "border-chart-3/25 text-chart-3/60 hover:bg-chart-3/10",
+    author: "text-chart-3",
+    messageBorder: "border-l-chart-3/50",
+  },
+  help: {
+    tabActive: "border-yellow-400/50 bg-yellow-400/10 text-yellow-400",
+    tabInactive: "border-yellow-400/25 text-yellow-400/60 hover:bg-yellow-400/10",
+    author: "text-yellow-400",
+    messageBorder: "border-l-yellow-400/50",
+  },
+};
+
 const tutorialSteps: TutorialStep[] = [
   {
     id: "mine_iron_ore",
@@ -3174,7 +3209,11 @@ export default function PlayPage() {
                   </h3>
 
                   <div className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto custom-scrollbar">
-                    {CHAT_CHANNELS.map((channel) => (
+                    {CHAT_CHANNELS.map((channel) => {
+                      const channelStyle = CHAT_CHANNEL_STYLES[channel.id];
+                      const isActive = activeChatChannel === channel.id;
+
+                      return (
                       <button
                         key={channel.id}
                         type="button"
@@ -3183,14 +3222,13 @@ export default function PlayPage() {
                           setChatSendError(null);
                         }}
                         className={`h-6 px-2 rounded border text-[10px] uppercase tracking-widest whitespace-nowrap shrink-0 ${
-                          activeChatChannel === channel.id
-                            ? "border-primary/50 bg-primary/15 text-primary"
-                            : "border-primary/20 text-primary/60 hover:bg-primary/10"
+                          isActive ? channelStyle.tabActive : channelStyle.tabInactive
                         }`}
                       >
                         {channel.label}
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   <button
@@ -3214,8 +3252,13 @@ export default function PlayPage() {
                   ) : (
                     <div className="space-y-2">
                       {activeChannelMessages.map((message) => (
-                        <div key={message.id} className="text-xs font-mono leading-relaxed">
-                          <span className="text-primary/80">{message.author}</span>
+                        <div
+                          key={message.id}
+                          className={`text-xs font-mono leading-relaxed border-l-2 pl-2 ${CHAT_CHANNEL_STYLES[activeChatChannel].messageBorder}`}
+                        >
+                          <span className={CHAT_CHANNEL_STYLES[activeChatChannel].author}>
+                            {message.author}
+                          </span>
                           <span className="text-muted-foreground mx-1">·</span>
                           <span className="text-foreground/90">{message.text}</span>
                         </div>
