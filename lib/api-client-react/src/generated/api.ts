@@ -18,12 +18,17 @@ import type {
 
 import type {
   AuthCredentials,
+  ChatChannel,
+  ChatMessageList,
   ErrorResponse,
+  GetChatMessagesParams,
   HealthStatus,
   MiningCollectResult,
   MiningState,
   Player,
   RegisterCredentials,
+  SendChatMessageBody,
+  SendChatMessageResult,
   SuccessResponse,
 } from "./api.schemas";
 
@@ -590,4 +595,190 @@ export const useCollectMining = <
   TContext
 > => {
   return useMutation(getCollectMiningMutationOptions(options));
+};
+
+/**
+ * @summary List chat messages for a channel
+ */
+export const getGetChatMessagesUrl = (
+  channel: ChatChannel,
+  params?: GetChatMessagesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  if (params?.after !== undefined) {
+    normalizedParams.append("after", String(params.after));
+  }
+
+  if (params?.limit !== undefined) {
+    normalizedParams.append("limit", String(params.limit));
+  }
+
+  const queryString = normalizedParams.toString();
+
+  return queryString
+    ? `/api/chat/${channel}/messages?${queryString}`
+    : `/api/chat/${channel}/messages`;
+};
+
+export const getChatMessages = async (
+  channel: ChatChannel,
+  params?: GetChatMessagesParams,
+  options?: RequestInit,
+): Promise<ChatMessageList> => {
+  return customFetch<ChatMessageList>(getGetChatMessagesUrl(channel, params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetChatMessagesQueryKey = (
+  channel: ChatChannel,
+  params?: GetChatMessagesParams,
+) => {
+  return [`/api/chat/${channel}/messages`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetChatMessagesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getChatMessages>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  channel: ChatChannel,
+  params?: GetChatMessagesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getChatMessages>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetChatMessagesQueryKey(channel, params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getChatMessages>>> = ({
+    signal,
+  }) => getChatMessages(channel, params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getChatMessages>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetChatMessagesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getChatMessages>>
+>;
+export type GetChatMessagesQueryError = ErrorType<ErrorResponse>;
+
+export function useGetChatMessages<
+  TData = Awaited<ReturnType<typeof getChatMessages>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  channel: ChatChannel,
+  params?: GetChatMessagesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getChatMessages>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetChatMessagesQueryOptions(channel, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Send a chat message to a channel
+ */
+export const getSendChatMessageUrl = (channel: ChatChannel) => {
+  return `/api/chat/${channel}/messages`;
+};
+
+export const sendChatMessage = async (
+  channel: ChatChannel,
+  sendChatMessageBody: SendChatMessageBody,
+  options?: RequestInit,
+): Promise<SendChatMessageResult> => {
+  return customFetch<SendChatMessageResult>(getSendChatMessageUrl(channel), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(sendChatMessageBody),
+  });
+};
+
+export const getSendChatMessageMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendChatMessage>>,
+    TError,
+    { channel: ChatChannel; data: BodyType<SendChatMessageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendChatMessage>>,
+  TError,
+  { channel: ChatChannel; data: BodyType<SendChatMessageBody> },
+  TContext
+> => {
+  const mutationKey = ["sendChatMessage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendChatMessage>>,
+    { channel: ChatChannel; data: BodyType<SendChatMessageBody> }
+  > = (props) => {
+    const { channel, data } = props ?? {};
+
+    return sendChatMessage(channel, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendChatMessageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendChatMessage>>
+>;
+export type SendChatMessageMutationBody = BodyType<SendChatMessageBody>;
+export type SendChatMessageMutationError = ErrorType<ErrorResponse>;
+
+export const useSendChatMessage = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendChatMessage>>,
+    TError,
+    { channel: ChatChannel; data: BodyType<SendChatMessageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendChatMessage>>,
+  TError,
+  { channel: ChatChannel; data: BodyType<SendChatMessageBody> },
+  TContext
+> => {
+  return useMutation(getSendChatMessageMutationOptions(options));
 };

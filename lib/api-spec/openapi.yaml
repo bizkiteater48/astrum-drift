@@ -16,6 +16,8 @@
             description: Player state
           - name: mining
             description: Mining actions
+          - name: chat
+            description: Player chat channels
 
         paths:
           /healthz:
@@ -190,8 +192,152 @@
                       schema:
                         $ref: "#/components/schemas/ErrorResponse"
 
+          /chat/{channel}/messages:
+            get:
+              operationId: getChatMessages
+              tags: [chat]
+              summary: List chat messages for a channel
+              parameters:
+                - name: channel
+                  in: path
+                  required: true
+                  schema:
+                    $ref: "#/components/schemas/ChatChannel"
+                - name: after
+                  in: query
+                  required: false
+                  schema:
+                    type: integer
+                  description: Return messages with id greater than this cursor
+                - name: limit
+                  in: query
+                  required: false
+                  schema:
+                    type: integer
+                    maximum: 100
+                    default: 100
+              responses:
+                "200":
+                  description: Chat messages
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ChatMessageList"
+                "400":
+                  description: Invalid channel or cursor
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "401":
+                  description: Not authenticated
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+            post:
+              operationId: sendChatMessage
+              tags: [chat]
+              summary: Send a chat message to a channel
+              parameters:
+                - name: channel
+                  in: path
+                  required: true
+                  schema:
+                    $ref: "#/components/schemas/ChatChannel"
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/SendChatMessageBody"
+              responses:
+                "201":
+                  description: Message sent
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/SendChatMessageResult"
+                "400":
+                  description: Invalid message
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "401":
+                  description: Not authenticated
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "403":
+                  description: Channel unavailable
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "429":
+                  description: Rate limited
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
         components:
           schemas:
+            ChatChannel:
+              type: string
+              enum: [global, trade, clan, help]
+
+            ChatMessage:
+              type: object
+              properties:
+                id:
+                  type: integer
+                channel:
+                  $ref: "#/components/schemas/ChatChannel"
+                author:
+                  type: string
+                text:
+                  type: string
+                sentAt:
+                  type: string
+                  format: date-time
+              required:
+                - id
+                - channel
+                - author
+                - text
+                - sentAt
+
+            ChatMessageList:
+              type: object
+              properties:
+                messages:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ChatMessage"
+              required:
+                - messages
+
+            SendChatMessageBody:
+              type: object
+              properties:
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+              required:
+                - text
+
+            SendChatMessageResult:
+              type: object
+              properties:
+                message:
+                  $ref: "#/components/schemas/ChatMessage"
+              required:
+                - message
+
             HealthStatus:
               type: object
               properties:

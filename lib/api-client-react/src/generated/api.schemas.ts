@@ -77,3 +77,38 @@ export interface MiningCollectResult {
   player: Player;
   reward: MiningReward;
 }
+
+export const ChatChannel = {
+  global: "global",
+  trade: "trade",
+  clan: "clan",
+  help: "help",
+} as const;
+
+export type ChatChannel = (typeof ChatChannel)[keyof typeof ChatChannel];
+
+export interface ChatMessage {
+  id: number;
+  channel: ChatChannel;
+  author: string;
+  text: string;
+  sentAt: string;
+}
+
+export interface ChatMessageList {
+  messages: ChatMessage[];
+}
+
+export interface SendChatMessageBody {
+  /** @minLength 1 @maxLength 500 */
+  text: string;
+}
+
+export interface SendChatMessageResult {
+  message: ChatMessage;
+}
+
+export type GetChatMessagesParams = {
+  after?: number;
+  limit?: number;
+};

@@ -1,0 +1,136 @@
+import { Router, type IRouter } from "express";
+import rateLimit from "express-rate-limit";
+import { and, asc, desc, eq, gt } from "drizzle-orm";
+import { db, chatMessagesTable, playersTable } from "@workspace/db";
+import { requireAuth } from "../middlewares/auth";
+
+const router: IRouter = Router();
+
+export const CHAT_CHANNELS = ["global", "trade", "clan", "help"] as const;
+export type ChatChannel = (typeof CHAT_CHANNELS)[number];
+
+const MAX_MESSAGE_LENGTH = 500;
+const DEFAULT_MESSAGE_LIMIT = 100;
+
+const chatSendLimiter = rateLimit({
+  windowMs: 10 * 1000,
+  limit: 8,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many chat messages. Slow down." },
+});
+
+function isChatChannel(value: string): value is ChatChannel {
+  return (CHAT_CHANNELS as readonly string[]).includes(value);
+}
+
+function serializeChatMessage(row: typeof chatMessagesTable.$inferSelect) {
+  return {
+    id: row.id,
+    channel: row.channel as ChatChannel,
+    author: row.username,
+    text: row.text,
+    sentAt: row.createdAt.toISOString(),
+  };
+}
+
+router.get("/chat/:channel/messages", requireAuth, async (req, res): Promise<void> => {
+  const channel = req.params.channel;
+  if (!isChatChannel(channel)) {
+    res.status(400).json({ error: "Invalid chat channel" });
+    return;
+  }
+
+  const afterRaw = req.query.after;
+  const after =
+    typeof afterRaw === "string" && afterRaw.trim() !== ""
+      ? Number(afterRaw)
+      : undefined;
+  const limitRaw = req.query.limit;
+  const limit = Math.min(
+    typeof limitRaw === "string" ? Number(limitRaw) || DEFAULT_MESSAGE_LIMIT : DEFAULT_MESSAGE_LIMIT,
+    DEFAULT_MESSAGE_LIMIT,
+  );
+
+  if (after !== undefined && (!Number.isInteger(after) || after < 0)) {
+    res.status(400).json({ error: "Invalid after cursor" });
+    return;
+  }
+
+  if (after !== undefined) {
+    const rows = await db
+      .select()
+      .from(chatMessagesTable)
+      .where(
+        and(
+          eq(chatMessagesTable.channel, channel),
+          gt(chatMessagesTable.id, after),
+        ),
+      )
+      .orderBy(asc(chatMessagesTable.id))
+      .limit(limit);
+
+    res.status(200).json({ messages: rows.map(serializeChatMessage) });
+    return;
+  }
+
+  const rows = await db
+    .select()
+    .from(chatMessagesTable)
+    .where(eq(chatMessagesTable.channel, channel))
+    .orderBy(desc(chatMessagesTable.id))
+    .limit(limit);
+
+  rows.reverse();
+  res.status(200).json({ messages: rows.map(serializeChatMessage) });
+});
+
+router.post(
+  "/chat/:channel/messages",
+  requireAuth,
+  chatSendLimiter,
+  async (req, res): Promise<void> => {
+    const channel = req.params.channel;
+    if (!isChatChannel(channel)) {
+      res.status(400).json({ error: "Invalid chat channel" });
+      return;
+    }
+
+    if (channel === "clan") {
+      res.status(403).json({ error: "Clan chat requires clan membership" });
+      return;
+    }
+
+    const rawText = req.body?.text;
+    const text = typeof rawText === "string" ? rawText.trim() : "";
+    if (!text || text.length > MAX_MESSAGE_LENGTH) {
+      res.status(400).json({ error: "Message must be 1–500 characters" });
+      return;
+    }
+
+    const playerId = req.session.playerId!;
+    const [player] = await db
+      .select({ username: playersTable.username })
+      .from(playersTable)
+      .where(eq(playersTable.id, playerId));
+
+    if (!player) {
+      res.status(401).json({ error: "Not authenticated" });
+      return;
+    }
+
+    const [inserted] = await db
+      .insert(chatMessagesTable)
+      .values({
+        channel,
+        playerId,
+        username: player.username,
+        text,
+      })
+      .returning();
+
+    res.status(201).json({ message: serializeChatMessage(inserted!) });
+  },
+);
+
+export default router;

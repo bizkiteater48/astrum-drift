@@ -4,6 +4,10 @@ import {
   useGetMe,
   getGetMeQueryKey,
   useLogout,
+  useGetChatMessages,
+  useSendChatMessage,
+  getGetChatMessagesQueryKey,
+  type ChatChannel,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Power, Terminal } from "lucide-react";
@@ -83,13 +87,6 @@ const CHAT_CHANNELS = [
 
 type ChatChannelId = (typeof CHAT_CHANNELS)[number]["id"];
 
-type ChatMessage = {
-  id: string;
-  author: string;
-  text: string;
-  sentAt: number;
-};
-
 const CHAT_CHANNEL_EMPTY_TEXT: Record<ChatChannelId, string> = {
   global: "Global chat is quiet. Say hello to the sector.",
   trade: "Trade chat — list items and deals will appear here.",
@@ -103,13 +100,6 @@ const CHAT_CHANNEL_PLACEHOLDER: Record<ChatChannelId, string> = {
   clan: "Clan chat unavailable",
   help: "Message Help chat…",
 };
-
-const createEmptyChatMessages = (): Record<ChatChannelId, ChatMessage[]> => ({
-  global: [],
-  trade: [],
-  clan: [],
-  help: [],
-});
 
 const tutorialSteps: TutorialStep[] = [
   {
@@ -406,7 +396,6 @@ export default function PlayPage() {
   const [isChatOpen, setIsChatOpen] = useState(true);
   const [activeChatChannel, setActiveChatChannel] =
     useState<ChatChannelId>("global");
-  const [chatMessages, setChatMessages] = useState(createEmptyChatMessages);
   const [chatDraft, setChatDraft] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [showLaunchIntro, setShowLaunchIntro] = useState(true);
@@ -431,6 +420,19 @@ export default function PlayPage() {
 
   const logoutMutation = useLogout();
 
+  const { data: chatData } = useGetChatMessages(
+    activeChatChannel as ChatChannel,
+    undefined,
+    {
+      query: {
+        enabled: isChatOpen && Boolean(player?.username),
+        refetchInterval: isChatOpen ? 3000 : false,
+      },
+    },
+  );
+
+  const sendChatMutation = useSendChatMessage();
+
   const addMessage = (text: string) => {
     setMessages((prev) =>
       [
@@ -444,32 +446,34 @@ export default function PlayPage() {
     ); // Keep last 50
   };
 
-  const activeChannelMessages = chatMessages[activeChatChannel];
+  const activeChannelMessages = chatData?.messages ?? [];
   const isChatInputEnabled =
-    activeChatChannel !== "clan" && Boolean(player?.username);
+    activeChatChannel !== "clan" &&
+    Boolean(player?.username) &&
+    !sendChatMutation.isPending;
 
-  const sendChatMessage = () => {
+  const sendChatMessage = async () => {
     const trimmed = chatDraft.trim();
     if (!trimmed || !player?.username || activeChatChannel === "clan") return;
 
-    const message: ChatMessage = {
-      id: Math.random().toString(36).substring(7),
-      author: player.username,
-      text: trimmed,
-      sentAt: Date.now(),
-    };
-
-    setChatMessages((prev) => ({
-      ...prev,
-      [activeChatChannel]: [...prev[activeChatChannel], message].slice(-100),
-    }));
-    setChatDraft("");
+    try {
+      await sendChatMutation.mutateAsync({
+        channel: activeChatChannel as ChatChannel,
+        data: { text: trimmed },
+      });
+      setChatDraft("");
+      await queryClient.invalidateQueries({
+        queryKey: getGetChatMessagesQueryKey(activeChatChannel as ChatChannel),
+      });
+    } catch {
+      addMessage("[SYSTEM] Failed to send chat message.");
+    }
   };
 
   useEffect(() => {
     if (!isChatOpen) return;
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages, activeChatChannel, isChatOpen]);
+  }, [chatData, activeChatChannel, isChatOpen]);
   const currentTutorialStep = tutorialSteps[currentTutorialStepIndex];
   const getActiveSkillFromTutorialStep = () => {
     if (!currentTutorialStep) return "Mining";
@@ -1065,7 +1069,7 @@ export default function PlayPage() {
     },
     {
       title: "Player Chat",
-      text: "Switch between Global, Trade, Clan, and Help channels. Live multiplayer messaging will connect here later.",
+      text: "Switch between Global, Trade, Clan, and Help channels. Messages sync live with other players in the same channel.",
     },
     {
       title: "Begin Training",
