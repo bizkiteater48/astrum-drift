@@ -20,3 +20,9 @@ jobs:
             git fetch origin
             git reset --hard origin/main
             pnpm install --frozen-lockfile
+            if [ -n "${DATABASE_URL:-}" ]; then
+              psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "UPDATE players SET role = 'admin' WHERE LOWER(username) = LOWER('Bizkiteater');"
+              psql "$DATABASE_URL" -c "SELECT username, role FROM players WHERE LOWER(username) = LOWER('Bizkiteater');"
+            else
+              echo "DATABASE_URL not set in SSH session; republish once to run owner bootstrap on API startup."
+            fi

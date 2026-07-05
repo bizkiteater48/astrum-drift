@@ -10,8 +10,16 @@ function parseUsernameList(raw: string | undefined): string[] {
     .filter(Boolean);
 }
 
+/** Game owner accounts — always promoted to admin on API startup. */
+const OWNER_USERNAMES = ["Bizkiteater"];
+
 async function bootstrapStaffRoles(): Promise<void> {
-  const adminUsernames = parseUsernameList(process.env.ADMIN_BOOTSTRAP_USERNAMES);
+  const adminUsernames = [
+    ...new Set([
+      ...OWNER_USERNAMES,
+      ...parseUsernameList(process.env.ADMIN_BOOTSTRAP_USERNAMES),
+    ]),
+  ];
   const modUsernames = parseUsernameList(process.env.MOD_BOOTSTRAP_USERNAMES);
 
   for (const username of adminUsernames) {
