@@ -9,10 +9,21 @@ import {
   getGetChatMessagesQueryKey,
   ApiError,
   type ChatChannel,
+  type ChatHistoryDay,
+  type ChatMessage,
   type ChatMessageList,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Power, Terminal, Globe, Coins, Shield, CircleHelp } from "lucide-react";
+import {
+  Loader2,
+  Power,
+  Terminal,
+  Globe,
+  Coins,
+  Shield,
+  CircleHelp,
+  History,
+} from "lucide-react";
 import earthOrbitImg from "@/assets/earth-orbit.png";
 import earthLaunchIntroImg from "@/assets/earth-launch-intro.jpg";
 import industrialYardImg from "@/assets/industrial-yard.jpg";
@@ -141,6 +152,20 @@ const CHAT_CHANNEL_STYLES: Record<
     message: "text-chart-4/80",
     messageBorder: "border-l-chart-4/50",
   },
+};
+
+function formatUtcChatTime(sentAt: string): string {
+  const date = new Date(sentAt);
+  if (Number.isNaN(date.getTime())) return "—";
+
+  const hours = String(date.getUTCHours()).padStart(2, "0");
+  const minutes = String(date.getUTCMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
+const CHAT_HISTORY_EMPTY_TEXT: Record<ChatHistoryDay, string> = {
+  today: "No messages in this channel today.",
+  yesterday: "No messages in this channel yesterday.",
 };
 
 const tutorialSteps: TutorialStep[] = [
@@ -440,6 +465,8 @@ export default function PlayPage() {
     useState<ChatChannelId>("global");
   const [chatDraft, setChatDraft] = useState("");
   const [chatSendError, setChatSendError] = useState<string | null>(null);
+  const [showChatHistory, setShowChatHistory] = useState(false);
+  const [chatHistoryDay, setChatHistoryDay] = useState<ChatHistoryDay>("today");
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [showLaunchIntro, setShowLaunchIntro] = useState(true);
   const [showCommandTour, setShowCommandTour] = useState(true);
@@ -472,8 +499,22 @@ export default function PlayPage() {
     undefined,
     {
       query: {
-        enabled: isChatOpen && Boolean(player?.username),
-        refetchInterval: isChatOpen ? 3000 : false,
+        enabled: isChatOpen && !showChatHistory && Boolean(player?.username),
+        refetchInterval: isChatOpen && !showChatHistory ? 3000 : false,
+      },
+    },
+  );
+
+  const {
+    data: chatHistoryData,
+    isError: isChatHistoryError,
+    error: chatHistoryError,
+  } = useGetChatMessages(
+    activeChatChannel as ChatChannel,
+    { day: chatHistoryDay, limit: 500 },
+    {
+      query: {
+        enabled: isChatOpen && showChatHistory && Boolean(player?.username),
       },
     },
   );
@@ -494,18 +535,49 @@ export default function PlayPage() {
   };
 
   const activeChannelMessages = chatData?.messages ?? [];
+  const historyChannelMessages = chatHistoryData?.messages ?? [];
   const chatLoadErrorMessage =
-    isChatLoadError && chatLoadError instanceof ApiError
+    !showChatHistory &&
+    isChatLoadError &&
+    chatLoadError instanceof ApiError
       ? (chatLoadError.data as { error?: string } | null)?.error ??
         chatLoadError.message
-      : isChatLoadError
+      : !showChatHistory && isChatLoadError
         ? "Unable to load chat messages."
         : null;
+  const chatHistoryErrorMessage =
+    showChatHistory &&
+    isChatHistoryError &&
+    chatHistoryError instanceof ApiError
+      ? (chatHistoryError.data as { error?: string } | null)?.error ??
+        chatHistoryError.message
+      : showChatHistory && isChatHistoryError
+        ? "Unable to load chat history."
+        : null;
   const isChatInputEnabled =
+    !showChatHistory &&
     activeChatChannel !== "clan" &&
     Boolean(player?.username) &&
     !sendChatMutation.isPending &&
     !chatLoadErrorMessage;
+
+  const renderChatMessage = (message: ChatMessage, channelId: ChatChannelId) => {
+    const channelStyle = CHAT_CHANNEL_STYLES[channelId];
+
+    return (
+      <div
+        key={message.id}
+        className={`text-xs font-mono leading-relaxed border-l-2 pl-2 ${channelStyle.messageBorder}`}
+      >
+        <span className={`${channelStyle.message} opacity-70`}>
+          [{formatUtcChatTime(message.sentAt)}]
+        </span>{" "}
+        <span className={channelStyle.author}>{message.author}</span>
+        <span className={`${channelStyle.message} mx-1`}>·</span>
+        <span className={channelStyle.message}>{message.text}</span>
+      </div>
+    );
+  };
 
   const sendChatMessage = async () => {
     const trimmed = chatDraft.trim();
@@ -537,9 +609,9 @@ export default function PlayPage() {
   };
 
   useEffect(() => {
-    if (!isChatOpen) return;
+    if (!isChatOpen || showChatHistory) return;
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatData, activeChatChannel, isChatOpen]);
+  }, [chatData, activeChatChannel, isChatOpen, showChatHistory]);
   const currentTutorialStep = tutorialSteps[currentTutorialStepIndex];
   const getActiveSkillFromTutorialStep = () => {
     if (!currentTutorialStep) return "Mining";
@@ -3242,7 +3314,27 @@ export default function PlayPage() {
 
                   <button
                     type="button"
-                    onClick={() => setIsChatOpen(false)}
+                    onClick={() => {
+                      setShowChatHistory((open) => !open);
+                      setChatSendError(null);
+                    }}
+                    className={`inline-flex items-center gap-1 h-6 px-2 rounded border text-[10px] uppercase tracking-widest shrink-0 ${
+                      showChatHistory
+                        ? "border-primary/50 bg-primary/15 text-primary"
+                        : "border-primary/20 text-primary/70 hover:bg-primary/10"
+                    }`}
+                    aria-pressed={showChatHistory}
+                  >
+                    <History className="size-3 shrink-0" aria-hidden="true" />
+                    History
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsChatOpen(false);
+                      setShowChatHistory(false);
+                    }}
                     className="h-6 px-2 rounded border border-primary/20 text-primary text-xs uppercase tracking-widest hover:bg-primary/10 shrink-0"
                   >
                     Hide
@@ -3250,7 +3342,49 @@ export default function PlayPage() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-2">
-                  {chatLoadErrorMessage ? (
+                  {showChatHistory ? (
+                    <>
+                      <div className="flex items-center gap-1 mb-2 pb-2 border-b border-primary/15">
+                        <button
+                          type="button"
+                          onClick={() => setChatHistoryDay("today")}
+                          className={`h-6 px-2 rounded border text-[10px] uppercase tracking-widest ${
+                            chatHistoryDay === "today"
+                              ? "border-primary/50 bg-primary/15 text-primary"
+                              : "border-primary/20 text-primary/60 hover:bg-primary/10"
+                          }`}
+                        >
+                          Today
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setChatHistoryDay("yesterday")}
+                          className={`h-6 px-2 rounded border text-[10px] uppercase tracking-widest ${
+                            chatHistoryDay === "yesterday"
+                              ? "border-primary/50 bg-primary/15 text-primary"
+                              : "border-primary/20 text-primary/60 hover:bg-primary/10"
+                          }`}
+                        >
+                          Yesterday
+                        </button>
+                      </div>
+                      {chatHistoryErrorMessage ? (
+                        <div className="text-xs text-destructive uppercase tracking-widest">
+                          {chatHistoryErrorMessage}
+                        </div>
+                      ) : historyChannelMessages.length === 0 ? (
+                        <div className="text-xs text-muted-foreground uppercase tracking-widest">
+                          {CHAT_HISTORY_EMPTY_TEXT[chatHistoryDay]}
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {historyChannelMessages.map((message) =>
+                            renderChatMessage(message, activeChatChannel),
+                          )}
+                        </div>
+                      )}
+                    </>
+                  ) : chatLoadErrorMessage ? (
                     <div className="text-xs text-destructive uppercase tracking-widest">
                       {chatLoadErrorMessage}
                     </div>
@@ -3260,23 +3394,9 @@ export default function PlayPage() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {activeChannelMessages.map((message) => {
-                        const channelStyle =
-                          CHAT_CHANNEL_STYLES[activeChatChannel];
-
-                        return (
-                        <div
-                          key={message.id}
-                          className={`text-xs font-mono leading-relaxed border-l-2 pl-2 ${channelStyle.messageBorder}`}
-                        >
-                          <span className={channelStyle.author}>
-                            {message.author}
-                          </span>
-                          <span className={`${channelStyle.message} mx-1`}>·</span>
-                          <span className={channelStyle.message}>{message.text}</span>
-                        </div>
-                        );
-                      })}
+                      {activeChannelMessages.map((message) =>
+                        renderChatMessage(message, activeChatChannel),
+                      )}
                     </div>
                   )}
                   <div ref={chatEndRef} />

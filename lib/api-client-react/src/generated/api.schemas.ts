@@ -87,6 +87,14 @@ export const ChatChannel = {
 
 export type ChatChannel = (typeof ChatChannel)[keyof typeof ChatChannel];
 
+export const ChatHistoryDay = {
+  today: "today",
+  yesterday: "yesterday",
+} as const;
+
+export type ChatHistoryDay =
+  (typeof ChatHistoryDay)[keyof typeof ChatHistoryDay];
+
 export interface ChatMessage {
   id: number;
   channel: ChatChannel;
@@ -111,4 +119,5 @@ export interface SendChatMessageResult {
 export type GetChatMessagesParams = {
   after?: number;
   limit?: number;
+  day?: ChatHistoryDay;
 };

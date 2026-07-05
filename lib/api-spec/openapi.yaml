@@ -214,8 +214,14 @@
                   required: false
                   schema:
                     type: integer
-                    maximum: 100
+                    maximum: 500
                     default: 100
+                - name: day
+                  in: query
+                  required: false
+                  schema:
+                    $ref: "#/components/schemas/ChatHistoryDay"
+                  description: Filter messages to today or yesterday (UTC)
               responses:
                 "200":
                   description: Chat messages
@@ -288,6 +294,10 @@
             ChatChannel:
               type: string
               enum: [global, trade, clan, help]
+
+            ChatHistoryDay:
+              type: string
+              enum: [today, yesterday]
 
             ChatMessage:
               type: object
