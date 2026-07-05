@@ -18,6 +18,8 @@
             description: Mining actions
           - name: chat
             description: Player chat channels
+          - name: moderation
+            description: Player reports and staff moderation
 
         paths:
           /healthz:
@@ -289,6 +291,315 @@
                       schema:
                         $ref: "#/components/schemas/ErrorResponse"
 
+          /moderation/reports:
+            post:
+              operationId: submitPlayerReport
+              tags: [moderation]
+              summary: Submit a player report
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/SubmitReportBody"
+              responses:
+                "201":
+                  description: Report submitted
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/PlayerReportResult"
+                "400":
+                  description: Invalid report
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "401":
+                  description: Not authenticated
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "404":
+                  description: Reported player not found
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "429":
+                  description: Rate limited
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+            get:
+              operationId: listPlayerReports
+              tags: [moderation]
+              summary: List player reports (staff only)
+              parameters:
+                - name: status
+                  in: query
+                  required: false
+                  schema:
+                    type: string
+                    default: pending
+              responses:
+                "200":
+                  description: Reports list
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/PlayerReportList"
+                "401":
+                  description: Not authenticated
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "403":
+                  description: Staff only
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
+          /moderation/reports/{reportId}/mute:
+            post:
+              operationId: muteFromReport
+              tags: [moderation]
+              summary: Mute reported player with escalating duration (staff only)
+              parameters:
+                - name: reportId
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+              requestBody:
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/ModerationNoteBody"
+              responses:
+                "200":
+                  description: Player muted
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/MuteFromReportResult"
+                "400":
+                  description: Invalid request
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "401":
+                  description: Not authenticated
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "403":
+                  description: Staff only
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "404":
+                  description: Report not found
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
+          /moderation/reports/{reportId}/dismiss:
+            post:
+              operationId: dismissReport
+              tags: [moderation]
+              summary: Dismiss a player report (staff only)
+              parameters:
+                - name: reportId
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+              requestBody:
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/ModerationNoteBody"
+              responses:
+                "200":
+                  description: Report dismissed
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/PlayerReportResult"
+                "400":
+                  description: Invalid request
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "401":
+                  description: Not authenticated
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "403":
+                  description: Staff only
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "404":
+                  description: Report not found
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
+          /moderation/players/{playerId}/mute:
+            post:
+              operationId: mutePlayer
+              tags: [moderation]
+              summary: Mute a player directly (staff only)
+              parameters:
+                - name: playerId
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/MutePlayerBody"
+              responses:
+                "200":
+                  description: Player muted
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/MutePlayerResult"
+                "400":
+                  description: Invalid request
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "401":
+                  description: Not authenticated
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "403":
+                  description: Staff only
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "404":
+                  description: Player not found
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
+          /moderation/players/{playerId}/records:
+            get:
+              operationId: getPlayerModerationRecords
+              tags: [moderation]
+              summary: Get moderation history for a player (staff only)
+              parameters:
+                - name: playerId
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+              responses:
+                "200":
+                  description: Moderation records
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/PlayerModerationRecords"
+                "400":
+                  description: Invalid player id
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "401":
+                  description: Not authenticated
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "403":
+                  description: Staff only
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "404":
+                  description: Player not found
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
+          /moderation/chat-messages/{messageId}:
+            delete:
+              operationId: deleteChatMessage
+              tags: [moderation]
+              summary: Soft-delete a chat message (staff only)
+              parameters:
+                - name: messageId
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+              requestBody:
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/DeleteChatMessageBody"
+              responses:
+                "200":
+                  description: Message deleted
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/SuccessResponse"
+                "400":
+                  description: Invalid message id
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "401":
+                  description: Not authenticated
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "403":
+                  description: Staff only
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "404":
+                  description: Message not found
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
         components:
           schemas:
             ChatChannel:
@@ -414,6 +725,8 @@
                   type: integer
                 username:
                   type: string
+                role:
+                  $ref: "#/components/schemas/PlayerRole"
                 credits:
                   type: integer
                 experience:
@@ -429,15 +742,242 @@
                   format: date-time
                 cycleDurationSec:
                   type: integer
+                mutedUntil:
+                  type:
+                    - string
+                    - "null"
+                  format: date-time
               required:
                 - id
                 - username
+                - role
                 - credits
                 - experience
                 - currentLocation
                 - miningLevel
                 - miningStartedAt
                 - cycleDurationSec
+                - mutedUntil
+
+            PlayerRole:
+              type: string
+              enum: [player, mod, admin]
+
+            ReportReason:
+              type: string
+              enum: [harassment, spam, cheating, inappropriate, other]
+
+            SubmitReportBody:
+              type: object
+              properties:
+                reportedUsername:
+                  type: string
+                reason:
+                  $ref: "#/components/schemas/ReportReason"
+                details:
+                  type: string
+                channel:
+                  type: string
+                messageId:
+                  type: integer
+              required:
+                - reportedUsername
+                - reason
+
+            PlayerReport:
+              type: object
+              properties:
+                id:
+                  type: integer
+                reporterId:
+                  type: integer
+                reportedPlayerId:
+                  type: integer
+                reporterUsername:
+                  type: string
+                reportedUsername:
+                  type: string
+                channel:
+                  type:
+                    - string
+                    - "null"
+                messageId:
+                  type:
+                    - integer
+                    - "null"
+                reason:
+                  $ref: "#/components/schemas/ReportReason"
+                details:
+                  type:
+                    - string
+                    - "null"
+                status:
+                  type: string
+                resolutionNote:
+                  type:
+                    - string
+                    - "null"
+                createdAt:
+                  type: string
+                  format: date-time
+                resolvedAt:
+                  type:
+                    - string
+                    - "null"
+                  format: date-time
+              required:
+                - id
+                - reporterId
+                - reportedPlayerId
+                - reason
+                - status
+                - createdAt
+
+            PlayerReportResult:
+              type: object
+              properties:
+                report:
+                  $ref: "#/components/schemas/PlayerReport"
+              required:
+                - report
+
+            PlayerReportList:
+              type: object
+              properties:
+                reports:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/PlayerReport"
+              required:
+                - reports
+
+            ModerationNoteBody:
+              type: object
+              properties:
+                note:
+                  type: string
+
+            MuteResult:
+              type: object
+              properties:
+                durationMinutes:
+                  type: integer
+                mutedUntil:
+                  type: string
+                  format: date-time
+                offenseNumber:
+                  type: integer
+              required:
+                - durationMinutes
+                - mutedUntil
+                - offenseNumber
+
+            MuteFromReportResult:
+              type: object
+              properties:
+                report:
+                  $ref: "#/components/schemas/PlayerReport"
+                mute:
+                  $ref: "#/components/schemas/MuteResult"
+              required:
+                - report
+                - mute
+
+            MutePlayerBody:
+              type: object
+              properties:
+                reason:
+                  type: string
+              required:
+                - reason
+
+            MutePlayerResult:
+              type: object
+              properties:
+                mute:
+                  $ref: "#/components/schemas/MuteResult"
+              required:
+                - mute
+
+            ModerationRecord:
+              type: object
+              properties:
+                id:
+                  type: integer
+                playerId:
+                  type: integer
+                moderatorId:
+                  type: integer
+                moderatorUsername:
+                  type: string
+                action:
+                  type: string
+                reason:
+                  type: string
+                durationMinutes:
+                  type:
+                    - integer
+                    - "null"
+                messageId:
+                  type:
+                    - integer
+                    - "null"
+                reportId:
+                  type:
+                    - integer
+                    - "null"
+                createdAt:
+                  type: string
+                  format: date-time
+              required:
+                - id
+                - playerId
+                - moderatorId
+                - action
+                - reason
+                - createdAt
+
+            PlayerModerationSummary:
+              type: object
+              properties:
+                id:
+                  type: integer
+                username:
+                  type: string
+                role:
+                  $ref: "#/components/schemas/PlayerRole"
+                mutedUntil:
+                  type:
+                    - string
+                    - "null"
+                  format: date-time
+                muteCount:
+                  type: integer
+              required:
+                - id
+                - username
+                - role
+                - mutedUntil
+                - muteCount
+
+            PlayerModerationRecords:
+              type: object
+              properties:
+                player:
+                  $ref: "#/components/schemas/PlayerModerationSummary"
+                records:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ModerationRecord"
+              required:
+                - player
+                - records
+
+            DeleteChatMessageBody:
+              type: object
+              properties:
+                reason:
+                  type: string
 
             MiningState:
               type: object

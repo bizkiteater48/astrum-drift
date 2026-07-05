@@ -33,6 +33,9 @@ export const playersTable = pgTable("players", {
 
   tutorialProgress: jsonb("tutorial_progress"),
 
+  role: text("role").notNull().default("player"),
+  mutedUntil: timestamp("muted_until", { withTimezone: true }),
+
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

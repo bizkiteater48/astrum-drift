@@ -1,5 +1,6 @@
 import app from "./app";
 import { ensureChatSchema } from "./lib/ensure-chat-schema";
+import { ensureModerationSchema } from "./lib/ensure-moderation-schema";
 import { logger } from "./lib/logger";
 
 const rawPort = process.env["PORT"];
@@ -18,8 +19,9 @@ if (Number.isNaN(port) || port <= 0) {
 
 try {
   await ensureChatSchema();
+  await ensureModerationSchema();
 } catch (err) {
-  logger.error({ err }, "Failed to ensure chat schema");
+  logger.error({ err }, "Failed to ensure database schema");
   process.exit(1);
 }
 

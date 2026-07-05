@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import rateLimit from "express-rate-limit";
-import { and, asc, desc, eq, gt, gte, lt } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, isNull, lt } from "drizzle-orm";
 import { db, chatMessagesTable, playersTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
 
@@ -113,6 +113,7 @@ router.get("/chat/:channel/messages", requireAuth, async (req, res): Promise<voi
             eq(chatMessagesTable.channel, channel),
             gte(chatMessagesTable.createdAt, start),
             lt(chatMessagesTable.createdAt, end),
+            isNull(chatMessagesTable.deletedAt),
           ),
         )
         .orderBy(asc(chatMessagesTable.id))
@@ -130,6 +131,7 @@ router.get("/chat/:channel/messages", requireAuth, async (req, res): Promise<voi
           and(
             eq(chatMessagesTable.channel, channel),
             gt(chatMessagesTable.id, after),
+            isNull(chatMessagesTable.deletedAt),
           ),
         )
         .orderBy(asc(chatMessagesTable.id))
@@ -142,7 +144,12 @@ router.get("/chat/:channel/messages", requireAuth, async (req, res): Promise<voi
     const rows = await db
       .select()
       .from(chatMessagesTable)
-      .where(eq(chatMessagesTable.channel, channel))
+      .where(
+        and(
+          eq(chatMessagesTable.channel, channel),
+          isNull(chatMessagesTable.deletedAt),
+        ),
+      )
       .orderBy(desc(chatMessagesTable.id))
       .limit(limit);
 
@@ -179,12 +186,22 @@ router.post(
 
     const playerId = req.session.playerId!;
     const [player] = await db
-      .select({ username: playersTable.username })
+      .select({
+        username: playersTable.username,
+        mutedUntil: playersTable.mutedUntil,
+      })
       .from(playersTable)
       .where(eq(playersTable.id, playerId));
 
     if (!player) {
       res.status(401).json({ error: "Not authenticated" });
+      return;
+    }
+
+    if (player.mutedUntil && player.mutedUntil.getTime() > Date.now()) {
+      res.status(403).json({
+        error: `You are muted until ${player.mutedUntil.toISOString()}`,
+      });
       return;
     }
 

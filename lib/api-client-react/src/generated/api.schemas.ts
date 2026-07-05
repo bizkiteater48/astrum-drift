@@ -51,6 +51,7 @@ export interface RegisterCredentials {
 export interface Player {
   id: number;
   username: string;
+  role: PlayerRole;
   credits: number;
   experience: number;
   currentLocation: string;
@@ -58,7 +59,17 @@ export interface Player {
   /** @nullable */
   miningStartedAt: string | null;
   cycleDurationSec: number;
+  /** @nullable */
+  mutedUntil: string | null;
 }
+
+export const PlayerRole = {
+  player: "player",
+  mod: "mod",
+  admin: "admin",
+} as const;
+
+export type PlayerRole = (typeof PlayerRole)[keyof typeof PlayerRole];
 
 export interface MiningState {
   player: Player;

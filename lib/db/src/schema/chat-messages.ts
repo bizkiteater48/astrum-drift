@@ -21,6 +21,10 @@ export const chatMessagesTable = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: integer("deleted_by").references(() => playersTable.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     index("chat_messages_channel_id_idx").on(table.channel, table.id),

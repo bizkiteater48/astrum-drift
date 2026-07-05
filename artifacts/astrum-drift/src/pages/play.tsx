@@ -12,6 +12,7 @@ import {
   type ChatHistoryDay,
   type ChatMessage,
   type ChatMessageList,
+  type Player,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -23,6 +24,8 @@ import {
   Shield,
   CircleHelp,
   History,
+  Flag,
+  ShieldAlert,
 } from "lucide-react";
 import earthOrbitImg from "@/assets/earth-orbit.png";
 import earthLaunchIntroImg from "@/assets/earth-launch-intro.jpg";
@@ -43,6 +46,12 @@ import { MarketPanel, type MarketPanelView } from "@/components/market-panel";
 import { applyNpcSell } from "@/lib/npc-economy";
 import { SurveyArtPlaceholder } from "@/components/placeholder-art-overlay";
 import { StarChartPanel } from "@/components/star-chart-panel";
+import { ModerationPanel } from "@/components/moderation-panel";
+import { ReportPlayerDialog } from "@/components/report-player-dialog";
+import {
+  deleteChatMessage,
+  isStaffRole,
+} from "@/lib/moderation-api";
 import {
   applyMainGameActionInventory,
   canAffordMainGameAction,
@@ -112,6 +121,11 @@ const CHAT_CHANNEL_PLACEHOLDER: Record<ChatChannelId, string> = {
   trade: "Message Trade chat…",
   clan: "Clan chat unavailable",
   help: "Message Help chat…",
+};
+
+const isPlayerMuted = (player: Player | null | undefined): boolean => {
+  if (!player?.mutedUntil) return false;
+  return new Date(player.mutedUntil).getTime() > Date.now();
 };
 
 const CHAT_CHANNEL_STYLES: Record<
@@ -467,6 +481,15 @@ export default function PlayPage() {
   const [chatSendError, setChatSendError] = useState<string | null>(null);
   const [showChatHistory, setShowChatHistory] = useState(false);
   const [chatHistoryDay, setChatHistoryDay] = useState<ChatHistoryDay>("today");
+  const [showModerationPanel, setShowModerationPanel] = useState(false);
+  const [reportDialog, setReportDialog] = useState<{
+    username: string;
+    channel?: string;
+    messageId?: number;
+  } | null>(null);
+  const [reportSubmittedNotice, setReportSubmittedNotice] = useState<
+    string | null
+  >(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [showLaunchIntro, setShowLaunchIntro] = useState(true);
   const [showCommandTour, setShowCommandTour] = useState(true);
@@ -559,22 +582,70 @@ export default function PlayPage() {
     activeChatChannel !== "clan" &&
     Boolean(player?.username) &&
     !sendChatMutation.isPending &&
-    !chatLoadErrorMessage;
+    !chatLoadErrorMessage &&
+    !isPlayerMuted(player);
+  const muteMessage =
+    isPlayerMuted(player) && player?.mutedUntil
+      ? `You are muted until ${new Date(player.mutedUntil).toLocaleString()}.`
+      : null;
+
+  const handleDeleteChatMessage = async (messageId: number) => {
+    try {
+      await deleteChatMessage(messageId);
+      await queryClient.invalidateQueries({
+        queryKey: getGetChatMessagesQueryKey(activeChatChannel as ChatChannel),
+      });
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? (error.data as { error?: string } | null)?.error ?? error.message
+          : "Failed to delete chat message.";
+      setChatSendError(message);
+    }
+  };
 
   const renderChatMessage = (message: ChatMessage, channelId: ChatChannelId) => {
     const channelStyle = CHAT_CHANNEL_STYLES[channelId];
+    const isStaff = isStaffRole(player?.role);
 
     return (
-      <div
-        key={message.id}
-        className={`text-xs font-mono leading-relaxed border-l-2 pl-2 ${channelStyle.messageBorder}`}
-      >
-        <span className={`${channelStyle.message} opacity-70`}>
-          [{formatUtcChatTime(message.sentAt)}]
-        </span>{" "}
-        <span className={channelStyle.author}>{message.author}</span>
-        <span className={`${channelStyle.message} mx-1`}>·</span>
-        <span className={channelStyle.message}>{message.text}</span>
+      <div key={message.id} className="group flex items-start gap-1">
+        <div
+          className={`flex-1 min-w-0 text-xs font-mono leading-relaxed border-l-2 pl-2 ${channelStyle.messageBorder}`}
+        >
+          <span className={`${channelStyle.message} opacity-70`}>
+            [{formatUtcChatTime(message.sentAt)}]
+          </span>{" "}
+          <span className={channelStyle.author}>{message.author}</span>
+          <span className={`${channelStyle.message} mx-1`}>·</span>
+          <span className={channelStyle.message}>{message.text}</span>
+        </div>
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0 pt-0.5">
+          {isStaff && (
+            <button
+              type="button"
+              aria-label="Delete message"
+              onClick={() => void handleDeleteChatMessage(message.id)}
+              className="h-5 w-5 rounded border border-destructive/30 text-destructive text-xs hover:bg-destructive/10"
+            >
+              ×
+            </button>
+          )}
+          <button
+            type="button"
+            aria-label="Report player"
+            onClick={() =>
+              setReportDialog({
+                username: message.author,
+                channel: channelId,
+                messageId: message.id,
+              })
+            }
+            className="h-5 w-5 rounded border border-primary/20 text-primary/70 hover:bg-primary/10"
+          >
+            <Flag className="size-2.5 mx-auto" aria-hidden="true" />
+          </button>
+        </div>
       </div>
     );
   };
@@ -2599,6 +2670,16 @@ export default function PlayPage() {
                 >
                   Settings
                 </Button>
+
+                {isStaffRole(player?.role) && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowModerationPanel(true)}
+                    className="justify-start font-mono uppercase tracking-widest border-primary/30 text-primary hover:bg-primary/10"
+                  >
+                    Staff Moderation
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -3331,6 +3412,26 @@ export default function PlayPage() {
 
                   <button
                     type="button"
+                    onClick={() => setReportDialog({ username: "" })}
+                    className="inline-flex items-center gap-1 h-6 px-2 rounded border border-primary/20 text-primary/70 hover:bg-primary/10 text-[10px] uppercase tracking-widest shrink-0"
+                  >
+                    <Flag className="size-3 shrink-0" aria-hidden="true" />
+                    Report
+                  </button>
+
+                  {isStaffRole(player?.role) && (
+                    <button
+                      type="button"
+                      onClick={() => setShowModerationPanel(true)}
+                      className="inline-flex items-center gap-1 h-6 px-2 rounded border border-primary/20 text-primary/70 hover:bg-primary/10 text-[10px] uppercase tracking-widest shrink-0"
+                    >
+                      <ShieldAlert className="size-3 shrink-0" aria-hidden="true" />
+                      Staff
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
                     onClick={() => {
                       setIsChatOpen(false);
                       setShowChatHistory(false);
@@ -3403,9 +3504,9 @@ export default function PlayPage() {
                 </div>
 
                 <div className="border-t border-primary/20 px-4 py-2 flex flex-col gap-2">
-                  {chatSendError && (
+                  {(muteMessage || chatSendError) && (
                     <p className="text-[10px] text-destructive uppercase tracking-widest">
-                      {chatSendError}
+                      {muteMessage ?? chatSendError}
                     </p>
                   )}
                   <div className="flex gap-2">
@@ -4291,6 +4392,36 @@ export default function PlayPage() {
       )}
       {showCodexPanel && (
         <CodexPanel onClose={() => setShowCodexPanel(false)} />
+      )}
+      {showModerationPanel && (
+        <ModerationPanel onClose={() => setShowModerationPanel(false)} />
+      )}
+      {reportDialog && (
+        <ReportPlayerDialog
+          defaultUsername={reportDialog.username}
+          channel={reportDialog.channel}
+          messageId={reportDialog.messageId}
+          onClose={() => setReportDialog(null)}
+          onSubmitted={() => {
+            setReportSubmittedNotice(
+              "Report submitted. Staff will review it shortly.",
+            );
+          }}
+        />
+      )}
+      {reportSubmittedNotice && (
+        <div className="fixed bottom-4 right-4 z-[80] glass-panel border border-primary/20 rounded-lg px-4 py-3 max-w-sm">
+          <p className="text-xs text-primary uppercase tracking-widest">
+            {reportSubmittedNotice}
+          </p>
+          <button
+            type="button"
+            onClick={() => setReportSubmittedNotice(null)}
+            className="mt-2 text-[10px] text-primary/70 uppercase tracking-widest hover:text-primary"
+          >
+            Dismiss
+          </button>
+        </div>
       )}
     </div>
   );
