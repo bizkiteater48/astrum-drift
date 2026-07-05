@@ -109,32 +109,37 @@ const CHAT_CHANNEL_STYLES: Record<
     tabActive: string;
     tabInactive: string;
     author: string;
+    message: string;
     messageBorder: string;
   }
 > = {
   global: {
     tabActive: "border-primary/50 bg-primary/15 text-primary",
     tabInactive: "border-primary/20 text-primary/60 hover:bg-primary/10",
-    author: "text-primary",
+    author: "text-primary font-semibold",
+    message: "text-primary/80",
     messageBorder: "border-l-primary/50",
   },
   trade: {
-    tabActive: "border-chart-2/50 bg-chart-2/15 text-chart-2",
-    tabInactive: "border-chart-2/25 text-chart-2/60 hover:bg-chart-2/10",
-    author: "text-chart-2",
-    messageBorder: "border-l-chart-2/50",
+    tabActive: "border-orange-400/50 bg-orange-400/10 text-orange-400",
+    tabInactive: "border-orange-400/25 text-orange-400/60 hover:bg-orange-400/10",
+    author: "text-orange-400 font-semibold",
+    message: "text-orange-400/80",
+    messageBorder: "border-l-orange-400/50",
   },
   clan: {
     tabActive: "border-chart-3/50 bg-chart-3/15 text-chart-3",
     tabInactive: "border-chart-3/25 text-chart-3/60 hover:bg-chart-3/10",
-    author: "text-chart-3",
+    author: "text-chart-3 font-semibold",
+    message: "text-chart-3/80",
     messageBorder: "border-l-chart-3/50",
   },
   help: {
-    tabActive: "border-yellow-400/50 bg-yellow-400/10 text-yellow-400",
-    tabInactive: "border-yellow-400/25 text-yellow-400/60 hover:bg-yellow-400/10",
-    author: "text-yellow-400",
-    messageBorder: "border-l-yellow-400/50",
+    tabActive: "border-chart-4/50 bg-chart-4/15 text-chart-4",
+    tabInactive: "border-chart-4/25 text-chart-4/60 hover:bg-chart-4/10",
+    author: "text-chart-4 font-semibold",
+    message: "text-chart-4/80",
+    messageBorder: "border-l-chart-4/50",
   },
 };
 
@@ -3251,18 +3256,23 @@ export default function PlayPage() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {activeChannelMessages.map((message) => (
+                      {activeChannelMessages.map((message) => {
+                        const channelStyle =
+                          CHAT_CHANNEL_STYLES[activeChatChannel];
+
+                        return (
                         <div
                           key={message.id}
-                          className={`text-xs font-mono leading-relaxed border-l-2 pl-2 ${CHAT_CHANNEL_STYLES[activeChatChannel].messageBorder}`}
+                          className={`text-xs font-mono leading-relaxed border-l-2 pl-2 ${channelStyle.messageBorder}`}
                         >
-                          <span className={CHAT_CHANNEL_STYLES[activeChatChannel].author}>
+                          <span className={channelStyle.author}>
                             {message.author}
                           </span>
-                          <span className="text-muted-foreground mx-1">·</span>
-                          <span className="text-foreground/90">{message.text}</span>
+                          <span className={`${channelStyle.message} mx-1`}>·</span>
+                          <span className={channelStyle.message}>{message.text}</span>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                   <div ref={chatEndRef} />
