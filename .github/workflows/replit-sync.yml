@@ -18,4 +18,4 @@ jobs:
             cd /home/runner/workspace
             git fetch origin
             git reset --hard origin/main
-            pnpm install --frozen-lockfile
+            bash scripts/post-merge.sh

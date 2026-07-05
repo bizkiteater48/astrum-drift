@@ -1,4 +1,5 @@
 import app from "./app";
+import { ensureChatSchema } from "./lib/ensure-chat-schema";
 import { logger } from "./lib/logger";
 
 const rawPort = process.env["PORT"];
@@ -13,6 +14,13 @@ const port = Number(rawPort);
 
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
+}
+
+try {
+  await ensureChatSchema();
+} catch (err) {
+  logger.error({ err }, "Failed to ensure chat schema");
+  process.exit(1);
 }
 
 app.listen(port, (err) => {
