@@ -74,6 +74,43 @@ const HAND_EQUIP_ITEMS = [
 const isHandEquipItem = (itemName: string) =>
   (HAND_EQUIP_ITEMS as readonly string[]).includes(itemName);
 
+const CHAT_CHANNELS = [
+  { id: "global", label: "Global" },
+  { id: "trade", label: "Trade" },
+  { id: "clan", label: "Clan" },
+  { id: "help", label: "Help" },
+] as const;
+
+type ChatChannelId = (typeof CHAT_CHANNELS)[number]["id"];
+
+type ChatMessage = {
+  id: string;
+  author: string;
+  text: string;
+  sentAt: number;
+};
+
+const CHAT_CHANNEL_EMPTY_TEXT: Record<ChatChannelId, string> = {
+  global: "Global chat is quiet. Say hello to the sector.",
+  trade: "Trade chat — list items and deals will appear here.",
+  clan: "Join a clan to unlock clan chat.",
+  help: "Help chat — ask questions and share tips with other pilots.",
+};
+
+const CHAT_CHANNEL_PLACEHOLDER: Record<ChatChannelId, string> = {
+  global: "Message Global chat…",
+  trade: "Message Trade chat…",
+  clan: "Clan chat unavailable",
+  help: "Message Help chat…",
+};
+
+const createEmptyChatMessages = (): Record<ChatChannelId, ChatMessage[]> => ({
+  global: [],
+  trade: [],
+  clan: [],
+  help: [],
+});
+
 const tutorialSteps: TutorialStep[] = [
   {
     id: "mine_iron_ore",
@@ -367,6 +404,11 @@ export default function PlayPage() {
   >("action");
 
   const [isChatOpen, setIsChatOpen] = useState(true);
+  const [activeChatChannel, setActiveChatChannel] =
+    useState<ChatChannelId>("global");
+  const [chatMessages, setChatMessages] = useState(createEmptyChatMessages);
+  const [chatDraft, setChatDraft] = useState("");
+  const chatEndRef = useRef<HTMLDivElement>(null);
   const [showLaunchIntro, setShowLaunchIntro] = useState(true);
   const [showCommandTour, setShowCommandTour] = useState(true);
   const [commandTourStep, setCommandTourStep] = useState(0);
@@ -401,6 +443,33 @@ export default function PlayPage() {
       ].slice(-50),
     ); // Keep last 50
   };
+
+  const activeChannelMessages = chatMessages[activeChatChannel];
+  const isChatInputEnabled =
+    activeChatChannel !== "clan" && Boolean(player?.username);
+
+  const sendChatMessage = () => {
+    const trimmed = chatDraft.trim();
+    if (!trimmed || !player?.username || activeChatChannel === "clan") return;
+
+    const message: ChatMessage = {
+      id: Math.random().toString(36).substring(7),
+      author: player.username,
+      text: trimmed,
+      sentAt: Date.now(),
+    };
+
+    setChatMessages((prev) => ({
+      ...prev,
+      [activeChatChannel]: [...prev[activeChatChannel], message].slice(-100),
+    }));
+    setChatDraft("");
+  };
+
+  useEffect(() => {
+    if (!isChatOpen) return;
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages, activeChatChannel, isChatOpen]);
   const currentTutorialStep = tutorialSteps[currentTutorialStepIndex];
   const getActiveSkillFromTutorialStep = () => {
     if (!currentTutorialStep) return "Mining";
@@ -996,7 +1065,7 @@ export default function PlayPage() {
     },
     {
       title: "Player Chat",
-      text: "The chat panel is where players will communicate. Public, private, clan, and other channels can be added later.",
+      text: "Switch between Global, Trade, Clan, and Help channels. Live multiplayer messaging will connect here later.",
     },
     {
       title: "Begin Training",
@@ -3069,38 +3138,77 @@ export default function PlayPage() {
           >
             {isChatOpen ? (
               <div className="glass-panel border border-primary/20 rounded-lg h-[52vh] min-h-[320px] lg:h-56 lg:min-h-0 flex flex-col overflow-hidden">
-                <div className="flex items-center justify-between border-b border-primary/20 px-4 py-2">
-                  <h3 className="uppercase tracking-widest text-xs text-primary/70">
+                <div className="flex items-center gap-2 border-b border-primary/20 px-4 py-2">
+                  <h3 className="uppercase tracking-widest text-xs text-primary/70 shrink-0">
                     Player Chat
                   </h3>
+
+                  <div className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto custom-scrollbar">
+                    {CHAT_CHANNELS.map((channel) => (
+                      <button
+                        key={channel.id}
+                        type="button"
+                        onClick={() => setActiveChatChannel(channel.id)}
+                        className={`h-6 px-2 rounded border text-[10px] uppercase tracking-widest whitespace-nowrap shrink-0 ${
+                          activeChatChannel === channel.id
+                            ? "border-primary/50 bg-primary/15 text-primary"
+                            : "border-primary/20 text-primary/60 hover:bg-primary/10"
+                        }`}
+                      >
+                        {channel.label}
+                      </button>
+                    ))}
+                  </div>
 
                   <button
                     type="button"
                     onClick={() => setIsChatOpen(false)}
-                    className="h-6 px-2 rounded border border-primary/20 text-primary text-xs uppercase tracking-widest hover:bg-primary/10"
+                    className="h-6 px-2 rounded border border-primary/20 text-primary text-xs uppercase tracking-widest hover:bg-primary/10 shrink-0"
                   >
                     Hide
                   </button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-2">
-                  <div className="text-xs text-muted-foreground uppercase tracking-widest">
-                    Player chat coming soon.
-                  </div>
+                  {activeChannelMessages.length === 0 ? (
+                    <div className="text-xs text-muted-foreground uppercase tracking-widest">
+                      {CHAT_CHANNEL_EMPTY_TEXT[activeChatChannel]}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {activeChannelMessages.map((message) => (
+                        <div key={message.id} className="text-xs font-mono leading-relaxed">
+                          <span className="text-primary/80">{message.author}</span>
+                          <span className="text-muted-foreground mx-1">·</span>
+                          <span className="text-foreground/90">{message.text}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div ref={chatEndRef} />
                 </div>
 
                 <div className="border-t border-primary/20 px-4 py-2 flex gap-2">
                   <input
                     type="text"
-                    disabled
-                    placeholder="Chat input coming soon..."
-                    className="flex-1 h-8 bg-background/60 border border-primary/20 rounded-lg px-3 text-xs text-muted-foreground font-mono outline-none"
+                    value={chatDraft}
+                    onChange={(event) => setChatDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        sendChatMessage();
+                      }
+                    }}
+                    disabled={!isChatInputEnabled}
+                    placeholder={CHAT_CHANNEL_PLACEHOLDER[activeChatChannel]}
+                    className="flex-1 h-8 bg-background/60 border border-primary/20 rounded-lg px-3 text-xs text-foreground font-mono outline-none disabled:text-muted-foreground disabled:cursor-not-allowed"
                   />
 
                   <button
                     type="button"
-                    disabled
-                    className="h-8 px-4 rounded border border-primary/20 text-primary/50 text-xs uppercase tracking-widest"
+                    onClick={sendChatMessage}
+                    disabled={!isChatInputEnabled || chatDraft.trim().length === 0}
+                    className="h-8 px-4 rounded border border-primary/20 text-primary text-xs uppercase tracking-widest hover:bg-primary/10 disabled:text-primary/40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
                   >
                     Send
                   </button>
