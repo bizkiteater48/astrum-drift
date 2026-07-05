@@ -22,7 +22,7 @@ import defaultAvatarImg from "@/assets/default-avatar.png";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { CodexPanel } from "@/components/codex-panel";
-import { MarketPanel } from "@/components/market-panel";
+import { MarketPanel, type MarketPanelView } from "@/components/market-panel";
 import { applyNpcSell } from "@/lib/npc-economy";
 import { SurveyArtPlaceholder } from "@/components/placeholder-art-overlay";
 import { StarChartPanel } from "@/components/star-chart-panel";
@@ -33,11 +33,11 @@ import {
   getActionSkillXp,
   getMainGameActionRecipeCost,
   getEffectiveBuildTimer,
+  getLocationHubActions,
   getMainGameLocation,
   isAutoLoopEligibleAction,
   isInventoryFullForAction,
   isMainGamePlaceholderImage,
-  isMarketLocation,
   isProductionAction,
   MAIN_GAME_DIRECTIVE,
   MAIN_GAME_SKILLS,
@@ -319,7 +319,9 @@ export default function PlayPage() {
   const [mainGameLocationId, setMainGameLocationId] =
     useState<MainGameLocationId>(MAIN_GAME_START_LOCATION);
   const [showStarChart, setShowStarChart] = useState(false);
-  const [showMarketPanel, setShowMarketPanel] = useState(false);
+  const [marketPanelView, setMarketPanelView] = useState<MarketPanelView | null>(
+    null,
+  );
   const [showCodexPanel, setShowCodexPanel] = useState(false);
   const [skillXp, setSkillXp] = useState<Record<SkillId, number>>(
     createDefaultSkillXp(),
@@ -440,6 +442,9 @@ export default function PlayPage() {
     : getActiveSkillFromTutorialStep();
 
   const currentMainGameLocation = getMainGameLocation(mainGameLocationId);
+  const locationHubActions = isTutorialComplete
+    ? getLocationHubActions(currentMainGameLocation)
+    : [];
 
   const hasMobileStatusAlert =
     isTutorialActionRunning ||
@@ -477,7 +482,8 @@ export default function PlayPage() {
       ? "Use Travel to depart for planetary orbital zones."
       : currentMainGameLocation.locationType === "planet_orbit"
         ? "Travel to a surface settlement for field operations."
-        : currentMainGameLocation.actions.length === 0
+        : currentMainGameLocation.actions.length === 0 &&
+            locationHubActions.length === 0
           ? "Use Travel to return to orbit or reach another settlement."
           : "Run a local action or travel to another area."
     : "Select the current training action to proceed.";
@@ -1558,7 +1564,7 @@ export default function PlayPage() {
     setIsTutorialComplete(false);
     setMainGameLocationId(MAIN_GAME_START_LOCATION);
     setShowStarChart(false);
-    setShowMarketPanel(false);
+    setMarketPanelView(null);
     setShowCodexPanel(false);
     setSkillXp(createDefaultSkillXp());
     setIsMainGameActionRunning(false);
@@ -2234,8 +2240,9 @@ export default function PlayPage() {
               </p>
 
               <div className="flex flex-col gap-2">
-                {isTutorialComplete
-                  ? currentMainGameLocation.actions.map((action) => (
+                {isTutorialComplete ? (
+                  <>
+                    {currentMainGameLocation.actions.map((action) => (
                       <Button
                         key={action.id}
                         onClick={() => handleMainGameAction(action)}
@@ -2245,8 +2252,21 @@ export default function PlayPage() {
                       >
                         {action.label}
                       </Button>
-                    ))
-                  : currentTutorialStep.actionLabel && (
+                    ))}
+                    {locationHubActions.map((action) => (
+                      <Button
+                        key={action.id}
+                        onClick={() => setMarketPanelView(action.id === "speak_vendor" ? "npc" : "player")}
+                        disabled={isMainGameActionRunning}
+                        variant="outline"
+                        className="hidden lg:flex justify-start h-auto min-h-12 whitespace-normal text-left leading-tight text-xs font-mono uppercase tracking-widest border-chart-2/50 text-chart-2 hover:bg-chart-2/10 py-3 px-4"
+                      >
+                        {action.label}
+                      </Button>
+                    ))}
+                  </>
+                ) : (
+                  currentTutorialStep.actionLabel && (
                       <Button
                         onClick={
                           currentTutorialStep.id === "defeat_training_drone"
@@ -2272,7 +2292,8 @@ export default function PlayPage() {
                       >
                         {currentTutorialStep.actionLabel}
                       </Button>
-                    )}
+                  )
+                )}
               </div>
             </div>
 
@@ -2344,16 +2365,6 @@ export default function PlayPage() {
                 >
                   Star Chart
                 </Button>
-
-                {isTutorialComplete && isMarketLocation(currentMainGameLocation) && (
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowMarketPanel(true)}
-                    className="justify-start font-mono uppercase tracking-widest border-primary/30 text-primary hover:bg-primary/10"
-                  >
-                    Market
-                  </Button>
-                )}
 
                 <Button
                   variant="outline"
@@ -2950,7 +2961,8 @@ export default function PlayPage() {
           {mobilePanel === "action" &&
             isTutorialComplete &&
             !isMainGameActionRunning &&
-            currentMainGameLocation.actions.length > 0 && (
+            (currentMainGameLocation.actions.length > 0 ||
+              locationHubActions.length > 0) && (
               <div className="lg:hidden bg-background/50 border border-chart-2/30 rounded-lg px-3 py-3 text-center space-y-2">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2">
                   Current Action
@@ -2966,13 +2978,29 @@ export default function PlayPage() {
                     {action.label}
                   </Button>
                 ))}
+                {locationHubActions.map((action) => (
+                  <Button
+                    key={action.id}
+                    type="button"
+                    onClick={() =>
+                      setMarketPanelView(
+                        action.id === "speak_vendor" ? "npc" : "player",
+                      )
+                    }
+                    variant="outline"
+                    className="w-full justify-center h-auto min-h-12 whitespace-normal text-center leading-tight text-xs font-mono uppercase tracking-widest border-chart-2/50 text-chart-2 hover:bg-chart-2/10 py-3 px-4"
+                  >
+                    {action.label}
+                  </Button>
+                ))}
               </div>
             )}
 
           {mobilePanel === "action" &&
             isTutorialComplete &&
             !isMainGameActionRunning &&
-            currentMainGameLocation.actions.length === 0 && (
+            currentMainGameLocation.actions.length === 0 &&
+            locationHubActions.length === 0 && (
               <div className="lg:hidden bg-background/50 border border-primary/30 rounded-lg px-3 py-3 text-center space-y-2">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2">
                   Travel
@@ -3919,13 +3947,14 @@ export default function PlayPage() {
           onClose={() => setShowStarChart(false)}
         />
       )}
-      {showMarketPanel && (
+      {marketPanelView && (
         <MarketPanel
           locationId={mainGameLocationId}
+          view={marketPanelView}
           inventory={tutorialInventory}
           getAvailableQuantity={getAvailableInventoryQuantity}
           onNpcSell={handleNpcSell}
-          onClose={() => setShowMarketPanel(false)}
+          onClose={() => setMarketPanelView(null)}
         />
       )}
       {showCodexPanel && (

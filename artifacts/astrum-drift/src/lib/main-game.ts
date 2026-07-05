@@ -98,6 +98,13 @@ export type MainGameAction = {
   requiredHandItem?: string;
 };
 
+export type LocationHubActionId = "speak_vendor" | "player_market";
+
+export type LocationHubAction = {
+  id: LocationHubActionId;
+  label: string;
+};
+
 export type MainGameTravelLink = {
   locationId: MainGameLocationId;
   label: string;
@@ -808,6 +815,19 @@ export function isMarketLocation(location: MainGameLocation): boolean {
 
 export function isNpcExchangeLocation(location: MainGameLocation): boolean {
   return location.locationType === "spaceport";
+}
+
+export function getLocationHubActions(
+  location: MainGameLocation,
+): LocationHubAction[] {
+  const actions: LocationHubAction[] = [];
+  if (isNpcExchangeLocation(location)) {
+    actions.push({ id: "speak_vendor", label: "Speak to the Vendor" });
+  }
+  if (isMarketLocation(location)) {
+    actions.push({ id: "player_market", label: "Market" });
+  }
+  return actions;
 }
 
 export function getMarketTaxRate(location: MainGameLocation): number {

@@ -10,8 +10,11 @@ import {
   type NpcExchangeListing,
 } from "@/lib/npc-economy";
 
+export type MarketPanelView = "npc" | "player";
+
 type MarketPanelProps = {
   locationId: MainGameLocationId;
+  view: MarketPanelView;
   inventory: Record<string, number>;
   getAvailableQuantity: (itemName: string) => number;
   onNpcSell: (itemName: string, quantity: number) => void;
@@ -77,6 +80,7 @@ function NpcExchangeSection({
 
 export function MarketPanel({
   locationId,
+  view,
   inventory,
   getAvailableQuantity,
   onNpcSell,
@@ -84,11 +88,18 @@ export function MarketPanel({
 }: MarketPanelProps) {
   const location = getMainGameLocation(locationId);
   const taxRate = getMarketTaxRate(location);
-  const showNpcExchange = isNpcExchangeLocation(location);
-  const npcListings = showNpcExchange
-    ? listNpcExchangeListings(inventory, getAvailableQuantity)
-    : [];
+  const canUseNpcExchange = isNpcExchangeLocation(location);
+  const npcListings =
+    view === "npc" && canUseNpcExchange
+      ? listNpcExchangeListings(inventory, getAvailableQuantity)
+      : [];
   const credits = inventory.Credits ?? 0;
+  const panelTitle =
+    view === "npc" ? "NPC Vendor" : "Player Market";
+  const panelSubtitle =
+    view === "npc"
+      ? "Instant sell at vendor buy-floor prices"
+      : `${location.systemName} · P2P tax ${formatMarketTaxRate(taxRate)}`;
 
   return (
     <div className="fixed inset-0 z-[80] bg-black/70 flex items-center justify-center p-4">
@@ -96,15 +107,20 @@ export function MarketPanel({
         <div className="flex items-center justify-between border-b border-primary/20 p-4 shrink-0">
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-widest">
-              {showNpcExchange ? "Trade Hub" : "Player Market"}
+              {panelTitle}
             </p>
             <h2 className="text-xl text-primary font-bold uppercase tracking-widest">
               {location.name}
             </h2>
             <p className="text-xs text-muted-foreground mt-1 uppercase tracking-widest">
-              Credits: {credits.toLocaleString()} · P2P tax{" "}
-              {formatMarketTaxRate(taxRate)}
+              Credits: {credits.toLocaleString()}
+              {view === "npc" ? "" : ` · ${panelSubtitle}`}
             </p>
+            {view === "npc" && (
+              <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">
+                {panelSubtitle}
+              </p>
+            )}
           </div>
 
           <button
@@ -116,35 +132,15 @@ export function MarketPanel({
           </button>
         </div>
 
-        <div className="p-4 space-y-5 overflow-y-auto custom-scrollbar">
-          {showNpcExchange && (
-            <section className="space-y-2">
-              <div>
-                <p className="text-xs text-chart-2 font-bold uppercase tracking-widest">
-                  NPC Exchange
-                </p>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">
-                  Instant sell at vendor buy-floor prices
-                </p>
-              </div>
-              <NpcExchangeSection listings={npcListings} onSell={onNpcSell} />
-            </section>
-          )}
-
-          <section className="space-y-2 border-t border-primary/15 pt-4">
-            <div>
-              <p className="text-xs text-primary font-bold uppercase tracking-widest">
-                Player Market
-              </p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">
-                {location.systemName}
-              </p>
-            </div>
+        <div className="p-4 overflow-y-auto custom-scrollbar">
+          {view === "npc" ? (
+            <NpcExchangeSection listings={npcListings} onSell={onNpcSell} />
+          ) : (
             <p className="text-sm text-muted-foreground leading-relaxed">
               Player listings coming soon. Trades here will be subject to a{" "}
               {formatMarketTaxRate(taxRate)} transaction tax.
             </p>
-          </section>
+          )}
         </div>
       </div>
     </div>
