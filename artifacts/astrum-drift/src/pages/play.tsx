@@ -25,7 +25,6 @@ import {
   CircleHelp,
   History,
   Flag,
-  ShieldAlert,
 } from "lucide-react";
 import earthOrbitImg from "@/assets/earth-orbit.png";
 import earthLaunchIntroImg from "@/assets/earth-launch-intro.jpg";
@@ -2627,11 +2626,36 @@ export default function PlayPage() {
               </p>
 
               <div className="flex flex-col gap-2">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">
+                  Messages
+                </p>
+
                 <Button
                   variant="outline"
+                  onClick={() => {
+                    setIsChatOpen(true);
+                    setMobilePanel("chat");
+                    setShowChatHistory((open) => !open);
+                    setChatSendError(null);
+                  }}
+                  aria-pressed={showChatHistory}
+                  className={`justify-start font-mono uppercase tracking-widest hover:bg-primary/10 ${
+                    showChatHistory
+                      ? "border-primary/50 bg-primary/15 text-primary"
+                      : "border-primary/30 text-primary"
+                  }`}
+                >
+                  <History className="size-3.5 mr-2 shrink-0" aria-hidden="true" />
+                  Chat History
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={() => setReportDialog({ username: "" })}
                   className="justify-start font-mono uppercase tracking-widest border-primary/30 text-primary hover:bg-primary/10"
                 >
-                  Messages
+                  <Flag className="size-3.5 mr-2 shrink-0" aria-hidden="true" />
+                  Report Player
                 </Button>
 
                 <Button
@@ -3392,43 +3416,6 @@ export default function PlayPage() {
                       );
                     })}
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowChatHistory((open) => !open);
-                      setChatSendError(null);
-                    }}
-                    className={`inline-flex items-center gap-1 h-6 px-2 rounded border text-[10px] uppercase tracking-widest shrink-0 ${
-                      showChatHistory
-                        ? "border-primary/50 bg-primary/15 text-primary"
-                        : "border-primary/20 text-primary/70 hover:bg-primary/10"
-                    }`}
-                    aria-pressed={showChatHistory}
-                  >
-                    <History className="size-3 shrink-0" aria-hidden="true" />
-                    History
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setReportDialog({ username: "" })}
-                    className="inline-flex items-center gap-1 h-6 px-2 rounded border border-primary/20 text-primary/70 hover:bg-primary/10 text-[10px] uppercase tracking-widest shrink-0"
-                  >
-                    <Flag className="size-3 shrink-0" aria-hidden="true" />
-                    Report
-                  </button>
-
-                  {isStaffRole(player?.role) && (
-                    <button
-                      type="button"
-                      onClick={() => setShowModerationPanel(true)}
-                      className="inline-flex items-center gap-1 h-6 px-2 rounded border border-primary/20 text-primary/70 hover:bg-primary/10 text-[10px] uppercase tracking-widest shrink-0"
-                    >
-                      <ShieldAlert className="size-3 shrink-0" aria-hidden="true" />
-                      Staff
-                    </button>
-                  )}
 
                   <button
                     type="button"
