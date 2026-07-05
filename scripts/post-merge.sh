@@ -1,8 +1,6 @@
 #!/bin/bash
 set -e
 pnpm install --frozen-lockfile
-if [ -n "${DATABASE_URL:-}" ]; then
-  pnpm --filter @workspace/db run push
-else
-  echo "DATABASE_URL not set; skipping drizzle push (API ensures chat schema on startup)"
-fi
+# Schema is applied at API startup via ensureChatSchema() and ensureModerationSchema().
+# Skipping drizzle push here avoids postMerge timeouts during publish/deploy.
+echo "Skipping drizzle push (API ensures schema on startup)"
