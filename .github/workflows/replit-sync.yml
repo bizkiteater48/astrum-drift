@@ -14,8 +14,9 @@ jobs:
           host: ${{ secrets.REPLIT_SSH_HOST }}
           username: ${{ secrets.REPLIT_SSH_USER }}
           key: ${{ secrets.REPLIT_SSH_PRIVATE_KEY }}
+          command_timeout: 5m
           script: |
             cd /home/runner/workspace
             git fetch origin
             git reset --hard origin/main
-            bash scripts/post-merge.sh
+            pnpm install --frozen-lockfile
