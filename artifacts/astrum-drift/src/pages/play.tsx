@@ -578,14 +578,18 @@ export default function PlayPage() {
     return (
       <div key={message.id} className="group flex items-start gap-1">
         <div
-          className={`flex-1 min-w-0 text-[11px] font-mono leading-snug border-l-2 pl-1.5 ${channelStyle.messageBorder}`}
+          className={`flex-1 min-w-0 text-[11px] font-mono leading-snug border-l-2 pl-1.5 break-words ${channelStyle.messageBorder}`}
         >
-          <span className={`${channelStyle.message} opacity-70`}>
-            [{formatUtcChatTime(message.sentAt)}]
+          <span className="whitespace-nowrap">
+            <span className={`${channelStyle.message} opacity-70`}>
+              [{formatUtcChatTime(message.sentAt)}]
+            </span>{" "}
+            <span className={channelStyle.author}>{message.author}</span>
+            <span className={`${channelStyle.message} mx-1`}>·</span>
           </span>{" "}
-          <span className={channelStyle.author}>{message.author}</span>
-          <span className={`${channelStyle.message} mx-1`}>·</span>
-          <span className={channelStyle.message}>{message.text}</span>
+          <span className={`${channelStyle.message} break-words`}>
+            {message.text}
+          </span>
         </div>
         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0 pt-0.5">
           {isStaff && (

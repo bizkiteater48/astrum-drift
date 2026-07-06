@@ -112,14 +112,16 @@ export default function ChatHistoryPage() {
               {messages.map((message) => (
                 <div
                   key={message.id}
-                  className="text-sm font-mono leading-relaxed border-l-2 border-l-primary/30 pl-3 py-0.5"
+                  className="text-sm font-mono leading-relaxed border-l-2 border-l-primary/30 pl-3 py-0.5 break-words"
                 >
-                  <span className="text-primary/70">
-                    [{formatUtcChatTime(message.sentAt)}]
+                  <span className="whitespace-nowrap">
+                    <span className="text-primary/70">
+                      [{formatUtcChatTime(message.sentAt)}]
+                    </span>{" "}
+                    <span className="text-primary font-semibold">{message.author}</span>
+                    <span className="text-primary/70 mx-1">·</span>
                   </span>{" "}
-                  <span className="text-primary font-semibold">{message.author}</span>
-                  <span className="text-primary/70 mx-1">·</span>
-                  <span className="text-foreground/90">{message.text}</span>
+                  <span className="text-foreground/90 break-words">{message.text}</span>
                 </div>
               ))}
             </div>
