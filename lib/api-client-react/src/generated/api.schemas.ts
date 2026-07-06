@@ -142,6 +142,7 @@ export const SendChatMessageBodyDisplayAs = {
   self: "self",
   admin: "admin",
   mod: "mod",
+  guide: "guide",
 } as const;
 
 export interface SendChatMessageResult {

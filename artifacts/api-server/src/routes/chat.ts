@@ -5,8 +5,10 @@ import { db, chatMessagesTable, playersTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
 import {
   canShowStaffChatTag,
-  getStaffChatDisplayName,
+  canUseChatDisplayAs,
+  getChatAliasDisplayName,
   getStaffChatTagForRole,
+  isChatDisplayAs,
 } from "../lib/moderation";
 
 const router: IRouter = Router();
@@ -186,6 +188,10 @@ router.post(
       return;
     }
 
+    const displayAsRaw =
+      typeof req.body?.displayAs === "string" ? req.body.displayAs.trim() : "self";
+    const displayAs = isChatDisplayAs(displayAsRaw) ? displayAsRaw : "self";
+
     const playerId = req.session.playerId!;
     const [player] = await db
       .select({
@@ -209,14 +215,19 @@ router.post(
       return;
     }
 
+    if (!canUseChatDisplayAs(player.role, displayAs)) {
+      res.status(403).json({ error: "Invalid displayAs for your role" });
+      return;
+    }
+
     try {
       let displayUsername = player.username;
       let authorStaffTag: string | null = null;
       let messageKind: "user" | "staff" = "user";
 
-      const staffDisplayName = getStaffChatDisplayName(player.role);
-      if (staffDisplayName) {
-        displayUsername = staffDisplayName;
+      const aliasName = getChatAliasDisplayName(displayAs);
+      if (aliasName) {
+        displayUsername = aliasName;
         messageKind = "staff";
       } else if (player.showStaffChatTag && canShowStaffChatTag(player.role)) {
         authorStaffTag = getStaffChatTagForRole(player.role);

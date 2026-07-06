@@ -51,6 +51,28 @@ export function getStaffChatDisplayName(role: string): string | null {
   return null;
 }
 
+export const CHAT_DISPLAY_AS_OPTIONS = ["self", "mod", "admin", "guide"] as const;
+export type ChatDisplayAs = (typeof CHAT_DISPLAY_AS_OPTIONS)[number];
+
+export function isChatDisplayAs(value: string): value is ChatDisplayAs {
+  return (CHAT_DISPLAY_AS_OPTIONS as readonly string[]).includes(value);
+}
+
+export function getChatAliasDisplayName(displayAs: ChatDisplayAs): string | null {
+  if (displayAs === "admin") return "ADMIN";
+  if (displayAs === "mod") return "MOD";
+  if (displayAs === "guide") return "GUIDE";
+  return null;
+}
+
+export function canUseChatDisplayAs(role: string, displayAs: ChatDisplayAs): boolean {
+  if (displayAs === "self") return true;
+  if (displayAs === "guide") return role === "guide";
+  if (displayAs === "mod") return role === "mod" || role === "admin";
+  if (displayAs === "admin") return role === "admin";
+  return false;
+}
+
 export const REPORT_REASON_LABELS: Record<ReportReason, string> = {
   harassment: "Harassment",
   spam: "Spam",

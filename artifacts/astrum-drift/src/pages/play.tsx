@@ -483,6 +483,9 @@ export default function PlayPage() {
     useState<ChatChannelId>("global");
   const [chatDraft, setChatDraft] = useState("");
   const [chatSendError, setChatSendError] = useState<string | null>(null);
+  const [staffChatDisplayAs, setStaffChatDisplayAs] = useState<
+    "self" | "mod" | "admin" | "guide"
+  >("self");
   const [showModerationPanel, setShowModerationPanel] = useState(false);
   const [showMessagesPanel, setShowMessagesPanel] = useState(false);
   const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
@@ -766,10 +769,7 @@ export default function PlayPage() {
     const showReportAction = showPlayerActions;
 
     if (isOfficialMessage) {
-      const showStaffAuthor =
-        message.messageKind === "staff" ||
-        message.authorRole === "admin" ||
-        message.authorRole === "mod";
+      const showStaffAuthor = message.messageKind === "staff";
 
       return (
         <div key={message.id} className="group flex items-start gap-1">
@@ -885,6 +885,9 @@ export default function PlayPage() {
         channel: activeChatChannel as ChatChannel,
         data: {
           text: trimmed,
+          ...(staffChatDisplayAs !== "self"
+            ? { displayAs: staffChatDisplayAs }
+            : {}),
         },
       });
       setChatDraft("");
@@ -2853,7 +2856,7 @@ export default function PlayPage() {
             mobilePanel === "location" ? "flex" : "hidden"
           } lg:flex lg:col-span-3 flex-col gap-4 min-h-0 lg:h-full lg:overflow-hidden ${getCommandTourHighlightClass("left")}`}
         >
-          <div className="glass-panel p-4 flex flex-col gap-4 rounded-lg h-full">
+          <div className="glass-panel p-3 flex flex-col gap-3 rounded-lg h-full">
             <div>
               <p className="text-xs text-muted-foreground uppercase tracking-widest mb-2">
                 Location
@@ -2890,11 +2893,11 @@ export default function PlayPage() {
               )}
 
             <div className="border-t border-primary/20 pt-4">
-              <p className="text-xs text-muted-foreground uppercase tracking-widest mb-3">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2">
                 Available Actions
               </p>
 
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-1.5">
                 {isTutorialComplete ? (
                   <>
                     {currentMainGameLocation.actions.map((action) => (
@@ -2903,7 +2906,7 @@ export default function PlayPage() {
                         onClick={() => handleMainGameAction(action)}
                         disabled={isMainGameActionRunning}
                         variant="outline"
-                        className="hidden lg:flex justify-start h-auto min-h-12 whitespace-normal text-left leading-tight text-xs font-mono uppercase tracking-widest border-chart-2/50 text-chart-2 hover:bg-chart-2/10 py-3 px-4"
+                        className="hidden lg:flex justify-start h-auto min-h-9 whitespace-normal text-left leading-tight text-[11px] font-mono uppercase tracking-wide border-chart-2/50 text-chart-2 hover:bg-chart-2/10 py-1.5 px-3"
                       >
                         {action.label}
                       </Button>
@@ -2914,7 +2917,7 @@ export default function PlayPage() {
                         onClick={() => setMarketPanelView(action.id === "speak_vendor" ? "npc" : "player")}
                         disabled={isMainGameActionRunning}
                         variant="outline"
-                        className="hidden lg:flex justify-start h-auto min-h-12 whitespace-normal text-left leading-tight text-xs font-mono uppercase tracking-widest border-chart-2/50 text-chart-2 hover:bg-chart-2/10 py-3 px-4"
+                        className="hidden lg:flex justify-start h-auto min-h-9 whitespace-normal text-left leading-tight text-[11px] font-mono uppercase tracking-wide border-chart-2/50 text-chart-2 hover:bg-chart-2/10 py-1.5 px-3"
                       >
                         {action.label}
                       </Button>
@@ -2943,7 +2946,7 @@ export default function PlayPage() {
                             : undefined
                         }
                         variant="outline"
-                        className="hidden lg:flex justify-start h-auto min-h-12 whitespace-normal text-left leading-tight text-xs font-mono uppercase tracking-widest border-chart-2/50 text-chart-2 hover:bg-chart-2/10 py-3 px-4"
+                        className="hidden lg:flex justify-start h-auto min-h-9 whitespace-normal text-left leading-tight text-[11px] font-mono uppercase tracking-wide border-chart-2/50 text-chart-2 hover:bg-chart-2/10 py-1.5 px-3"
                       >
                         {currentTutorialStep.actionLabel}
                       </Button>
@@ -2957,11 +2960,11 @@ export default function PlayPage() {
                 (currentMainGameLocation.lockedPlanetDepartures?.length ?? 0) >
                   0) && (
                 <div className="border-t border-primary/20 pt-4">
-                  <p className="text-xs text-muted-foreground uppercase tracking-widest mb-3">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2">
                     Travel
                   </p>
 
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-1.5">
                     {currentMainGameLocation.travelDestinations.map(
                       (destination) => (
                         <Button
@@ -2970,7 +2973,7 @@ export default function PlayPage() {
                           onClick={() => handleMainGameTravel(destination)}
                           disabled={isMainGameActionRunning}
                           variant="outline"
-                          className="justify-start h-auto min-h-10 whitespace-normal text-left leading-tight text-xs font-mono uppercase tracking-widest border-primary/40 text-primary hover:bg-primary/10 py-2 px-4"
+                          className="justify-start h-auto min-h-8 whitespace-normal text-left leading-tight text-[11px] font-mono uppercase tracking-wide border-primary/40 text-primary hover:bg-primary/10 py-1.5 px-3"
                         >
                           {destination.label} · {getEffectiveBuildTimer(destination.timerSec)}s
                         </Button>
@@ -2984,7 +2987,7 @@ export default function PlayPage() {
                           disabled
                           variant="outline"
                           title={locked.lockedReason}
-                          className="justify-start h-auto min-h-10 whitespace-normal text-left leading-tight text-xs font-mono uppercase tracking-widest border-primary/20 text-muted-foreground opacity-50 cursor-not-allowed py-2 px-4"
+                          className="justify-start h-auto min-h-8 whitespace-normal text-left leading-tight text-[11px] font-mono uppercase tracking-wide border-primary/20 text-muted-foreground opacity-50 cursor-not-allowed py-1.5 px-3"
                         >
                           {locked.label} · {locked.lockedReason}
                         </Button>
@@ -2995,37 +2998,40 @@ export default function PlayPage() {
               )}
 
             <div className="border-t border-primary/20 pt-4 mt-auto">
-              <p className="text-xs text-muted-foreground uppercase tracking-widest mb-3">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2">
                 Utility
               </p>
 
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-1.5">
                 <Button
+                  size="sm"
                   variant="outline"
                   onClick={() => setShowMessagesPanel(true)}
-                  className="justify-start font-mono uppercase tracking-widest border-primary/30 text-primary hover:bg-primary/10"
+                  className="justify-start h-8 text-[11px] font-mono uppercase tracking-wide border-primary/30 text-primary hover:bg-primary/10 px-3"
                 >
                   Messages
                   {inboxUnreadCount > 0 && (
-                    <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-chart-2 px-1.5 text-[10px] font-bold text-background">
+                    <span className="ml-auto inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-chart-2 px-1 text-[9px] font-bold text-background">
                       {inboxUnreadCount > 99 ? "99+" : inboxUnreadCount}
                     </span>
                   )}
                 </Button>
 
                 <Button
+                  size="sm"
                   variant="outline"
                   onClick={() => setShowDriftLounge(true)}
-                  className="justify-start font-mono uppercase tracking-widest border-primary/30 text-primary hover:bg-primary/10"
+                  className="justify-start h-8 text-[11px] font-mono uppercase tracking-wide border-primary/30 text-primary hover:bg-primary/10 px-3"
                 >
                   Drift Lounge
                 </Button>
 
                 <Button
+                  size="sm"
                   variant="outline"
                   disabled={!isTutorialComplete}
                   onClick={openStarChart}
-                  className="justify-start font-mono uppercase tracking-widest border-primary/30 text-primary hover:bg-primary/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="justify-start h-8 text-[11px] font-mono uppercase tracking-wide border-primary/30 text-primary hover:bg-primary/10 disabled:opacity-40 disabled:cursor-not-allowed px-3"
                   title={
                     isTutorialComplete
                       ? "View area maps for the Verdant Rim"
@@ -3036,38 +3042,42 @@ export default function PlayPage() {
                 </Button>
 
                 <Button
+                  size="sm"
                   variant="outline"
                   onClick={() => setShowCodexPanel(true)}
-                  className="justify-start font-mono uppercase tracking-widest border-primary/30 text-primary hover:bg-primary/10"
+                  className="justify-start h-8 text-[11px] font-mono uppercase tracking-wide border-primary/30 text-primary hover:bg-primary/10 px-3"
                 >
                   Codex
                 </Button>
 
                 <Button
+                  size="sm"
                   variant="outline"
-                  className="justify-start font-mono uppercase tracking-widest border-primary/30 text-primary hover:bg-primary/10"
+                  className="justify-start h-8 text-[11px] font-mono uppercase tracking-wide border-primary/30 text-primary hover:bg-primary/10 px-3"
                 >
                   Forum
                 </Button>
 
                 <Button
+                  size="sm"
                   variant="outline"
                   onClick={() => setShowSettingsPanel(true)}
-                  className="justify-start font-mono uppercase tracking-widest border-primary/30 text-primary hover:bg-primary/10"
+                  className="justify-start h-8 text-[11px] font-mono uppercase tracking-wide border-primary/30 text-primary hover:bg-primary/10 px-3"
                 >
                   Settings
                 </Button>
 
                 {isStaffRole(player?.role) && (
                   <Button
+                    size="sm"
                     variant="outline"
                     onClick={() => setShowModerationPanel(true)}
-                    className="justify-start font-mono uppercase tracking-widest border-primary/30 text-primary hover:bg-primary/10"
+                    className="justify-start h-8 text-[11px] font-mono uppercase tracking-wide border-primary/30 text-primary hover:bg-primary/10 px-3"
                   >
                     <span className="flex items-center gap-2 w-full">
                       Staff Moderation
                       {pendingReportCount > 0 && (
-                        <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive/80 px-1.5 text-[10px] font-bold text-background">
+                        <span className="ml-auto inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive/80 px-1 text-[9px] font-bold text-background">
                           {pendingReportCount > 99 ? "99+" : pendingReportCount}
                         </span>
                       )}
@@ -3077,9 +3087,10 @@ export default function PlayPage() {
 
                 {isAdminRole(player?.role) && (
                   <Button
+                    size="sm"
                     variant="outline"
                     onClick={() => setShowPlayerSupportPanel(true)}
-                    className="justify-start font-mono uppercase tracking-widest border-primary/30 text-primary hover:bg-primary/10"
+                    className="justify-start h-8 text-[11px] font-mono uppercase tracking-wide border-primary/30 text-primary hover:bg-primary/10 px-3"
                   >
                     Player Support
                   </Button>
@@ -3766,9 +3777,39 @@ export default function PlayPage() {
             {isChatOpen ? (
               <div className="glass-panel border border-primary/20 rounded-lg h-[58vh] min-h-[320px] lg:h-96 lg:min-h-0 flex flex-col overflow-hidden">
                 <div className="flex items-center justify-between gap-2 border-b border-primary/20 px-3 py-1">
-                  <h3 className="uppercase tracking-widest text-[10px] text-primary/70 shrink-0">
-                    Player Chat
-                  </h3>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <h3 className="uppercase tracking-widest text-[10px] text-primary/70 shrink-0">
+                      Player Chat
+                    </h3>
+                    {canShowStaffChatTag(player?.role) &&
+                      activeChatChannel !== "clan" && (
+                        <select
+                          value={staffChatDisplayAs}
+                          onChange={(event) =>
+                            setStaffChatDisplayAs(
+                              event.target.value as
+                                | "self"
+                                | "mod"
+                                | "admin"
+                                | "guide",
+                            )
+                          }
+                          className="h-5 max-w-[5.5rem] rounded border border-primary/20 bg-background/60 px-1 text-[9px] text-foreground font-mono uppercase tracking-widest outline-none"
+                          aria-label="Post chat as"
+                        >
+                          <option value="self">Self</option>
+                          {player?.role === "guide" && (
+                            <option value="guide">Guide</option>
+                          )}
+                          {(player?.role === "mod" || player?.role === "admin") && (
+                            <option value="mod">Mod</option>
+                          )}
+                          {player?.role === "admin" && (
+                            <option value="admin">Admin</option>
+                          )}
+                        </select>
+                      )}
+                  </div>
                   <button
                     type="button"
                     onClick={() => setIsChatOpen(false)}

@@ -964,9 +964,9 @@
                   maxLength: 500
                 displayAs:
                   type: string
-                  enum: [self, admin, mod]
+                  enum: [self, admin, mod, guide]
                   default: self
-                  description: Staff-only. Post as Admin or Mod instead of your username.
+                  description: Staff/guide-only. Post as Self, Mod, Admin, or Guide.
               required:
                 - text
 
