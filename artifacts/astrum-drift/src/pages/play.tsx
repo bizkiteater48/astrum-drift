@@ -20,6 +20,7 @@ import {
   Terminal,
   Globe,
   Coins,
+  Dices,
   Shield,
   CircleHelp,
   Flag,
@@ -3015,15 +3016,6 @@ export default function PlayPage() {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => setShowDriftLounge(true)}
-                  className="justify-start h-8 text-[11px] font-mono uppercase tracking-wide border-primary/30 text-primary hover:bg-primary/10 px-3"
-                >
-                  Drift Lounge
-                </Button>
-
-                <Button
-                  size="sm"
-                  variant="outline"
                   disabled={!isTutorialComplete}
                   onClick={openStarChart}
                   className="justify-start h-8 text-[11px] font-mono uppercase tracking-wide border-primary/30 text-primary hover:bg-primary/10 disabled:opacity-40 disabled:cursor-not-allowed px-3"
@@ -4226,8 +4218,19 @@ export default function PlayPage() {
                       ).toLocaleString()}
                     </span>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-primary">Silver Coins</span>
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="text-primary">Silver Coins</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowDriftLounge(true)}
+                        className="inline-flex h-5 w-5 items-center justify-center rounded border border-primary/30 text-primary hover:bg-primary/10"
+                        title="Open Drift Lounge"
+                        aria-label="Open Drift Lounge"
+                      >
+                        <Dices className="h-3 w-3" />
+                      </button>
+                    </div>
                     <span className="text-chart-3 font-bold">
                       {Math.max(
                         player?.silverCoins ?? 0,
