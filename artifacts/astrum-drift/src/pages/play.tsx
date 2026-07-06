@@ -23,7 +23,6 @@ import {
   Coins,
   Shield,
   CircleHelp,
-  History,
   Flag,
 } from "lucide-react";
 import earthOrbitImg from "@/assets/earth-orbit.png";
@@ -46,6 +45,7 @@ import { applyNpcSell } from "@/lib/npc-economy";
 import { SurveyArtPlaceholder } from "@/components/placeholder-art-overlay";
 import { StarChartPanel } from "@/components/star-chart-panel";
 import { ModerationPanel } from "@/components/moderation-panel";
+import { MessagesPanel } from "@/components/messages-panel";
 import { ReportPlayerDialog } from "@/components/report-player-dialog";
 import {
   deleteChatMessage,
@@ -481,6 +481,7 @@ export default function PlayPage() {
   const [showChatHistory, setShowChatHistory] = useState(false);
   const [chatHistoryDay, setChatHistoryDay] = useState<ChatHistoryDay>("today");
   const [showModerationPanel, setShowModerationPanel] = useState(false);
+  const [showMessagesPanel, setShowMessagesPanel] = useState(false);
   const [reportDialog, setReportDialog] = useState<{
     username: string;
     channel?: string;
@@ -2626,36 +2627,12 @@ export default function PlayPage() {
               </p>
 
               <div className="flex flex-col gap-2">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">
-                  Messages
-                </p>
-
                 <Button
                   variant="outline"
-                  onClick={() => {
-                    setIsChatOpen(true);
-                    setMobilePanel("chat");
-                    setShowChatHistory((open) => !open);
-                    setChatSendError(null);
-                  }}
-                  aria-pressed={showChatHistory}
-                  className={`justify-start font-mono uppercase tracking-widest hover:bg-primary/10 ${
-                    showChatHistory
-                      ? "border-primary/50 bg-primary/15 text-primary"
-                      : "border-primary/30 text-primary"
-                  }`}
-                >
-                  <History className="size-3.5 mr-2 shrink-0" aria-hidden="true" />
-                  Chat History
-                </Button>
-
-                <Button
-                  variant="outline"
-                  onClick={() => setReportDialog({ username: "" })}
+                  onClick={() => setShowMessagesPanel(true)}
                   className="justify-start font-mono uppercase tracking-widest border-primary/30 text-primary hover:bg-primary/10"
                 >
-                  <Flag className="size-3.5 mr-2 shrink-0" aria-hidden="true" />
-                  Report Player
+                  Messages
                 </Button>
 
                 <Button
@@ -4382,6 +4359,18 @@ export default function PlayPage() {
       )}
       {showModerationPanel && (
         <ModerationPanel onClose={() => setShowModerationPanel(false)} />
+      )}
+      {showMessagesPanel && (
+        <MessagesPanel
+          onClose={() => setShowMessagesPanel(false)}
+          onOpenChatHistory={() => {
+            setIsChatOpen(true);
+            setMobilePanel("chat");
+            setShowChatHistory(true);
+            setChatSendError(null);
+          }}
+          onReportPlayer={() => setReportDialog({ username: "" })}
+        />
       )}
       {reportDialog && (
         <ReportPlayerDialog
