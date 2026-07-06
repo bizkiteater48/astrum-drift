@@ -2844,12 +2844,12 @@ export default function PlayPage() {
 
       {/* Main Content Grid */}
 
-      <main className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-4 p-3 pb-24 lg:p-4 lg:pb-4 overflow-y-auto lg:overflow-hidden">
+      <main className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(0,2.5fr)_minmax(0,6.5fr)_minmax(0,3fr)] gap-4 p-3 pb-24 lg:p-4 lg:pb-4 overflow-y-auto lg:overflow-hidden">
         {/* Left Column: Location & Navigation */}
         <div
           className={`${
             mobilePanel === "location" ? "flex" : "hidden"
-          } lg:flex lg:col-span-2 flex-col gap-4 min-h-0 lg:h-full lg:overflow-hidden ${getCommandTourHighlightClass("left")}`}
+          } lg:flex flex-col gap-4 min-h-0 lg:h-full lg:overflow-hidden ${getCommandTourHighlightClass("left")}`}
         >
           <div className="glass-panel p-3 flex flex-col gap-3 rounded-lg h-full">
             <div>
@@ -3101,7 +3101,7 @@ export default function PlayPage() {
             mobilePanel === "action" || mobilePanel === "chat"
               ? "flex"
               : "hidden"
-          } lg:flex lg:col-span-7 flex-col gap-4 min-h-0 lg:h-full overflow-y-auto custom-scrollbar`}
+          } lg:flex flex-col gap-4 min-h-0 lg:h-full overflow-y-auto custom-scrollbar`}
         >
           <div
             className={`${mobilePanel === "action" ? "block" : "hidden"} lg:block`}
@@ -3918,7 +3918,7 @@ export default function PlayPage() {
         <div
           className={`${
             mobilePanel === "character" ? "flex" : "hidden"
-          } lg:flex lg:col-span-3 flex-col gap-4 min-h-0 lg:h-full overflow-y-auto custom-scrollbar ${getCommandTourColumnLiftClass("right")}`}
+          } lg:flex flex-col gap-4 min-h-0 lg:h-full overflow-y-auto custom-scrollbar ${getCommandTourColumnLiftClass("right")}`}
         >
           {/* Equipment Board */}
 
