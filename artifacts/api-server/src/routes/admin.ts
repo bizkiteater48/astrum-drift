@@ -4,13 +4,13 @@ import { db, pool, playersTable } from "@workspace/db";
 import { requireAdmin } from "../middlewares/staff";
 import { serializePlayer } from "../lib/player";
 import { buildAdminGrantInboxBody } from "../lib/player-inbox";
+import {
+  applyBalanceMirrors,
+  getInventoryFromProgress,
+  type TutorialProgressBlob,
+} from "../lib/player-progress";
 
 const router: IRouter = Router();
-
-type TutorialProgressBlob = Record<string, unknown> & {
-  tutorialInventory?: Record<string, number>;
-  progressVersion?: number;
-};
 
 type GrantRow = {
   id: number;
@@ -52,17 +52,6 @@ function parseItems(raw: unknown): Record<string, number> | null {
   }
 
   return items;
-}
-
-function getInventoryFromProgress(
-  progress: TutorialProgressBlob | null,
-): Record<string, number> {
-  const inventory = progress?.tutorialInventory;
-  if (!inventory || typeof inventory !== "object" || Array.isArray(inventory)) {
-    return {};
-  }
-
-  return { ...inventory };
 }
 
 function buildSnapshot(player: typeof playersTable.$inferSelect) {
@@ -232,11 +221,10 @@ router.post(
         inventory[itemName] = (inventory[itemName] ?? 0) + quantity;
       }
 
-      if (creditsDelta !== 0) {
-        inventory.Credits = nextCredits;
-      }
-
-      progress.tutorialInventory = inventory;
+      progress.tutorialInventory = applyBalanceMirrors(inventory, {
+        credits: nextCredits,
+        silverCoins: nextSilverCoins,
+      });
       progress.progressVersion = nextProgressVersion;
 
       const updatedResult = await client.query(

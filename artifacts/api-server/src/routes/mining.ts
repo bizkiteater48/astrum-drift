@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db, playersTable } from "@workspace/db";
 import { serializePlayer } from "../lib/player";
 import { requireAuth } from "../middlewares/auth";
+import { buildEconomyUpdateFields } from "../lib/player-progress";
 import {
   CYCLE_DURATION_SEC,
   CREDITS_PER_CYCLE,
@@ -98,10 +99,16 @@ router.post("/mining/start", requireAuth, async (req, res): Promise<void> => {
         );
       }
 
+      const nextCredits = player.credits + earnedCredits;
+
+      const economy = buildEconomyUpdateFields(player, {
+        credits: nextCredits,
+      });
+
       const [updated] = await tx
         .update(playersTable)
         .set({
-          credits: player.credits + earnedCredits,
+          ...economy,
           experience: newExperience,
           miningLevel: newLevel,
           miningStartedAt: null,

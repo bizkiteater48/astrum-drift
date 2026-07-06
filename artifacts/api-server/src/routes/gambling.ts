@@ -1,9 +1,10 @@
 import { Router, type IRouter } from "express";
 import rateLimit from "express-rate-limit";
-import { ilike } from "drizzle-orm";
+import { ilike, eq } from "drizzle-orm";
 import { db, pool, playersTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
 import { serializePlayer } from "../lib/player";
+import { buildEconomyUpdateFields } from "../lib/player-progress";
 import {
   CHALLENGE_EXPIRY_MS,
   HOUSE_MAX_STAKE,
@@ -103,9 +104,13 @@ router.post("/gambling/mint-coins", requireAuth, async (req, res): Promise<void>
 
     if (!player) return { kind: "missing" as const };
 
+    const economy = buildEconomyUpdateFields(player, {
+      silverCoins: player.silverCoins + quantity,
+    });
+
     const [updated] = await tx
       .update(playersTable)
-      .set({ silverCoins: player.silverCoins + quantity })
+      .set(economy)
       .where(eq(playersTable.id, playerId))
       .returning();
 
@@ -177,9 +182,13 @@ router.post(
       }
 
       const netCoins = -stake + outcome.payout;
+      const economy = buildEconomyUpdateFields(player, {
+        silverCoins: player.silverCoins + netCoins,
+      });
+
       const [updated] = await tx
         .update(playersTable)
-        .set({ silverCoins: player.silverCoins + netCoins })
+        .set(economy)
         .where(eq(playersTable.id, playerId))
         .returning();
 
@@ -486,6 +495,40 @@ router.post(
         `UPDATE players SET silver_coins = silver_coins + $2 WHERE id = $1`,
         [winnerId, stake * 2],
       );
+
+      for (const participantId of [challenge.challenger_id, challenge.opponent_id]) {
+        const balanceResult = await client.query<{
+          credits: number;
+          silver_coins: number;
+          tutorial_progress: unknown;
+        }>(
+          `SELECT credits, silver_coins, tutorial_progress FROM players WHERE id = $1`,
+          [participantId],
+        );
+        const row = balanceResult.rows[0];
+        if (!row) continue;
+
+        const economy = buildEconomyUpdateFields(
+          {
+            credits: row.credits,
+            silverCoins: row.silver_coins ?? 0,
+            tutorialProgress: row.tutorial_progress,
+          },
+          {
+            credits: row.credits,
+            silverCoins: row.silver_coins ?? 0,
+          },
+        );
+
+        await client.query(
+          `
+            UPDATE players
+            SET tutorial_progress = $2::jsonb
+            WHERE id = $1
+          `,
+          [participantId, JSON.stringify(economy.tutorialProgress)],
+        );
+      }
 
       await client.query(
         `

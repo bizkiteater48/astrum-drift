@@ -6,6 +6,14 @@ import { db, playersTable, userSessionsTable } from "@workspace/db";
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
 import { serializePlayer } from "../lib/player";
 import { requireAuth, getClientIp } from "../middlewares/auth";
+import {
+  computeBalanceRepair,
+  CREDITS_ITEM,
+  getInventoryFromProgress,
+  mergeInventoryMonotonic,
+  type TutorialProgressBlob,
+  withEconomySnapshot,
+} from "../lib/player-progress";
 
 const router: IRouter = Router();
 
@@ -255,6 +263,22 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
+  const repair = computeBalanceRepair(player);
+  if (repair.changed) {
+    const [repaired] = await db
+      .update(playersTable)
+      .set({
+        credits: repair.credits,
+        silverCoins: repair.silverCoins,
+        tutorialProgress: repair.tutorialProgress,
+      })
+      .where(eq(playersTable.id, playerId))
+      .returning();
+
+    res.status(200).json(serializePlayer(repaired!));
+    return;
+  }
+
   res.status(200).json(serializePlayer(player));
 });
 
@@ -303,6 +327,8 @@ router.put(
     const [currentPlayer] = await db
       .select({
         id: playersTable.id,
+        credits: playersTable.credits,
+        silverCoins: playersTable.silverCoins,
         progressVersion: playersTable.progressVersion,
         tutorialProgress: playersTable.tutorialProgress,
       })
@@ -314,6 +340,10 @@ router.put(
       res.status(401).json({ error: "Not authenticated" });
       return;
     }
+
+    const repairedPlayer = computeBalanceRepair(currentPlayer);
+    const serverProgress =
+      (repairedPlayer.tutorialProgress as TutorialProgressBlob | null) ?? null;
 
     const clientVersion =
       typeof tutorialProgress === "object" &&
@@ -328,16 +358,43 @@ router.put(
     ) {
       res.status(409).json({
         error: "Progress superseded by a newer server save.",
-        tutorialProgress: currentPlayer.tutorialProgress ?? null,
+        tutorialProgress: serverProgress,
         progressVersion: currentPlayer.progressVersion ?? 0,
       });
       return;
     }
 
+    const serverInventory = getInventoryFromProgress(serverProgress);
+    const clientInventory = getInventoryFromProgress(
+      tutorialProgress as TutorialProgressBlob | null,
+    );
+    const mergedInventory = mergeInventoryMonotonic(
+      serverInventory,
+      clientInventory,
+    );
+
+    const mergedCredits = Math.max(
+      repairedPlayer.credits,
+      serverInventory[CREDITS_ITEM] ?? 0,
+      clientInventory[CREDITS_ITEM] ?? 0,
+    );
+    const mergedSilver = repairedPlayer.silverCoins;
+
+    const mergedProgress: TutorialProgressBlob = {
+      ...((tutorialProgress as TutorialProgressBlob | null) ?? {}),
+      progressVersion: currentPlayer.progressVersion ?? 0,
+      tutorialInventory: withEconomySnapshot(mergedInventory, {
+        credits: mergedCredits,
+        silverCoins: mergedSilver,
+      }).tutorialInventory,
+    };
+
     const [updatedPlayer] = await db
       .update(playersTable)
       .set({
-        tutorialProgress,
+        credits: mergedCredits,
+        silverCoins: mergedSilver,
+        tutorialProgress: mergedProgress,
       })
       .where(eq(playersTable.id, playerId))
       .returning({

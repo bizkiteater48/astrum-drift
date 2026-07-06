@@ -2325,10 +2325,29 @@ export default function PlayPage() {
         if (response.ok) {
           const data = (await response.json()) as {
             tutorialProgress?: Partial<TutorialSaveData> | null;
+            progressVersion?: number;
           };
+
+          const serverVersion = data.progressVersion ?? 0;
+          let localVersion = 0;
+          const rawLocalSave = localStorage.getItem(saveKey);
+          if (rawLocalSave) {
+            try {
+              localVersion =
+                (JSON.parse(rawLocalSave) as Partial<TutorialSaveData>)
+                  .progressVersion ?? 0;
+            } catch {
+              localVersion = 0;
+            }
+          }
 
           if (!cancelled && data.tutorialProgress) {
             applySavedProgress(data.tutorialProgress);
+            setIsTutorialSaveLoaded(true);
+            return;
+          }
+
+          if (!cancelled && serverVersion >= localVersion) {
             setIsTutorialSaveLoaded(true);
             return;
           }
@@ -4056,7 +4075,10 @@ export default function PlayPage() {
                   <div className="flex justify-between text-xs">
                     <span className="text-primary">Silver Coins</span>
                     <span className="text-chart-3 font-bold">
-                      {(player?.silverCoins ?? 0).toLocaleString()}
+                      {Math.max(
+                        player?.silverCoins ?? 0,
+                        tutorialInventory["Silver Coins"] ?? 0,
+                      ).toLocaleString()}
                     </span>
                   </div>
                 </div>
