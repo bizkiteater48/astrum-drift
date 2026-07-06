@@ -106,6 +106,7 @@ const ORE_MATERIALS: MaterialDef[] = [
   { name: "Iron Ore", group: "Ores", description: "Industrial iron ore for iron and steel bar production.", tags: ["ore", "mining", "tier-1"], stats: { "Mining Level": 10, "Stack Limit": 1000 }, codeNote: "Field ore; distinct from tutorial-context entry." },
   { name: "Coal", group: "Ores", description: "Fuel ore required for steel and higher bar recipes.", tags: ["ore", "mining", "support"], stats: { "Mining Level": 15, "Stack Limit": 1000 } },
   { name: "Silver Ore", group: "Ores", description: "Precious ore mined at Silver Vein. Can drop Clouded Garnet.", tags: ["ore", "mining", "precious"], stats: { "Mining Level": 20, "Rare Gem": "Clouded Garnet (0.02%)" } },
+  { name: "Silver Coin", group: "Currency", description: "Minted from silver ore at 1:1. Used for Drift Lounge gambling.", tags: ["currency", "gambling"], stats: { "Mint Cost": "1 Silver Ore" } },
   { name: "Nickel Ore", group: "Ores", description: "Mid-tier ore for nickel gear and bars.", tags: ["ore", "mining", "tier-2"], stats: { "Mining Level": 25, "Rare Gem": "Pale Sapphire" } },
   { name: "Quartz", group: "Ores", description: "Crystal support material for cobalt-tier fabrication and storage upgrades.", tags: ["ore", "mining", "support"], stats: { "Mining Level": 30 } },
   { name: "Titanium Ore", group: "Ores", description: "Advanced structural ore for mid-high tier bars.", tags: ["ore", "mining", "tier-3"], stats: { "Mining Level": 40, "Rare Gem": "Ember Ruby (0.015%)" } },

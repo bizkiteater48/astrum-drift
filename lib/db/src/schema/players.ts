@@ -14,6 +14,7 @@ export const playersTable = pgTable("players", {
   username: text("username").notNull().unique(),
   hashedPassword: text("hashed_password").notNull(),
   credits: integer("credits").notNull().default(0),
+  silverCoins: integer("silver_coins").notNull().default(0),
   experience: integer("experience").notNull().default(0),
   currentLocation: text("current_location")
     .notNull()

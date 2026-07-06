@@ -1,5 +1,6 @@
 import app from "./app";
 import { ensureChatSchema } from "./lib/ensure-chat-schema";
+import { ensureGamblingSchema } from "./lib/ensure-gambling-schema";
 import { ensureModerationSchema } from "./lib/ensure-moderation-schema";
 import { logger } from "./lib/logger";
 
@@ -20,6 +21,7 @@ if (Number.isNaN(port) || port <= 0) {
 try {
   await ensureChatSchema();
   await ensureModerationSchema();
+  await ensureGamblingSchema();
 } catch (err) {
   logger.error({ err }, "Failed to ensure database schema");
   process.exit(1);

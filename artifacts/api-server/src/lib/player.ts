@@ -12,6 +12,7 @@ export function serializePlayer(player: Player) {
     username: player.username,
     role: player.role ?? "player",
     credits: player.credits,
+    silverCoins: player.silverCoins ?? 0,
     experience: player.experience,
     currentLocation: player.currentLocation,
     miningLevel: player.miningLevel,

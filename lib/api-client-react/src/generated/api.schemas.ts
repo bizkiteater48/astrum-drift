@@ -53,6 +53,7 @@ export interface Player {
   username: string;
   role: PlayerRole;
   credits: number;
+  silverCoins: number;
   experience: number;
   currentLocation: string;
   miningLevel: number;

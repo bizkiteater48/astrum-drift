@@ -45,6 +45,7 @@ import { SurveyArtPlaceholder } from "@/components/placeholder-art-overlay";
 import { StarChartPanel } from "@/components/star-chart-panel";
 import { ModerationPanel } from "@/components/moderation-panel";
 import { MessagesPanel } from "@/components/messages-panel";
+import { DriftLoungePanel } from "@/components/drift-lounge-panel";
 import { ReportPlayerDialog } from "@/components/report-player-dialog";
 import {
   deleteChatMessage,
@@ -76,6 +77,8 @@ import {
   type SkillId,
 } from "@/lib/main-game";
 import { formatUtcChatTime, LIVE_CHAT_LIMIT, sortChatMessagesNewestFirst } from "@/lib/chat";
+import { SILVER_ORE_ITEM } from "@/lib/gambling";
+import { mintSilverCoins } from "@/lib/gambling-api";
 
 type TutorialStep = {
   id: string;
@@ -466,6 +469,7 @@ export default function PlayPage() {
   const [chatSendError, setChatSendError] = useState<string | null>(null);
   const [showModerationPanel, setShowModerationPanel] = useState(false);
   const [showMessagesPanel, setShowMessagesPanel] = useState(false);
+  const [showDriftLounge, setShowDriftLounge] = useState(false);
   const [reportDialog, setReportDialog] = useState<{
     username: string;
     channel?: string;
@@ -515,6 +519,48 @@ export default function PlayPage() {
   );
 
   const sendChatMutation = useSendChatMessage();
+
+  const updatePlayerFromGambling = (updatedPlayer: Player) => {
+    queryClient.setQueryData(getGetMeQueryKey(), updatedPlayer);
+  };
+
+  const deductSilverOre = (quantity: number): boolean => {
+    if ((tutorialInventory[SILVER_ORE_ITEM] ?? 0) < quantity) return false;
+    setTutorialInventory((prev) => {
+      const next = { ...prev };
+      const remaining = (next[SILVER_ORE_ITEM] ?? 0) - quantity;
+      if (remaining > 0) next[SILVER_ORE_ITEM] = remaining;
+      else delete next[SILVER_ORE_ITEM];
+      return next;
+    });
+    return true;
+  };
+
+  const refundSilverOre = (quantity: number) => {
+    setTutorialInventory((prev) => ({
+      ...prev,
+      [SILVER_ORE_ITEM]: (prev[SILVER_ORE_ITEM] ?? 0) + quantity,
+    }));
+  };
+
+  const mintSilverCoinsFromOre = async (quantity: number) => {
+    try {
+      const result = await mintSilverCoins(quantity);
+      updatePlayerFromGambling(result.player);
+      addMessage(`[REWARD] Minted ${quantity} Silver Coin${quantity === 1 ? "" : "s"}.`);
+      addRewardMessage(`Silver Coins +${quantity}`);
+      return true;
+    } catch (error) {
+      refundSilverOre(quantity);
+      const message =
+        error instanceof ApiError
+          ? (error.data as { error?: string } | null)?.error ?? error.message
+          : "Failed to mint silver coins.";
+      addMessage(`[ERROR] ${message}`);
+      setRecentSystemNotice(message);
+      return false;
+    }
+  };
 
   const addMessage = (text: string) => {
     setMessages((prev) =>
@@ -1012,6 +1058,12 @@ export default function PlayPage() {
     if (action.id === "fabricate_iron_bar") {
       addMessage("[REWARD] Fabrication complete: Iron Bar x1.");
       addRewardMessage("Iron Bar x1");
+      awardSkillXp(action.id);
+      return true;
+    }
+
+    if (action.id === "fabricate_silver_coins") {
+      void mintSilverCoinsFromOre(1);
       awardSkillXp(action.id);
       return true;
     }
@@ -2632,6 +2684,14 @@ export default function PlayPage() {
 
                 <Button
                   variant="outline"
+                  onClick={() => setShowDriftLounge(true)}
+                  className="justify-start font-mono uppercase tracking-widest border-primary/30 text-primary hover:bg-primary/10"
+                >
+                  Drift Lounge
+                </Button>
+
+                <Button
+                  variant="outline"
                   disabled={!isTutorialComplete}
                   onClick={openStarChart}
                   className="justify-start font-mono uppercase tracking-widest border-primary/30 text-primary hover:bg-primary/10 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -3778,8 +3838,14 @@ export default function PlayPage() {
                     <span className="text-primary">Credits</span>
                     <span className="text-chart-3 font-bold">
                       {(
-                        tutorialInventory["Credits"] ?? player.credits
+                        tutorialInventory["Credits"] ?? player?.credits ?? 0
                       ).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-primary">Silver Coins</span>
+                    <span className="text-chart-3 font-bold">
+                      {(player?.silverCoins ?? 0).toLocaleString()}
                     </span>
                   </div>
                 </div>
@@ -4316,6 +4382,20 @@ export default function PlayPage() {
         <MessagesPanel
           onClose={() => setShowMessagesPanel(false)}
           onReportPlayer={() => setReportDialog({ username: "" })}
+        />
+      )}
+      {showDriftLounge && player && (
+        <DriftLoungePanel
+          player={player}
+          silverOreCount={tutorialInventory[SILVER_ORE_ITEM] ?? 0}
+          onClose={() => setShowDriftLounge(false)}
+          onPlayerUpdated={updatePlayerFromGambling}
+          onMintOre={deductSilverOre}
+          onRefundOre={refundSilverOre}
+          onNotice={(message) => {
+            addMessage(`[LOUNGE] ${message}`);
+            setRecentSystemNotice(message);
+          }}
         />
       )}
       {reportDialog && (

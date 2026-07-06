@@ -70,6 +70,7 @@ export type MainGameActionId =
   | "mine_copper_vein"
   | "fabricate_bronze_bar"
   | "fabricate_iron_bar"
+  | "fabricate_silver_coins"
   | "harvest_fiberleaf"
   | "salvage_wreck_flats"
   | "salvage_hulk_yard"
@@ -212,7 +213,14 @@ export const MAIN_GAME_LOCATIONS: Record<
     systemId: "verdant_rim",
     locationType: "spaceport",
     imageKey: "spaceport",
-    actions: [],
+    actions: [
+      {
+        id: "fabricate_silver_coins",
+        label: "Mint Silver Coins",
+        skill: "Fabrication",
+        timerSec: 10,
+      },
+    ],
     travelDestinations: [
       {
         locationId: "aurelia_prime_orbit",
@@ -580,7 +588,14 @@ export const MAIN_GAME_LOCATIONS: Record<
     planetId: "shimmer_coast",
     isMainSettlement: true,
     imageKey: "settlement_hub",
-    actions: [],
+    actions: [
+      {
+        id: "fabricate_silver_coins",
+        label: "Mint Silver Coins",
+        skill: "Fabrication",
+        timerSec: 10,
+      },
+    ],
     travelDestinations: [
       {
         locationId: "shimmer_coast_orbit",
@@ -604,6 +619,12 @@ export const MAIN_GAME_LOCATIONS: Record<
         skill: "Mining",
         timerSec: 18,
         requiredHandItem: "Basic Mining Tool",
+      },
+      {
+        id: "fabricate_silver_coins",
+        label: "Mint Silver Coins",
+        skill: "Fabrication",
+        timerSec: 10,
       },
     ],
     travelDestinations: [
@@ -780,6 +801,7 @@ export function getActionSkillXp(
       return { skill: "salvaging", xp: 15 };
     case "fabricate_bronze_bar":
     case "fabricate_iron_bar":
+    case "fabricate_silver_coins":
       return { skill: "fabrication", xp: 8 };
     case "craft_energy_cartridge":
       return { skill: "engineering", xp: 5 };
@@ -1047,6 +1069,7 @@ const GATHERING_ACTION_IDS: MainGameActionId[] = [
 const PRODUCTION_ACTION_IDS: MainGameActionId[] = [
   "fabricate_bronze_bar",
   "fabricate_iron_bar",
+  "fabricate_silver_coins",
 ];
 
 export function isGatheringAction(actionId: MainGameActionId): boolean {
@@ -1090,6 +1113,8 @@ export function getMainGameActionRewards(
       return { "Bronze Bar": 1 };
     case "fabricate_iron_bar":
       return { "Iron Bar": 1 };
+    case "fabricate_silver_coins":
+      return {};
     default:
       return {};
   }
@@ -1104,6 +1129,8 @@ export function getMainGameActionRecipeCost(
       return { "Copper Ore": 1, "Tin Ore": 1 };
     case "fabricate_iron_bar":
       return { "Iron Ore": 1 };
+    case "fabricate_silver_coins":
+      return { "Silver Ore": 1 };
     default:
       return {};
   }

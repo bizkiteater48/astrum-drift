@@ -602,6 +602,196 @@
                       schema:
                         $ref: "#/components/schemas/ErrorResponse"
 
+          /gambling/mint-coins:
+            post:
+              operationId: mintSilverCoins
+              tags: [gambling]
+              summary: Mint silver coins from fabricated ore
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/MintSilverCoinsBody"
+              responses:
+                "200":
+                  description: Coins minted
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/MintSilverCoinsResult"
+                "400":
+                  description: Invalid request
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "401":
+                  description: Not authenticated
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
+          /gambling/house/play:
+            post:
+              operationId: playHouseGame
+              tags: [gambling]
+              summary: Play a house gambling game with silver coins
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/HousePlayBody"
+              responses:
+                "200":
+                  description: Game resolved
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/HousePlayResult"
+                "400":
+                  description: Invalid request
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "401":
+                  description: Not authenticated
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
+          /gambling/challenges:
+            get:
+              operationId: listGamblingChallenges
+              tags: [gambling]
+              summary: List pending gambling challenges
+              responses:
+                "200":
+                  description: Pending challenges
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/GamblingChallengeList"
+                "401":
+                  description: Not authenticated
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+            post:
+              operationId: createGamblingChallenge
+              tags: [gambling]
+              summary: Challenge another player to Warp Flip
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/CreateGamblingChallengeBody"
+              responses:
+                "201":
+                  description: Challenge created
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/GamblingChallengeResult"
+                "400":
+                  description: Invalid request
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "401":
+                  description: Not authenticated
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "404":
+                  description: Opponent not found
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
+          /gambling/challenges/{challengeId}/accept:
+            post:
+              operationId: acceptGamblingChallenge
+              tags: [gambling]
+              summary: Accept a gambling challenge
+              parameters:
+                - name: challengeId
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+              responses:
+                "200":
+                  description: Challenge resolved
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/AcceptGamblingChallengeResult"
+                "400":
+                  description: Invalid request
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "401":
+                  description: Not authenticated
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "403":
+                  description: Not the challenged player
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "404":
+                  description: Challenge not found
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
+          /gambling/challenges/{challengeId}/decline:
+            post:
+              operationId: declineGamblingChallenge
+              tags: [gambling]
+              summary: Decline a gambling challenge
+              parameters:
+                - name: challengeId
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+              responses:
+                "200":
+                  description: Challenge declined
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/SuccessResponse"
+                "401":
+                  description: Not authenticated
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "404":
+                  description: Challenge not found
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
         components:
           schemas:
             ChatChannel:
@@ -727,6 +917,8 @@
                   $ref: "#/components/schemas/PlayerRole"
                 credits:
                   type: integer
+                silverCoins:
+                  type: integer
                 experience:
                   type: integer
                 currentLocation:
@@ -750,6 +942,7 @@
                 - username
                 - role
                 - credits
+                - silverCoins
                 - experience
                 - currentLocation
                 - miningLevel
@@ -1020,3 +1213,190 @@
               required:
                 - player
                 - reward
+
+            MintSilverCoinsBody:
+              type: object
+              properties:
+                quantity:
+                  type: integer
+                  minimum: 1
+              required:
+                - quantity
+
+            MintSilverCoinsResult:
+              type: object
+              properties:
+                player:
+                  $ref: "#/components/schemas/Player"
+                minted:
+                  type: integer
+              required:
+                - player
+                - minted
+
+            HousePlayBody:
+              type: object
+              properties:
+                game:
+                  type: string
+                  enum: [reactor_dice, warp_flip]
+                stake:
+                  type: integer
+                  minimum: 1
+                choice:
+                  type: string
+              required:
+                - game
+                - stake
+                - choice
+
+            HousePlayOutcome:
+              type: object
+              properties:
+                game:
+                  type: string
+                stake:
+                  type: integer
+                choice:
+                  type: string
+                won:
+                  type: boolean
+                push:
+                  type: boolean
+                payout:
+                  type: integer
+                roll:
+                  type: integer
+                result:
+                  type: string
+              required:
+                - game
+                - stake
+                - choice
+                - won
+                - push
+                - payout
+
+            HousePlayResult:
+              type: object
+              properties:
+                player:
+                  $ref: "#/components/schemas/Player"
+                outcome:
+                  $ref: "#/components/schemas/HousePlayOutcome"
+              required:
+                - player
+                - outcome
+
+            GamblingChallenge:
+              type: object
+              properties:
+                id:
+                  type: integer
+                challengerId:
+                  type: integer
+                opponentId:
+                  type: integer
+                challengerUsername:
+                  type: string
+                opponentUsername:
+                  type: string
+                game:
+                  type: string
+                stake:
+                  type: integer
+                challengerChoice:
+                  type: string
+                opponentChoice:
+                  type: string
+                status:
+                  type: string
+                createdAt:
+                  type: string
+                  format: date-time
+                isIncoming:
+                  type: boolean
+                isOutgoing:
+                  type: boolean
+              required:
+                - id
+                - challengerId
+                - opponentId
+                - challengerUsername
+                - opponentUsername
+                - game
+                - stake
+                - challengerChoice
+                - opponentChoice
+                - status
+                - createdAt
+                - isIncoming
+                - isOutgoing
+
+            GamblingChallengeList:
+              type: object
+              properties:
+                challenges:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/GamblingChallenge"
+              required:
+                - challenges
+
+            CreateGamblingChallengeBody:
+              type: object
+              properties:
+                opponentUsername:
+                  type: string
+                stake:
+                  type: integer
+                  minimum: 1
+                choice:
+                  type: string
+                  enum: [heads, tails]
+              required:
+                - opponentUsername
+                - stake
+                - choice
+
+            GamblingChallengeResult:
+              type: object
+              properties:
+                challenge:
+                  $ref: "#/components/schemas/GamblingChallenge"
+              required:
+                - challenge
+
+            AcceptGamblingChallengeResult:
+              type: object
+              properties:
+                player:
+                  $ref: "#/components/schemas/Player"
+                result:
+                  type: object
+                  properties:
+                    challengeId:
+                      type: integer
+                    flip:
+                      type: string
+                    winnerId:
+                      type: integer
+                    winnerUsername:
+                      type: string
+                    stake:
+                      type: integer
+                    payout:
+                      type: integer
+                    won:
+                      type: boolean
+                  required:
+                    - challengeId
+                    - flip
+                    - winnerId
+                    - winnerUsername
+                    - stake
+                    - payout
+                    - won
+              required:
+                - player
+                - result
