@@ -38,6 +38,8 @@ export const playersTable = pgTable("players", {
   role: text("role").notNull().default("player"),
   showStaffChatTag: boolean("show_staff_chat_tag").notNull().default(false),
   mutedUntil: timestamp("muted_until", { withTimezone: true }),
+  bannedUntil: timestamp("banned_until", { withTimezone: true }),
+  banReason: text("ban_reason"),
 
   progressVersion: integer("progress_version").notNull().default(0),
 

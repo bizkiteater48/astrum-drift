@@ -21,10 +21,21 @@ import {
 } from "../lib/moderation";
 import {
   buildMuteInboxBody,
+  buildBanInboxBody,
+  buildUnbanInboxBody,
   sendPlayerInboxMessage,
 } from "../lib/player-inbox";
+import {
+  formatBanDuration,
+  isPermanentBanDate,
+  isPlayerBanned,
+  parseBanDurationMinutes,
+  resolveBannedUntil,
+} from "../lib/player-ban";
 
 const router: IRouter = Router();
+const CHAT_CLEAR_CHANNELS = ["all", "global", "trade", "help", "clan"] as const;
+type ChatClearChannel = (typeof CHAT_CLEAR_CHANNELS)[number];
 
 const reportLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -91,6 +102,52 @@ async function postMuteGlobalAnnouncement(
     text,
     messageKind: "moderation",
   });
+}
+
+function assertCanBanTarget(
+  target: { id: number; role: string },
+  moderatorId: number,
+): string | null {
+  if (target.id === moderatorId) {
+    return "You cannot ban yourself";
+  }
+  if (target.role === "admin") {
+    return "Admins cannot be banned";
+  }
+  return null;
+}
+
+async function applyBan(
+  playerId: number,
+  moderatorId: number,
+  reason: string,
+  duration: number | "permanent",
+  reportId?: number,
+): Promise<{ bannedUntil: Date; durationMinutes: number | "permanent" }> {
+  const bannedUntil = resolveBannedUntil(duration);
+  const durationMinutes = duration === "permanent" ? null : duration;
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(playersTable)
+      .set({
+        bannedUntil,
+        banReason: reason,
+        mutedUntil: null,
+      })
+      .where(eq(playersTable.id, playerId));
+
+    await tx.insert(moderationRecordsTable).values({
+      playerId,
+      moderatorId,
+      action: "ban",
+      reason,
+      durationMinutes,
+      reportId,
+    });
+  });
+
+  return { bannedUntil, durationMinutes: duration };
 }
 
 function serializeReport(row: typeof playerReportsTable.$inferSelect, extras?: {
@@ -241,6 +298,48 @@ router.get(
     res.status(200).json({ count: result?.count ?? 0 });
   },
 );
+
+router.get("/moderation/cheat-reports", requireStaff, async (_req, res): Promise<void> => {
+  const rows = await db
+    .select({
+      report: playerReportsTable,
+      reporterUsername: playersTable.username,
+    })
+    .from(playerReportsTable)
+    .innerJoin(playersTable, eq(playerReportsTable.reporterId, playersTable.id))
+    .where(
+      and(
+        eq(playerReportsTable.status, "pending"),
+        eq(playerReportsTable.reason, "cheating"),
+      ),
+    )
+    .orderBy(desc(playerReportsTable.createdAt))
+    .limit(50);
+
+  const reports = await Promise.all(
+    rows.map(async (row) => {
+      const [reported] = await db
+        .select({
+          username: playersTable.username,
+          role: playersTable.role,
+          bannedUntil: playersTable.bannedUntil,
+        })
+        .from(playersTable)
+        .where(eq(playersTable.id, row.report.reportedPlayerId));
+
+      return {
+        ...serializeReport(row.report, {
+          reporterUsername: row.reporterUsername,
+          reportedUsername: reported?.username,
+          reportedPlayerRole: reported?.role,
+        }),
+        reportedPlayerBanned: isPlayerBanned(reported?.bannedUntil),
+      };
+    }),
+  );
+
+  res.status(200).json({ reports });
+});
 
 router.post(
   "/moderation/reports/:reportId/mute",
@@ -707,6 +806,364 @@ router.delete(
     });
 
     res.status(200).json({ success: true });
+  },
+);
+
+router.post(
+  "/moderation/chat/clear",
+  requireAdmin,
+  async (req, res): Promise<void> => {
+    const moderatorId = req.session.playerId!;
+    const channelRaw =
+      typeof req.body?.channel === "string" ? req.body.channel.trim().toLowerCase() : "all";
+    const reason =
+      typeof req.body?.reason === "string" && req.body.reason.trim()
+        ? req.body.reason.trim()
+        : "Chat cleared by admin";
+
+    if (!(CHAT_CLEAR_CHANNELS as readonly string[]).includes(channelRaw)) {
+      res.status(400).json({ error: "Invalid channel" });
+      return;
+    }
+
+    const channel = channelRaw as ChatClearChannel;
+    const now = new Date();
+
+    const whereClause =
+      channel === "all"
+        ? isNull(chatMessagesTable.deletedAt)
+        : and(
+            eq(chatMessagesTable.channel, channel),
+            isNull(chatMessagesTable.deletedAt),
+          );
+
+    const clearedRows = await db
+      .update(chatMessagesTable)
+      .set({ deletedAt: now, deletedBy: moderatorId })
+      .where(whereClause)
+      .returning({ id: chatMessagesTable.id });
+
+    await db.insert(moderationRecordsTable).values({
+      playerId: moderatorId,
+      moderatorId,
+      action: "clear_chat",
+      reason: `${reason} (${channel})`,
+    });
+
+    res.status(200).json({
+      success: true,
+      clearedCount: clearedRows.length,
+      channel,
+    });
+  },
+);
+
+router.post(
+  "/moderation/players/:playerId/ban",
+  requireAdmin,
+  async (req, res): Promise<void> => {
+    const playerId = Number(req.params.playerId);
+    const moderatorId = req.session.playerId!;
+    const reason =
+      typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+    const duration = parseBanDurationMinutes(req.body?.durationMinutes);
+
+    if (!Number.isInteger(playerId) || playerId <= 0) {
+      res.status(400).json({ error: "Invalid player id" });
+      return;
+    }
+
+    if (!reason) {
+      res.status(400).json({ error: "Ban reason is required" });
+      return;
+    }
+
+    if (duration === null) {
+      res.status(400).json({
+        error:
+          "durationMinutes must be 1440 (1 day), 10080 (7 days), 43200 (30 days), or permanent",
+      });
+      return;
+    }
+
+    const [player] = await db
+      .select({
+        id: playersTable.id,
+        username: playersTable.username,
+        role: playersTable.role,
+        bannedUntil: playersTable.bannedUntil,
+      })
+      .from(playersTable)
+      .where(eq(playersTable.id, playerId));
+
+    if (!player) {
+      res.status(404).json({ error: "Player not found" });
+      return;
+    }
+
+    const banBlock = assertCanBanTarget(player, moderatorId);
+    if (banBlock) {
+      res.status(400).json({ error: banBlock });
+      return;
+    }
+
+    if (isPlayerBanned(player.bannedUntil)) {
+      res.status(400).json({ error: "Player is already banned" });
+      return;
+    }
+
+    const banResult = await applyBan(playerId, moderatorId, reason, duration);
+
+    try {
+      await sendPlayerInboxMessage(
+        playerId,
+        "Moderation Team",
+        "Account Banned",
+        buildBanInboxBody(banResult.bannedUntil, reason, banResult.durationMinutes),
+      );
+    } catch (inboxError) {
+      req.log.error({ inboxError, playerId }, "Failed to send ban inbox notification");
+    }
+
+    res.status(200).json({
+      ban: {
+        durationMinutes:
+          banResult.durationMinutes === "permanent"
+            ? null
+            : banResult.durationMinutes,
+        bannedUntil: banResult.bannedUntil.toISOString(),
+        permanent: banResult.durationMinutes === "permanent",
+      },
+      player: {
+        id: player.id,
+        username: player.username,
+      },
+    });
+  },
+);
+
+router.post(
+  "/moderation/reports/:reportId/ban",
+  requireAdmin,
+  async (req, res): Promise<void> => {
+    const reportId = Number(req.params.reportId);
+    const moderatorId = req.session.playerId!;
+    const note =
+      typeof req.body?.note === "string" ? req.body.note.trim() : null;
+    const reason =
+      typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+    const duration = parseBanDurationMinutes(req.body?.durationMinutes);
+
+    if (!Number.isInteger(reportId) || reportId <= 0) {
+      res.status(400).json({ error: "Invalid report id" });
+      return;
+    }
+
+    if (!reason) {
+      res.status(400).json({ error: "Ban reason is required" });
+      return;
+    }
+
+    if (duration === null) {
+      res.status(400).json({
+        error:
+          "durationMinutes must be 1440 (1 day), 10080 (7 days), 43200 (30 days), or permanent",
+      });
+      return;
+    }
+
+    const [report] = await db
+      .select()
+      .from(playerReportsTable)
+      .where(eq(playerReportsTable.id, reportId));
+
+    if (!report) {
+      res.status(404).json({ error: "Report not found" });
+      return;
+    }
+
+    if (report.status !== "pending") {
+      res.status(400).json({ error: "Report is already resolved" });
+      return;
+    }
+
+    const [reportedPlayer] = await db
+      .select({
+        id: playersTable.id,
+        username: playersTable.username,
+        role: playersTable.role,
+        bannedUntil: playersTable.bannedUntil,
+      })
+      .from(playersTable)
+      .where(eq(playersTable.id, report.reportedPlayerId));
+
+    if (!reportedPlayer) {
+      res.status(404).json({ error: "Reported player not found" });
+      return;
+    }
+
+    const banBlock = assertCanBanTarget(reportedPlayer, moderatorId);
+    if (banBlock) {
+      res.status(400).json({ error: banBlock });
+      return;
+    }
+
+    if (isPlayerBanned(reportedPlayer.bannedUntil)) {
+      res.status(400).json({ error: "Player is already banned" });
+      return;
+    }
+
+    const banResult = await applyBan(
+      report.reportedPlayerId,
+      moderatorId,
+      reason,
+      duration,
+      report.id,
+    );
+
+    try {
+      await sendPlayerInboxMessage(
+        report.reportedPlayerId,
+        "Moderation Team",
+        "Account Banned",
+        buildBanInboxBody(banResult.bannedUntil, reason, banResult.durationMinutes),
+      );
+    } catch (inboxError) {
+      req.log.error(
+        { inboxError, playerId: report.reportedPlayerId },
+        "Failed to send ban inbox notification",
+      );
+    }
+
+    const reportContext = `Report #${report.id}: ${REPORT_REASON_LABELS[report.reason as ReportReason] ?? report.reason}`;
+    const durationLabel =
+      banResult.durationMinutes === "permanent"
+        ? "permanent"
+        : formatBanDuration(banResult.durationMinutes);
+    const resolutionNote =
+      note ??
+      `Banned (${durationLabel}). Context: ${reportContext}`;
+
+    const [updated] = await db
+      .update(playerReportsTable)
+      .set({
+        status: "resolved",
+        resolvedBy: moderatorId,
+        resolutionNote,
+        resolvedAt: new Date(),
+      })
+      .where(eq(playerReportsTable.id, reportId))
+      .returning();
+
+    res.status(200).json({
+      report: serializeReport(updated!),
+      ban: {
+        durationMinutes:
+          banResult.durationMinutes === "permanent"
+            ? null
+            : banResult.durationMinutes,
+        bannedUntil: banResult.bannedUntil.toISOString(),
+        permanent: banResult.durationMinutes === "permanent",
+      },
+    });
+  },
+);
+
+router.get("/moderation/banned-players", requireAdmin, async (_req, res): Promise<void> => {
+  const now = new Date();
+
+  const rows = await db
+    .select({
+      id: playersTable.id,
+      username: playersTable.username,
+      role: playersTable.role,
+      bannedUntil: playersTable.bannedUntil,
+      banReason: playersTable.banReason,
+    })
+    .from(playersTable)
+    .where(gt(playersTable.bannedUntil, now))
+    .orderBy(playersTable.bannedUntil);
+
+  res.status(200).json({
+    players: rows.map((row) => ({
+      id: row.id,
+      username: row.username,
+      role: row.role,
+      bannedUntil: row.bannedUntil!.toISOString(),
+      banReason: row.banReason ?? "",
+      permanent: isPermanentBanDate(row.bannedUntil!),
+    })),
+  });
+});
+
+router.post(
+  "/moderation/players/:playerId/unban",
+  requireAdmin,
+  async (req, res): Promise<void> => {
+    const playerId = Number(req.params.playerId);
+    const moderatorId = req.session.playerId!;
+    const note =
+      typeof req.body?.note === "string" ? req.body.note.trim() : "";
+
+    if (!Number.isInteger(playerId) || playerId <= 0) {
+      res.status(400).json({ error: "Invalid player id" });
+      return;
+    }
+
+    const [player] = await db
+      .select({
+        id: playersTable.id,
+        username: playersTable.username,
+        bannedUntil: playersTable.bannedUntil,
+      })
+      .from(playersTable)
+      .where(eq(playersTable.id, playerId));
+
+    if (!player) {
+      res.status(404).json({ error: "Player not found" });
+      return;
+    }
+
+    if (!isPlayerBanned(player.bannedUntil)) {
+      res.status(400).json({ error: "Player is not currently banned" });
+      return;
+    }
+
+    const reason = note || "Unbanned by admin";
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(playersTable)
+        .set({ bannedUntil: null, banReason: null })
+        .where(eq(playersTable.id, playerId));
+
+      await tx.insert(moderationRecordsTable).values({
+        playerId,
+        moderatorId,
+        action: "unban",
+        reason,
+      });
+    });
+
+    try {
+      await sendPlayerInboxMessage(
+        playerId,
+        "Moderation Team",
+        "Ban Lifted",
+        buildUnbanInboxBody(note),
+      );
+    } catch (inboxError) {
+      req.log.error({ inboxError, playerId }, "Failed to send unban inbox notification");
+    }
+
+    res.status(200).json({
+      player: {
+        id: player.id,
+        username: player.username,
+        bannedUntil: null,
+        banReason: null,
+      },
+    });
   },
 );
 

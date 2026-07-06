@@ -6,6 +6,12 @@ import { db, playersTable, userSessionsTable } from "@workspace/db";
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
 import { serializePlayer } from "../lib/player";
 import { requireAuth, getClientIp } from "../middlewares/auth";
+import { rejectIfPlayerBanned } from "../middlewares/ban";
+import {
+  formatBanTimeRemaining,
+  isPermanentBanDate,
+  isPlayerBanned,
+} from "../lib/player-ban";
 import {
   computeBalanceRepair,
   CREDITS_ITEM,
@@ -204,6 +210,21 @@ router.post("/auth/login", authLimiter, async (req, res): Promise<void> => {
     return;
   }
 
+  if (isPlayerBanned(player.bannedUntil)) {
+    const bannedUntil = player.bannedUntil!;
+    const remaining = formatBanTimeRemaining(bannedUntil);
+    const reason = player.banReason?.trim() || "Account banned";
+
+    res.status(403).json({
+      error: isPermanentBanDate(bannedUntil)
+        ? `Account permanently banned. Reason: ${reason}`
+        : `Account banned (${remaining}). Reason: ${reason}`,
+      bannedUntil: bannedUntil.toISOString(),
+      banReason: reason,
+    });
+    return;
+  }
+
   req.session.playerId = player.id;
   try {
     await saveSession(req);
@@ -260,6 +281,14 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
   if (!player) {
     req.session.destroy(() => {});
     res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  if (isPlayerBanned(player.bannedUntil)) {
+    const blocked = await rejectIfPlayerBanned(playerId, res);
+    if (blocked) {
+      req.session.destroy(() => {});
+    }
     return;
   }
 

@@ -168,6 +168,19 @@ export function deleteChatMessage(messageId: number, reason?: string) {
   );
 }
 
+export type ClearChatChannel = "all" | "global" | "trade" | "help" | "clan";
+
+export function clearChat(channel: ClearChatChannel, reason?: string) {
+  return customFetch<{ success: boolean; clearedCount: number; channel: ClearChatChannel }>(
+    "/api/moderation/chat/clear",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ channel, reason }),
+    },
+  );
+}
+
 export function getPlayerModerationRecords(playerId: number) {
   return customFetch<{
     player: {
@@ -210,6 +223,10 @@ export function unmutePlayer(playerId: number, note?: string) {
 
 export function isStaffRole(role?: string | null): boolean {
   return role === "mod" || role === "admin";
+}
+
+export function isAdminRole(role?: string | null): boolean {
+  return role === "admin";
 }
 
 export function isGuideRole(role?: string | null): boolean {
@@ -267,3 +284,117 @@ export const REPORT_REASON_LABELS: Record<ReportReason, string> = {
   inappropriate: "Inappropriate content",
   other: "Other",
 };
+
+export type BanDuration = 1440 | 10080 | 43200 | "permanent";
+
+export const BAN_DURATION_PRESETS: { value: BanDuration; label: string }[] = [
+  { value: 1440, label: "1 day" },
+  { value: 10080, label: "7 days" },
+  { value: 43200, label: "30 days" },
+  { value: "permanent", label: "Permanent" },
+];
+
+export type BannedPlayer = {
+  id: number;
+  username: string;
+  role: string;
+  bannedUntil: string;
+  banReason: string;
+  permanent: boolean;
+};
+
+export type CheatReport = PlayerReport & {
+  reportedPlayerBanned?: boolean;
+};
+
+export function listCheatReports() {
+  return customFetch<{ reports: CheatReport[] }>("/api/moderation/cheat-reports", {
+    method: "GET",
+  });
+}
+
+export function listBannedPlayers() {
+  return customFetch<{ players: BannedPlayer[] }>("/api/moderation/banned-players", {
+    method: "GET",
+  });
+}
+
+export type BanPlayerBody = {
+  reason: string;
+  durationMinutes: BanDuration;
+  note?: string;
+};
+
+export function banPlayer(playerId: number, body: BanPlayerBody) {
+  return customFetch<{
+    ban: {
+      durationMinutes: number | null;
+      bannedUntil: string;
+      permanent: boolean;
+    };
+    player: { id: number; username: string };
+  }>(`/api/moderation/players/${playerId}/ban`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function banFromReport(reportId: number, body: BanPlayerBody) {
+  return customFetch<{
+    report: PlayerReport;
+    ban: {
+      durationMinutes: number | null;
+      bannedUntil: string;
+      permanent: boolean;
+    };
+  }>(`/api/moderation/reports/${reportId}/ban`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function unbanPlayer(playerId: number, note?: string) {
+  return customFetch<{
+    player: {
+      id: number;
+      username: string;
+      bannedUntil: null;
+      banReason: null;
+    };
+  }>(`/api/moderation/players/${playerId}/unban`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ note }),
+  });
+}
+
+export function formatBanTimeRemaining(
+  bannedUntil: string,
+  permanent?: boolean,
+  nowMs: number = Date.now(),
+): string {
+  if (permanent) return "Permanent ban";
+
+  const remainingMs = new Date(bannedUntil).getTime() - nowMs;
+  if (remainingMs <= 0) return "Expired";
+
+  const totalMinutes = Math.ceil(remainingMs / 60_000);
+  if (totalMinutes < 60) {
+    return `${totalMinutes} min remaining`;
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours < 24) {
+    return minutes > 0 ? `${hours} hr ${minutes} min remaining` : `${hours} hr remaining`;
+  }
+
+  const days = Math.floor(hours / 24);
+  const remHours = hours % 24;
+  if (remHours > 0) {
+    return `${days} day${days === 1 ? "" : "s"} ${remHours} hr remaining`;
+  }
+  return `${days} day${days === 1 ? "" : "s"} remaining`;
+}

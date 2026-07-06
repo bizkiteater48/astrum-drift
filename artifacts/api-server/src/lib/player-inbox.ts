@@ -1,5 +1,9 @@
 import { pool } from "@workspace/db";
 import { formatMuteDuration } from "./moderation";
+import {
+  formatBanDuration,
+  isPermanentBanDate,
+} from "./player-ban";
 
 export async function sendPlayerInboxMessage(
   playerId: number,
@@ -51,4 +55,28 @@ export function buildMuteInboxBody(
     : reason;
 
   return `Your account has been muted for ${duration}.\n\nReason: ${reasonLine}`;
+}
+
+export function buildBanInboxBody(
+  bannedUntil: Date,
+  reason: string,
+  durationMinutes: number | "permanent",
+): string {
+  const durationLabel =
+    durationMinutes === "permanent"
+      ? "permanent"
+      : formatBanDuration(durationMinutes);
+  const expiryLine = isPermanentBanDate(bannedUntil)
+    ? "This ban does not expire."
+    : `Ban expires: ${bannedUntil.toUTCString()}`;
+
+  return `Your account has been banned (${durationLabel}).\n\nReason: ${reason}\n\n${expiryLine}`;
+}
+
+export function buildUnbanInboxBody(note?: string | null): string {
+  const trimmed = note?.trim();
+  if (trimmed) {
+    return `Your account ban has been lifted.\n\nNote: ${trimmed}`;
+  }
+  return "Your account ban has been lifted. You may sign in and play again.";
 }

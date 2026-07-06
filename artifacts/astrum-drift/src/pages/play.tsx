@@ -4852,6 +4852,8 @@ export default function PlayPage() {
       {showModerationPanel && (
         <ModerationPanel
           canUnmute={isAdminRole(player?.role)}
+          canClearChat={isAdminRole(player?.role)}
+          canBan={isAdminRole(player?.role)}
           onClose={() => {
             setShowModerationPanel(false);
             void refreshPendingReportCount();

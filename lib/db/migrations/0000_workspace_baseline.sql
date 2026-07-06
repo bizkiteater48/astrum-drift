@@ -11,6 +11,10 @@ ALTER TABLE "players" ADD COLUMN IF NOT EXISTS "role" text NOT NULL DEFAULT 'pla
 --> statement-breakpoint
 ALTER TABLE "players" ADD COLUMN IF NOT EXISTS "muted_until" timestamptz;
 --> statement-breakpoint
+ALTER TABLE "players" ADD COLUMN IF NOT EXISTS "banned_until" timestamptz;
+--> statement-breakpoint
+ALTER TABLE "players" ADD COLUMN IF NOT EXISTS "ban_reason" text;
+--> statement-breakpoint
 ALTER TABLE "chat_messages" ADD COLUMN IF NOT EXISTS "deleted_at" timestamptz;
 --> statement-breakpoint
 ALTER TABLE "chat_messages" ADD COLUMN IF NOT EXISTS "deleted_by" integer REFERENCES "players"("id") ON DELETE SET NULL;

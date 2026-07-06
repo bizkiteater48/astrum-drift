@@ -96,6 +96,16 @@ export async function ensureModerationSchema(): Promise<void> {
   `);
 
   await pool.query(`
+    ALTER TABLE players
+      ADD COLUMN IF NOT EXISTS banned_until timestamptz;
+  `);
+
+  await pool.query(`
+    ALTER TABLE players
+      ADD COLUMN IF NOT EXISTS ban_reason text;
+  `);
+
+  await pool.query(`
     ALTER TABLE chat_messages
       ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
   `);
