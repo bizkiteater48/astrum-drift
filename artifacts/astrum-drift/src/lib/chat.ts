@@ -11,6 +11,12 @@ export const LIVE_CHAT_LIMIT = 100;
 export const HISTORY_CHAT_HOURS = 24;
 export const HISTORY_CHAT_LIMIT = 500;
 
+export function sortChatMessagesNewestFirst<T extends { id: number }>(
+  messages: T[],
+): T[] {
+  return [...messages].sort((a, b) => b.id - a.id);
+}
+
 export function formatUtcChatTime(sentAt: string): string {
   const date = new Date(sentAt);
   if (Number.isNaN(date.getTime())) return "—";

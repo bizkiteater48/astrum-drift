@@ -134,7 +134,6 @@ router.get("/chat/:channel/messages", requireAuth, async (req, res): Promise<voi
       .orderBy(desc(chatMessagesTable.id))
       .limit(limit);
 
-    rows.reverse();
     res.status(200).json({ messages: rows.map(serializeChatMessage) });
   } catch (err) {
     req.log.error({ err, channel }, "Failed to load chat messages");
