@@ -4,7 +4,7 @@ import {
   useGetMe,
   getGetMeQueryKey,
   useLogout,
-  useGetChatMessages,
+  getChatMessages,
   useSendChatMessage,
   getGetChatMessagesQueryKey,
   ApiError,
@@ -13,7 +13,7 @@ import {
   type ChatMessageList,
   type Player,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQueries } from "@tanstack/react-query";
 import {
   Loader2,
   Power,
@@ -87,7 +87,7 @@ import {
   type MainGameTravelLink,
   type SkillId,
 } from "@/lib/main-game";
-import { formatUtcChatTime, LIVE_CHAT_LIMIT, sortChatMessagesNewestFirst } from "@/lib/chat";
+import { formatUtcChatTime, LIVE_CHAT_LIMIT, sortChatMessagesNewestFirst, countUnreadChatMessages, getLatestChatMessageId } from "@/lib/chat";
 import {
   addChatIgnore,
   canBeChatIgnored,
@@ -183,18 +183,18 @@ const CHAT_CHANNEL_STYLES: Record<
     messageBorder: "border-l-chart-3/50",
   },
   help: {
-    tabActive: "border-chart-4/50 bg-chart-4/15 text-chart-4",
-    tabInactive: "border-chart-4/25 text-chart-4/60 hover:bg-chart-4/10",
-    author: "text-chart-4 font-semibold",
-    message: "text-chart-4/80",
-    messageBorder: "border-l-chart-4/50",
+    tabActive: "border-amber-400/50 bg-amber-400/10 text-amber-300",
+    tabInactive: "border-amber-400/25 text-amber-400/60 hover:bg-amber-400/10",
+    author: "text-amber-300 font-semibold",
+    message: "text-amber-300/80",
+    messageBorder: "border-l-amber-400/50",
   },
   staff: {
-    tabActive: "border-violet-400/50 bg-violet-400/10 text-violet-300",
-    tabInactive: "border-violet-400/25 text-violet-400/60 hover:bg-violet-400/10",
-    author: "text-violet-300 font-semibold",
-    message: "text-violet-300/80",
-    messageBorder: "border-l-violet-400/50",
+    tabActive: "border-white/50 bg-white/10 text-white",
+    tabInactive: "border-white/25 text-white/60 hover:bg-white/10",
+    author: "text-white font-semibold",
+    message: "text-white/80",
+    messageBorder: "border-l-white/50",
   },
 };
 
@@ -522,6 +522,8 @@ export default function PlayPage() {
   const chatInputRef = useRef<HTMLInputElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const chatSendInFlightRef = useRef(false);
+  const chatLastReadByChannelRef = useRef<Partial<Record<ChatChannelId, number>>>({});
+  const [chatReadRevision, setChatReadRevision] = useState(0);
   const [showLaunchIntro, setShowLaunchIntro] = useState(true);
   const [showCommandTour, setShowCommandTour] = useState(true);
   const [commandTourStep, setCommandTourStep] = useState(0);
@@ -626,23 +628,36 @@ export default function PlayPage() {
     return () => window.clearInterval(intervalId);
   }, [player?.id, player?.role]);
 
-  const {
-    data: chatData,
-    isError: isChatLoadError,
-    error: chatLoadError,
-  } = useGetChatMessages(
-    activeChatChannel as ChatChannel,
-    { limit: LIVE_CHAT_LIMIT },
-    {
-      query: {
-        enabled:
-          isChatOpen &&
-          Boolean(player?.username) &&
-          (activeChatChannel !== "staff" || canAccessStaffChat(player?.role)),
-        refetchInterval: isChatOpen ? 3000 : false,
-      },
-    },
+  const chatChannelQueries = useQueries({
+    queries: visibleChatChannels.map((channel) => ({
+      queryKey: getGetChatMessagesQueryKey(channel.id as ChatChannel, {
+        limit: LIVE_CHAT_LIMIT,
+      }),
+      queryFn: () =>
+        getChatMessages(channel.id as ChatChannel, { limit: LIVE_CHAT_LIMIT }),
+      enabled:
+        isChatOpen &&
+        Boolean(player?.username) &&
+        (channel.id !== "staff" || canAccessStaffChat(player?.role)),
+      refetchInterval: isChatOpen ? 3000 : false,
+    })),
+  });
+
+  const chatMessagesByChannel = useMemo(() => {
+    const map = new Map<ChatChannelId, ChatMessage[]>();
+    visibleChatChannels.forEach((channel, index) => {
+      map.set(channel.id, chatChannelQueries[index]?.data?.messages ?? []);
+    });
+    return map;
+  }, [visibleChatChannels, chatChannelQueries]);
+
+  const activeChannelQueryIndex = visibleChatChannels.findIndex(
+    (channel) => channel.id === activeChatChannel,
   );
+  const activeChatQuery =
+    activeChannelQueryIndex >= 0
+      ? chatChannelQueries[activeChannelQueryIndex]
+      : undefined;
 
   const sendChatMutation = useSendChatMessage();
 
@@ -701,7 +716,31 @@ export default function PlayPage() {
     ); // Keep last 50
   };
 
-  const activeChannelMessages = chatData?.messages ?? [];
+  const activeChannelMessages =
+    chatMessagesByChannel.get(activeChatChannel) ?? [];
+  const chatUnreadByChannel = useMemo(() => {
+    const counts: Partial<Record<ChatChannelId, number>> = {};
+    for (const channel of visibleChatChannels) {
+      const messages = chatMessagesByChannel.get(channel.id) ?? [];
+      if (channel.id === activeChatChannel) {
+        counts[channel.id] = 0;
+        continue;
+      }
+      counts[channel.id] = countUnreadChatMessages(
+        messages,
+        chatLastReadByChannelRef.current[channel.id],
+        player?.id,
+      );
+    }
+    return counts;
+  }, [
+    visibleChatChannels,
+    chatMessagesByChannel,
+    activeChatChannel,
+    player?.id,
+    chatReadRevision,
+    chatChannelQueries.map((query) => query.dataUpdatedAt).join(","),
+  ]);
   const ignoredPlayerIds = useMemo(
     () => new Set(chatIgnores.map((entry) => entry.playerId)),
     [chatIgnores],
@@ -717,11 +756,11 @@ export default function PlayPage() {
     [activeChannelMessages, ignoredPlayerIds],
   );
   const chatLoadErrorMessage =
-    isChatLoadError &&
-    chatLoadError instanceof ApiError
-      ? (chatLoadError.data as { error?: string } | null)?.error ??
-        chatLoadError.message
-      : isChatLoadError
+    activeChatQuery?.isError &&
+    activeChatQuery.error instanceof ApiError
+      ? (activeChatQuery.error.data as { error?: string } | null)?.error ??
+        activeChatQuery.error.message
+      : activeChatQuery?.isError
         ? "Unable to load chat messages."
         : null;
   const isChatInputEnabled =
@@ -955,6 +994,33 @@ export default function PlayPage() {
       setActiveChatChannel("global");
     }
   }, [activeChatChannel, player?.role]);
+
+  useEffect(() => {
+    let seeded = false;
+    for (const channel of visibleChatChannels) {
+      const messages = chatMessagesByChannel.get(channel.id) ?? [];
+      if (messages.length === 0) continue;
+      if (chatLastReadByChannelRef.current[channel.id] === undefined) {
+        chatLastReadByChannelRef.current[channel.id] =
+          getLatestChatMessageId(messages);
+        seeded = true;
+      }
+    }
+    if (seeded) {
+      setChatReadRevision((value) => value + 1);
+    }
+  }, [visibleChatChannels, chatMessagesByChannel]);
+
+  useEffect(() => {
+    const messages = chatMessagesByChannel.get(activeChatChannel) ?? [];
+    if (messages.length === 0) return;
+
+    const latestId = getLatestChatMessageId(messages);
+    const previousRead = chatLastReadByChannelRef.current[activeChatChannel] ?? 0;
+    if (latestId > previousRead) {
+      chatLastReadByChannelRef.current[activeChatChannel] = latestId;
+    }
+  }, [activeChatChannel, activeChannelMessages, chatMessagesByChannel]);
   const currentTutorialStep = tutorialSteps[currentTutorialStepIndex];
   const getActiveSkillFromTutorialStep = () => {
     if (!currentTutorialStep) return "Mining";
@@ -3851,14 +3917,24 @@ export default function PlayPage() {
                     const channelStyle = CHAT_CHANNEL_STYLES[channel.id];
                     const isActive = activeChatChannel === channel.id;
                     const ChannelIcon = channel.Icon;
+                    const unreadCount = chatUnreadByChannel[channel.id] ?? 0;
 
                     return (
                       <button
                         key={channel.id}
                         type="button"
-                        aria-label={`${channel.label} chat`}
+                        aria-label={`${channel.label} chat${
+                          unreadCount > 0
+                            ? `, ${unreadCount} unread message${unreadCount === 1 ? "" : "s"}`
+                            : ""
+                        }`}
                         aria-current={isActive ? "true" : undefined}
                         onClick={() => {
+                          const messages =
+                            chatMessagesByChannel.get(channel.id) ?? [];
+                          chatLastReadByChannelRef.current[channel.id] =
+                            getLatestChatMessageId(messages);
+                          setChatReadRevision((value) => value + 1);
                           setActiveChatChannel(channel.id);
                           setChatSendError(null);
                         }}
@@ -3867,7 +3943,12 @@ export default function PlayPage() {
                         }`}
                       >
                         <ChannelIcon className="size-2.5 shrink-0" aria-hidden="true" />
-                        {channel.label}
+                        <span>{channel.label}</span>
+                        {unreadCount > 0 && (
+                          <span className="tabular-nums opacity-90">
+                            {unreadCount > 99 ? "99+" : unreadCount}
+                          </span>
+                        )}
                       </button>
                     );
                   })}

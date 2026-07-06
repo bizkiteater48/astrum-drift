@@ -38,3 +38,21 @@ export function getChatHistoryUrl(): string {
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   return `${base}/chat-history`;
 }
+
+export function getLatestChatMessageId(messages: { id: number }[]): number {
+  if (messages.length === 0) return 0;
+  return Math.max(...messages.map((message) => message.id));
+}
+
+export function countUnreadChatMessages(
+  messages: { id: number; authorId: number }[],
+  lastReadId: number | undefined,
+  viewerPlayerId?: number,
+): number {
+  const baseline = lastReadId ?? 0;
+  return messages.filter(
+    (message) =>
+      message.id > baseline &&
+      (viewerPlayerId === undefined || message.authorId !== viewerPlayerId),
+  ).length;
+}
