@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Coins, Dices, Loader2, Spade, Swords, X } from "lucide-react";
 import type { Player } from "@workspace/api-client-react";
 import {
@@ -28,7 +28,9 @@ import {
   type PokerActionType,
   type PokerGame,
 } from "@/lib/gambling-api";
-import { ApiError } from "@workspace/api-client-react";
+import { ApiError, customFetch, getGetMeQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { PokerCard, PokerCardBack } from "@/components/poker-card";
 
 type DriftLoungePanelProps = {
   player: Player;
@@ -49,6 +51,8 @@ export function DriftLoungePanel({
   onRefundOre,
   onNotice,
 }: DriftLoungePanelProps) {
+  const queryClient = useQueryClient();
+  const activePokerGameIdRef = useRef<number | null>(null);
   const [houseStake, setHouseStake] = useState("10");
   const [diceChoice, setDiceChoice] = useState<"over" | "under">("over");
   const [flipChoice, setFlipChoice] = useState<"heads" | "tails">("heads");
@@ -85,11 +89,41 @@ export function DriftLoungePanel({
   const loadPokerGames = useCallback(async () => {
     try {
       const data = await listPokerGames();
+      const previousActiveId = activePokerGameIdRef.current;
+      const nextActive = data.games.find((game) => game.status === "active") ?? null;
+      activePokerGameIdRef.current = nextActive?.id ?? null;
+
+      if (
+        previousActiveId &&
+        !data.games.some(
+          (game) => game.id === previousActiveId && game.status === "active",
+        )
+      ) {
+        const endedGame = data.games.find(
+          (game) => game.id === previousActiveId && game.status === "complete",
+        );
+        if (endedGame) {
+          try {
+            const refreshed = await customFetch<Player>("/api/auth/me");
+            onPlayerUpdated(refreshed);
+            await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+          } catch {
+            // Ignore refresh errors; table state still updated.
+          }
+          if (endedGame.state?.winnerId) {
+            const winnerName = getPokerWinnerName(endedGame, endedGame.state.winnerId);
+            const message = `${winnerName} won the table.`;
+            setLastOutcome(message);
+            onNotice(message);
+          }
+        }
+      }
+
       setPokerGames(data.games);
     } catch {
       setPokerGames([]);
     }
-  }, []);
+  }, [onNotice, onPlayerUpdated, queryClient]);
 
   const loadLoungeData = useCallback(async () => {
     await Promise.all([loadChallenges(), loadPokerGames()]);
@@ -104,14 +138,19 @@ export function DriftLoungePanel({
   }, [loadLoungeData]);
 
   useEffect(() => {
-    if (!activePokerGame?.state || activePokerGame.state.phase === "complete") {
+    if (!activePokerGame?.state) {
       return;
     }
     const interval = window.setInterval(() => {
       setTurnClockTick((tick) => tick + 1);
     }, 1000);
     return () => window.clearInterval(interval);
-  }, [activePokerGame?.id, activePokerGame?.state?.phase, activePokerGame?.state?.actionDeadlineAt]);
+  }, [
+    activePokerGame?.id,
+    activePokerGame?.state?.phase,
+    activePokerGame?.state?.actionDeadlineAt,
+    activePokerGame?.state?.nextHandAt,
+  ]);
 
   useEffect(() => {
     if (activePokerGame?.state?.minRaiseTotal) {
@@ -278,15 +317,24 @@ export function DriftLoungePanel({
       onPlayerUpdated(result.player);
 
       if (result.game.status === "complete" && result.game.state) {
-        const winnerName =
-          result.game.winnerId === player.id
-            ? "You"
-            : result.game.inviterId === result.game.winnerId
-              ? result.game.inviterUsername
-              : result.game.opponentUsername;
-        const message = result.game.state.winningHand
-          ? `${winnerName} won — ${result.game.state.winningHand}.`
-          : `${winnerName} won the pot.`;
+        const winnerName = getPokerWinnerName(
+          result.game,
+          result.game.state.winnerId ?? result.game.winnerId ?? 0,
+        );
+        const message = `${winnerName} won the table.`;
+        setLastOutcome(message);
+        onNotice(message);
+      } else if (result.game.state?.phase === "hand_result") {
+        const winnerName = getPokerWinnerName(
+          result.game,
+          result.game.state.winnerId ?? 0,
+        );
+        const handLabel = result.game.state.winningHand
+          ? ` with ${result.game.state.winningHand}`
+          : result.game.state.winReason === "fold"
+            ? " by fold"
+            : "";
+        const message = `${winnerName} won hand #${result.game.state.handNumber ?? "?"}${handLabel}.`;
         setLastOutcome(message);
         onNotice(message);
       }
@@ -474,20 +522,21 @@ export function DriftLoungePanel({
               PvP Texas Hold&apos;em
             </h3>
             <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
-              Heads-up · standard hold&apos;em · {POKER_ACTION_TIMEOUT_SEC}s per action
+              Heads-up · play continues until someone busts · {POKER_ACTION_TIMEOUT_SEC}s per action
             </p>
 
             {activePokerGame?.state ? (
               <div className="rounded-lg border border-primary/25 bg-background/40 p-3 space-y-3">
                 <div className="flex items-center justify-between text-[10px] uppercase tracking-widest">
                   <span className="text-primary">
+                    Hand #{activePokerGame.state.handNumber ?? 1} ·{" "}
                     {formatPokerPhase(activePokerGame.state.phase)}
                   </span>
                   <div className="text-right">
                     <span className="text-chart-3 font-bold block">
                       Pot {activePokerGame.state.pot}
                     </span>
-                    {activePokerGame.state.phase !== "complete" && (
+                    {activePokerGame.state.phase !== "hand_result" && (
                       <span className="text-muted-foreground">
                         {formatPokerTurnClock(activePokerGame, player.id, turnClockTick)}
                       </span>
@@ -495,19 +544,26 @@ export function DriftLoungePanel({
                   </div>
                 </div>
 
-                <div className="min-h-8 rounded border border-primary/15 bg-background/50 px-2 py-1.5 flex flex-wrap gap-1.5 items-center">
+                {activePokerGame.state.phase === "hand_result" && (
+                  <div className="rounded-lg border border-chart-3/40 bg-chart-3/10 px-3 py-2 text-center">
+                    <p className="text-sm font-bold text-chart-3">
+                      {formatHandWinnerLine(activePokerGame, player.id)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">
+                      Next hand in{" "}
+                      {formatSecondsUntilNextHand(activePokerGame.state, turnClockTick)}s
+                    </p>
+                  </div>
+                )}
+
+                <div className="min-h-16 rounded border border-primary/15 bg-emerald-950/30 px-3 py-2 flex flex-wrap gap-2 items-center justify-center">
                   {activePokerGame.state.board.length === 0 ? (
                     <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
                       Board pending
                     </span>
                   ) : (
                     activePokerGame.state.board.map((card) => (
-                      <span
-                        key={card}
-                        className="inline-flex h-7 min-w-8 items-center justify-center rounded border border-primary/25 bg-background/80 px-1 text-[10px] font-mono text-primary"
-                      >
-                        {formatPlayingCard(card)}
-                      </span>
+                      <PokerCard key={card} card={card} size="lg" />
                     ))
                   )}
                 </div>
@@ -545,18 +601,16 @@ export function DriftLoungePanel({
                           <p className="text-muted-foreground mt-1">
                             Stack {stack} · Bet {streetBet}
                           </p>
-                          <div className="mt-1 flex gap-1">
+                          <div className="mt-2 flex gap-2 justify-center">
                             {holeCards ? (
                               holeCards.map((card) => (
-                                <span
-                                  key={card}
-                                  className="inline-flex h-7 min-w-8 items-center justify-center rounded border border-primary/25 bg-background/80 px-1 text-[10px] font-mono text-primary"
-                                >
-                                  {formatPlayingCard(card)}
-                                </span>
+                                <PokerCard key={card} card={card} size="lg" />
                               ))
                             ) : (
-                              <span className="text-muted-foreground">?? ??</span>
+                              <>
+                                <PokerCardBack size="lg" />
+                                <PokerCardBack size="lg" />
+                              </>
                             )}
                           </div>
                         </div>
@@ -604,6 +658,10 @@ export function DriftLoungePanel({
                       </label>
                     )}
                   </div>
+                ) : activePokerGame.state.phase === "hand_result" ? (
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest text-center">
+                    Cards revealed · next hand dealing soon…
+                  </p>
                 ) : (
                   <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
                     Waiting for opponent…
@@ -823,17 +881,46 @@ function formatHouseOutcome(outcome: HousePlayOutcome): string {
     : `${outcome.result} — lost ${outcome.stake} coins.`;
 }
 
-const SUIT_SYMBOLS: Record<string, string> = {
-  c: "♣",
-  d: "♦",
-  h: "♥",
-  s: "♠",
-};
+function getPokerWinnerName(game: PokerGame, winnerId: number): string {
+  if (winnerId === game.inviterId) return game.inviterUsername;
+  if (winnerId === game.opponentId) return game.opponentUsername;
+  return "Winner";
+}
 
-function formatPlayingCard(card: string): string {
-  const rank = card[0] === "T" ? "10" : card[0];
-  const suit = SUIT_SYMBOLS[card[1] ?? ""] ?? card[1];
-  return `${rank}${suit}`;
+function formatHandWinnerLine(game: PokerGame, viewerId: number): string {
+  const state = game.state;
+  if (!state?.winnerId) return "Hand complete";
+
+  const winnerName =
+    state.winnerId === viewerId
+      ? "You won"
+      : getPokerWinnerName(game, state.winnerId);
+
+  if (state.winReason === "fold") {
+    return `${winnerName} the hand (opponent folded)`;
+  }
+
+  if (state.winningHand) {
+    return `${winnerName} with ${state.winningHand}`;
+  }
+
+  return `${winnerName} the hand`;
+}
+
+function formatSecondsUntilNextHand(
+  state: NonNullable<PokerGame["state"]>,
+  _tick: number,
+): number {
+  if (state.secondsUntilNextHand != null) {
+    return state.secondsUntilNextHand;
+  }
+  if (!state.nextHandAt) {
+    return 5;
+  }
+  return Math.max(
+    0,
+    Math.ceil((new Date(state.nextHandAt).getTime() - Date.now()) / 1000),
+  );
 }
 
 function formatPokerPhase(phase: string): string {
@@ -848,6 +935,10 @@ function formatPokerPhase(phase: string): string {
       return "River";
     case "showdown":
       return "Showdown";
+    case "hand_result":
+      return "Hand Result";
+    case "session_complete":
+      return "Session Complete";
     case "complete":
       return "Hand Complete";
     default:
@@ -876,7 +967,7 @@ function formatPokerTurnClock(
   _tick: number,
 ): string {
   const state = game.state;
-  if (!state || state.phase === "complete" || !state.actionDeadlineAt) {
+  if (!state || state.phase === "hand_result" || !state.actionDeadlineAt) {
     return "";
   }
 

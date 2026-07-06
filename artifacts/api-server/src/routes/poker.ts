@@ -11,6 +11,7 @@ import {
   POKER_MIN_BUY_IN,
   applyPokerAction,
   createInitialPokerState,
+  processInterHandProgression,
   processPokerTimeouts,
   serializePokerStateForViewer,
   type PokerActionType,
@@ -86,7 +87,7 @@ function serializePokerGame(row: PokerGameRow, viewerId: number) {
   };
 }
 
-async function settleCompletedGame(
+async function endPokerSession(
   client: import("pg").PoolClient,
   gameId: number,
   state: PokerGameState,
@@ -147,27 +148,40 @@ async function settleCompletedGame(
   );
 }
 
-async function syncPokerGameRow(
+async function advancePokerGameState(
   client: import("pg").PoolClient,
   game: PokerGameRow,
-): Promise<PokerGameRow> {
+): Promise<{ game: PokerGameRow; sessionEnded: boolean }> {
   if (game.status !== "active" || !game.state) {
-    return game;
+    return { game, sessionEnded: false };
   }
 
-  const { state, changed } = processPokerTimeouts(game.state);
+  let state = game.state;
+  let changed = false;
+
+  const timeoutResult = processPokerTimeouts(state);
+  state = timeoutResult.state;
+  changed = changed || timeoutResult.changed;
+
+  const interHandResult = processInterHandProgression(state);
+  state = interHandResult.state;
+  changed = changed || interHandResult.changed;
+
   if (!changed) {
-    return game;
+    return { game, sessionEnded: false };
   }
 
-  if (state.phase === "complete") {
-    await settleCompletedGame(client, game.id, state);
+  if (interHandResult.sessionEnded || state.phase === "session_complete") {
+    await endPokerSession(client, game.id, state);
     return {
-      ...game,
-      status: "complete",
-      state,
-      winner_id: state.winnerId ?? null,
-      resolved_at: new Date(),
+      game: {
+        ...game,
+        status: "complete",
+        state,
+        winner_id: state.winnerId ?? null,
+        resolved_at: new Date(),
+      },
+      sessionEnded: true,
     };
   }
 
@@ -181,9 +195,24 @@ async function syncPokerGameRow(
   );
 
   return {
-    ...game,
-    state,
+    game: {
+      ...game,
+      state,
+    },
+    sessionEnded: false,
   };
+}
+
+async function syncPokerGameRow(
+  client: import("pg").PoolClient,
+  game: PokerGameRow,
+): Promise<PokerGameRow> {
+  if (game.status !== "active" || !game.state) {
+    return game;
+  }
+
+  const { game: advanced } = await advancePokerGameState(client, game);
+  return advanced;
 }
 
 async function advanceTimedOutPokerGame(gameId: number): Promise<PokerGameRow | null> {
@@ -232,8 +261,18 @@ async function advanceTimedOutPokerGame(gameId: number): Promise<PokerGameRow | 
 }
 
 function isActionDeadlineElapsed(state: PokerGameState | null): boolean {
-  if (!state?.actionDeadlineAt || state.phase === "complete") {
+  if (!state?.actionDeadlineAt) {
     return false;
+  }
+  if (
+    state.phase !== "preflop" &&
+    state.phase !== "flop" &&
+    state.phase !== "turn" &&
+    state.phase !== "river"
+  ) {
+    return state.phase === "hand_result" && state.nextHandAt
+      ? Date.parse(state.nextHandAt) <= Date.now()
+      : false;
   }
   return Date.parse(state.actionDeadlineAt) <= Date.now();
 }
@@ -744,17 +783,14 @@ router.post(
         return;
       }
 
-      if (syncedGame.state!.actionOn !== playerId) {
-        if (syncedGame.state !== game.state) {
-          await client.query(
-            `
-              UPDATE poker_games
-              SET state = $2::jsonb
-              WHERE id = $1
-            `,
-            [gameId, JSON.stringify(syncedGame.state)],
-          );
-        }
+      const syncedPhase = syncedGame.state?.phase;
+      const isBettingRound =
+        syncedPhase === "preflop" ||
+        syncedPhase === "flop" ||
+        syncedPhase === "turn" ||
+        syncedPhase === "river";
+
+      if (!isBettingRound || syncedGame.state!.actionOn !== playerId) {
         await client.query("COMMIT");
         res.status(400).json({ error: "Not your turn." });
         return;
@@ -776,8 +812,8 @@ router.post(
         return;
       }
 
-      if (nextState.phase === "complete") {
-        await settleCompletedGame(client, gameId, nextState);
+      if (nextState.phase === "session_complete") {
+        await endPokerSession(client, gameId, nextState);
       } else {
         await client.query(
           `
@@ -796,17 +832,23 @@ router.post(
         .from(playersTable)
         .where(eq(playersTable.id, playerId));
 
+      const finalStatus =
+        nextState.phase === "session_complete" ? "complete" : "active";
+
       res.status(200).json({
         player: serializePlayer(viewerPlayer!),
         game: {
           ...serializePokerGame(
             {
               ...syncedGame,
-              status: nextState.phase === "complete" ? "complete" : "active",
+              status: finalStatus,
               state: nextState,
-              winner_id: nextState.winnerId ?? null,
+              winner_id:
+                finalStatus === "complete"
+                  ? nextState.winnerId ?? null
+                  : syncedGame.winner_id,
               resolved_at:
-                nextState.phase === "complete" ? new Date() : syncedGame.resolved_at,
+                finalStatus === "complete" ? new Date() : syncedGame.resolved_at,
             },
             playerId,
           ),

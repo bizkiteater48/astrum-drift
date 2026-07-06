@@ -2,6 +2,7 @@ export const POKER_MIN_BUY_IN = 20;
 export const POKER_MAX_BUY_IN = 500;
 export const POKER_INVITE_EXPIRY_MS = 120_000;
 export const POKER_ACTION_TIMEOUT_MS = 60_000;
+export const POKER_INTER_HAND_DELAY_MS = 5_000;
 
 export type PokerPhase =
   | "preflop"
@@ -9,7 +10,8 @@ export type PokerPhase =
   | "turn"
   | "river"
   | "showdown"
-  | "complete";
+  | "hand_result"
+  | "session_complete";
 
 export type PokerActionType = "fold" | "check" | "call" | "raise";
 
@@ -37,6 +39,9 @@ export type PokerGameState = {
   actionDeadlineAt: string;
   acted: Record<string, boolean>;
   lastAggressor: number | null;
+  handNumber: number;
+  tableBuyIn: number;
+  nextHandAt?: string;
   actions: PokerActionLog[];
   winnerId?: number;
   winReason?: "fold" | "showdown";
@@ -231,17 +236,57 @@ export function createInitialPokerState(
   const { smallBlind, bigBlind } = getBlinds(buyIn);
   const buttonPlayerId = player1Id;
   const bigBlindPlayerId = player2Id;
-  const deck = createDeck();
 
-  const holeCards: Record<string, [string, string]> = {};
   const stacks: Record<string, number> = {
     [String(player1Id)]: buyIn,
     [String(player2Id)]: buyIn,
   };
+
+  return startNewHand({
+    player1Id,
+    player2Id,
+    stacks,
+    buttonPlayerId,
+    bigBlindPlayerId,
+    smallBlind,
+    bigBlind,
+    tableBuyIn: buyIn,
+    handNumber: 1,
+  });
+}
+
+type StartHandInput = {
+  player1Id: number;
+  player2Id: number;
+  stacks: Record<string, number>;
+  buttonPlayerId: number;
+  bigBlindPlayerId: number;
+  smallBlind: number;
+  bigBlind: number;
+  tableBuyIn: number;
+  handNumber: number;
+};
+
+function startNewHand(input: StartHandInput): PokerGameState {
+  const {
+    player1Id,
+    player2Id,
+    stacks,
+    buttonPlayerId,
+    bigBlindPlayerId,
+    smallBlind,
+    bigBlind,
+    tableBuyIn,
+    handNumber,
+  } = input;
+
+  const deck = createDeck();
+  const holeCards: Record<string, [string, string]> = {};
   const streetBets: Record<string, number> = {
     [String(player1Id)]: 0,
     [String(player2Id)]: 0,
   };
+  const workingStacks = { ...stacks };
 
   const dealCard = () => deck.pop()!;
 
@@ -250,8 +295,8 @@ export function createInitialPokerState(
 
   const postBlind = (playerId: number, amount: number) => {
     const key = String(playerId);
-    const posted = Math.min(amount, stacks[key]!);
-    stacks[key]! -= posted;
+    const posted = Math.min(amount, workingStacks[key]!);
+    workingStacks[key]! -= posted;
     streetBets[key]! += posted;
   };
 
@@ -264,7 +309,7 @@ export function createInitialPokerState(
     deck,
     board: [],
     holeCards,
-    stacks,
+    stacks: workingStacks,
     pot,
     phase: "preflop",
     streetBets,
@@ -280,10 +325,90 @@ export function createInitialPokerState(
       [String(player2Id)]: false,
     },
     lastAggressor: bigBlindPlayerId,
+    handNumber,
+    tableBuyIn,
     actions: [],
   };
 
   return startTurnTimer(state);
+}
+
+export function dealNextHand(state: PokerGameState): PokerGameState {
+  const playerIds = Object.keys(state.stacks).map(Number);
+  const [player1Id, player2Id] = playerIds;
+  const nextButton =
+    state.buttonPlayerId === player1Id ? player2Id! : player1Id!;
+  const nextBigBlind = nextButton === player1Id ? player2Id! : player1Id!;
+  const { smallBlind, bigBlind } = getBlinds(state.tableBuyIn);
+
+  return startNewHand({
+    player1Id: player1Id!,
+    player2Id: player2Id!,
+    stacks: { ...state.stacks },
+    buttonPlayerId: nextButton,
+    bigBlindPlayerId: nextBigBlind,
+    smallBlind,
+    bigBlind,
+    tableBuyIn: state.tableBuyIn,
+    handNumber: state.handNumber + 1,
+  });
+}
+
+function canContinueSession(state: PokerGameState): boolean {
+  const stacks = Object.values(state.stacks);
+  return stacks.every((stack) => stack > 0);
+}
+
+function finalizeHand(state: PokerGameState): PokerGameState {
+  const next = structuredClone(state);
+  next.phase = "hand_result";
+  next.nextHandAt = new Date(
+    Date.now() + POKER_INTER_HAND_DELAY_MS,
+  ).toISOString();
+  next.actionDeadlineAt = "";
+  return next;
+}
+
+export function processInterHandProgression(
+  state: PokerGameState,
+  nowMs: number = Date.now(),
+): { state: PokerGameState; changed: boolean; sessionEnded: boolean } {
+  if (state.phase !== "hand_result" || !state.nextHandAt) {
+    return { state, changed: false, sessionEnded: false };
+  }
+
+  if (Date.parse(state.nextHandAt) > nowMs) {
+    return { state, changed: false, sessionEnded: false };
+  }
+
+  if (!canContinueSession(state)) {
+    const next = structuredClone(state);
+    const playerIds = Object.keys(state.stacks).map(Number);
+    next.winnerId = playerIds.reduce((bestId, playerId) =>
+      (state.stacks[String(playerId)] ?? 0) > (state.stacks[String(bestId)] ?? 0)
+        ? playerId
+        : bestId,
+    );
+    next.phase = "session_complete";
+    next.nextHandAt = undefined;
+    next.winningHand = next.winningHand ?? "Table closed";
+    return { state: next, changed: true, sessionEnded: true };
+  }
+
+  return {
+    state: dealNextHand(state),
+    changed: true,
+    sessionEnded: false,
+  };
+}
+
+function isBettingPhase(phase: PokerPhase): boolean {
+  return (
+    phase === "preflop" ||
+    phase === "flop" ||
+    phase === "turn" ||
+    phase === "river"
+  );
 }
 
 export function normalizePokerState(state: PokerGameState): PokerGameState {
@@ -291,7 +416,20 @@ export function normalizePokerState(state: PokerGameState): PokerGameState {
   if (!next.lastRaiseSize) {
     next.lastRaiseSize = next.bigBlind;
   }
-  if (!next.actionDeadlineAt && next.phase !== "complete") {
+  if (!next.handNumber) {
+    next.handNumber = 1;
+  }
+  if (!next.tableBuyIn) {
+    const stacks = Object.values(next.stacks);
+    next.tableBuyIn = stacks.length > 0 ? Math.max(...stacks) : POKER_MIN_BUY_IN;
+  }
+  if ((next.phase as string) === "complete") {
+    next.phase = "hand_result";
+    if (!next.nextHandAt) {
+      next.nextHandAt = new Date(0).toISOString();
+    }
+  }
+  if (!next.actionDeadlineAt && isBettingPhase(next.phase)) {
     next.actionDeadlineAt = new Date(
       Date.now() + POKER_ACTION_TIMEOUT_MS,
     ).toISOString();
@@ -300,7 +438,7 @@ export function normalizePokerState(state: PokerGameState): PokerGameState {
 }
 
 function startTurnTimer(state: PokerGameState): PokerGameState {
-  if (state.phase === "complete") {
+  if (!isBettingPhase(state.phase)) {
     return state;
   }
   state.actionDeadlineAt = new Date(
@@ -329,7 +467,7 @@ export function processPokerTimeouts(
   let guard = 0;
 
   while (
-    current.phase !== "complete" &&
+    isBettingPhase(current.phase) &&
     current.actionDeadlineAt &&
     Date.parse(current.actionDeadlineAt) <= nowMs &&
     guard < 12
@@ -375,7 +513,7 @@ export function getLegalActions(
   state: PokerGameState,
   playerId: number,
 ): PokerActionType[] {
-  if (state.phase === "complete" || state.actionOn !== playerId) {
+  if (!isBettingPhase(state.phase) || state.actionOn !== playerId) {
     return [];
   }
 
@@ -405,8 +543,8 @@ export function applyPokerAction(
   raiseTotal?: number,
   options?: { timedOut?: boolean },
 ): PokerGameState {
-  if (state.phase === "complete") {
-    throw new Error("Hand is already complete");
+  if (!isBettingPhase(state.phase)) {
+    throw new Error("Hand is not accepting actions");
   }
   if (state.actionOn !== playerId) {
     throw new Error("Not your turn");
@@ -435,10 +573,9 @@ export function applyPokerAction(
     const winnerId = getOtherPlayerId(next, playerId);
     next.winnerId = winnerId;
     next.winReason = "fold";
-    next.phase = "complete";
     next.stacks[String(winnerId)]! += next.pot;
     next.pot = 0;
-    return next;
+    return finalizeHand(next);
   }
 
   if (action === "check") {
@@ -592,7 +729,6 @@ function resolveShowdown(state: PokerGameState): PokerGameState {
   const comparison = compareHandScores(score1, score2);
 
   const next: PokerGameState = structuredClone(state);
-  next.phase = "complete";
   next.winReason = "showdown";
 
   if (comparison > 0) {
@@ -608,12 +744,12 @@ function resolveShowdown(state: PokerGameState): PokerGameState {
     next.pot = 0;
     next.winnerId = player1Id;
     next.winningHand = `Split pot — ${describeHandScore(score1)}`;
-    return next;
+    return finalizeHand(next);
   }
 
   next.stacks[String(next.winnerId!)]! += next.pot;
   next.pot = 0;
-  return next;
+  return finalizeHand(next);
 }
 
 export function serializePokerStateForViewer(
@@ -625,7 +761,8 @@ export function serializePokerStateForViewer(
 
   for (const playerId of playerIds) {
     if (
-      state.phase === "complete" ||
+      state.phase === "hand_result" ||
+      state.phase === "session_complete" ||
       playerId === viewerId
     ) {
       holeCards[String(playerId)] = state.holeCards[String(playerId)] ?? null;
@@ -634,12 +771,21 @@ export function serializePokerStateForViewer(
     }
   }
 
+  const secondsUntilNextHand =
+    state.phase === "hand_result" && state.nextHandAt
+      ? Math.max(
+          0,
+          Math.ceil((Date.parse(state.nextHandAt) - Date.now()) / 1000),
+        )
+      : 0;
+
   return {
     board: state.board,
     holeCards,
     stacks: state.stacks,
     pot: state.pot,
     phase: state.phase,
+    handNumber: state.handNumber,
     streetBets: state.streetBets,
     currentBet: state.currentBet,
     actionOn: state.actionOn,
@@ -650,18 +796,20 @@ export function serializePokerStateForViewer(
     winnerId: state.winnerId,
     winReason: state.winReason,
     winningHand: state.winningHand,
+    nextHandAt: state.nextHandAt,
+    secondsUntilNextHand,
     legalActions:
-      state.phase !== "complete" && state.actionOn === viewerId
+      isBettingPhase(state.phase) && state.actionOn === viewerId
         ? getLegalActions(state, viewerId)
         : [],
     callAmount:
-      state.phase !== "complete" ? getCallAmount(state, viewerId) : 0,
+      isBettingPhase(state.phase) ? getCallAmount(state, viewerId) : 0,
     minRaiseTotal:
-      state.phase !== "complete" ? getMinRaiseTotal(state) : 0,
+      isBettingPhase(state.phase) ? getMinRaiseTotal(state) : 0,
     actionDeadlineAt: state.actionDeadlineAt,
     actionTimeoutSeconds: POKER_ACTION_TIMEOUT_MS / 1000,
     secondsRemaining:
-      state.phase !== "complete" && state.actionDeadlineAt
+      isBettingPhase(state.phase) && state.actionDeadlineAt
         ? Math.max(
             0,
             Math.ceil((Date.parse(state.actionDeadlineAt) - Date.now()) / 1000),

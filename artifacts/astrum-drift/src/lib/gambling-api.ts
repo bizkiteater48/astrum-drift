@@ -110,7 +110,8 @@ export type PokerPhase =
   | "turn"
   | "river"
   | "showdown"
-  | "complete";
+  | "hand_result"
+  | "session_complete";
 
 export type PokerActionType = "fold" | "check" | "call" | "raise";
 
@@ -120,6 +121,7 @@ export type PokerTableState = {
   stacks: Record<string, number>;
   pot: number;
   phase: PokerPhase;
+  handNumber?: number;
   streetBets: Record<string, number>;
   currentBet: number;
   actionOn: number;
@@ -136,6 +138,8 @@ export type PokerTableState = {
   actionDeadlineAt?: string;
   actionTimeoutSeconds?: number;
   secondsRemaining?: number;
+  nextHandAt?: string;
+  secondsUntilNextHand?: number;
 };
 
 export type PokerGame = {
