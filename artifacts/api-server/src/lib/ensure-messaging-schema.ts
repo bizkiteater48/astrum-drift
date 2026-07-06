@@ -13,6 +13,11 @@ export async function ensureMessagingSchema(): Promise<void> {
   `);
 
   await pool.query(`
+    ALTER TABLE chat_messages
+      ADD COLUMN IF NOT EXISTS message_kind text NOT NULL DEFAULT 'user';
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS player_inbox_messages (
       id serial PRIMARY KEY,
       player_id integer NOT NULL REFERENCES players(id) ON DELETE CASCADE,

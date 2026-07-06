@@ -110,7 +110,16 @@ export interface ChatMessage {
   sentAt: string;
   /** @nullable */
   authorStaffTag: "MOD" | "ADMIN" | "GUIDE" | null;
+  messageKind: ChatMessageMessageKind;
 }
+
+export type ChatMessageMessageKind =
+  (typeof ChatMessageMessageKind)[keyof typeof ChatMessageMessageKind];
+
+export const ChatMessageMessageKind = {
+  user: "user",
+  moderation: "moderation",
+} as const;
 
 export interface ChatMessageList {
   messages: ChatMessage[];
@@ -119,7 +128,18 @@ export interface ChatMessageList {
 export interface SendChatMessageBody {
   /** @minLength 1 @maxLength 500 */
   text: string;
+  /** Staff-only. Post as Admin or Mod instead of your username. */
+  displayAs?: SendChatMessageBodyDisplayAs;
 }
+
+export type SendChatMessageBodyDisplayAs =
+  (typeof SendChatMessageBodyDisplayAs)[keyof typeof SendChatMessageBodyDisplayAs];
+
+export const SendChatMessageBodyDisplayAs = {
+  self: "self",
+  admin: "admin",
+  mod: "mod",
+} as const;
 
 export interface SendChatMessageResult {
   message: ChatMessage;

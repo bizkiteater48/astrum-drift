@@ -13,7 +13,10 @@ export const REPORT_REASONS = [
 ] as const;
 export type ReportReason = (typeof REPORT_REASONS)[number];
 
-export const MUTE_ESCALATION_MINUTES = [15, 60, 24 * 60, 7 * 24 * 60] as const;
+export const MUTE_DURATION_MIN = 5;
+export const MUTE_DURATION_MAX = 7 * 24 * 60;
+export const MUTE_DURATION_STEP = 5;
+export const DEFAULT_MUTE_MINUTES = 5;
 
 export function isPlayerRole(value: string): value is PlayerRole {
   return (PLAYER_ROLES as readonly string[]).includes(value);
@@ -50,12 +53,32 @@ export function isReportReason(value: string): value is ReportReason {
   return (REPORT_REASONS as readonly string[]).includes(value);
 }
 
-export function getEscalatedMuteMinutes(previousMuteCount: number): number {
-  const index = Math.min(
-    Math.max(previousMuteCount, 0),
-    MUTE_ESCALATION_MINUTES.length - 1,
+export function isValidMuteDurationMinutes(value: number): boolean {
+  return (
+    Number.isInteger(value) &&
+    value >= MUTE_DURATION_MIN &&
+    value <= MUTE_DURATION_MAX &&
+    value % MUTE_DURATION_STEP === 0
   );
-  return MUTE_ESCALATION_MINUTES[index];
+}
+
+export function parseMuteDurationMinutes(raw: unknown): number | null {
+  const value =
+    typeof raw === "number"
+      ? raw
+      : typeof raw === "string" && raw.trim()
+        ? Number(raw)
+        : NaN;
+
+  if (!isValidMuteDurationMinutes(value)) {
+    return null;
+  }
+
+  return value;
+}
+
+export function getSuggestedMuteMinutes(_previousMuteCount: number): number {
+  return DEFAULT_MUTE_MINUTES;
 }
 
 export function formatMuteDuration(minutes: number): string {

@@ -474,6 +474,9 @@ export default function PlayPage() {
     useState<ChatChannelId>("global");
   const [chatDraft, setChatDraft] = useState("");
   const [chatSendError, setChatSendError] = useState<string | null>(null);
+  const [staffChatDisplayAs, setStaffChatDisplayAs] = useState<
+    "self" | "admin" | "mod"
+  >("self");
   const [showModerationPanel, setShowModerationPanel] = useState(false);
   const [showMessagesPanel, setShowMessagesPanel] = useState(false);
   const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
@@ -690,9 +693,22 @@ export default function PlayPage() {
   const renderChatMessage = (message: ChatMessage, channelId: ChatChannelId) => {
     const channelStyle = CHAT_CHANNEL_STYLES[channelId];
     const isStaff = isStaffRole(player?.role);
+    const isModerationMessage = message.messageKind === "moderation";
     const isOwnMessage =
+      !isModerationMessage &&
       message.author.toLowerCase() === player?.username?.toLowerCase();
-    const showReportAction = !isOwnMessage;
+    const showReportAction = !isOwnMessage && !isModerationMessage;
+
+    if (isModerationMessage) {
+      return (
+        <div key={message.id} className="text-[11px] font-mono leading-snug">
+          <span className="whitespace-nowrap text-destructive/70">
+            [{formatUtcChatTime(message.sentAt)}]
+          </span>{" "}
+          <span className="text-destructive break-words">{message.text}</span>
+        </div>
+      );
+    }
 
     return (
       <div key={message.id} className="group flex items-start gap-1">
@@ -767,7 +783,12 @@ export default function PlayPage() {
     try {
       const result = await sendChatMutation.mutateAsync({
         channel: activeChatChannel as ChatChannel,
-        data: { text: trimmed },
+        data: {
+          text: trimmed,
+          ...(isStaffRole(player.role) && staffChatDisplayAs !== "self"
+            ? { displayAs: staffChatDisplayAs }
+            : {}),
+        },
       });
       setChatDraft("");
 
@@ -3692,6 +3713,30 @@ export default function PlayPage() {
                     <p className="text-[9px] text-destructive uppercase tracking-widest leading-tight">
                       {muteMessage ?? chatSendError}
                     </p>
+                  )}
+                  {isStaffRole(player?.role) && activeChatChannel !== "clan" && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] text-muted-foreground uppercase tracking-widest shrink-0">
+                        Post as
+                      </span>
+                      <select
+                        value={staffChatDisplayAs}
+                        onChange={(event) =>
+                          setStaffChatDisplayAs(
+                            event.target.value as "self" | "admin" | "mod",
+                          )
+                        }
+                        className="h-6 flex-1 rounded border border-primary/20 bg-background/60 px-1.5 text-[10px] text-foreground font-mono outline-none"
+                      >
+                        <option value="self">Self</option>
+                        {(player?.role === "mod" || player?.role === "admin") && (
+                          <option value="mod">Mod</option>
+                        )}
+                        {player?.role === "admin" && (
+                          <option value="admin">Admin</option>
+                        )}
+                      </select>
+                    </div>
                   )}
                   <div className="flex gap-1.5">
                     <input

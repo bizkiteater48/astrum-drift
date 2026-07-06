@@ -26,6 +26,7 @@ export const chatMessagesTable = pgTable(
       onDelete: "set null",
     }),
     authorStaffTag: text("author_staff_tag"),
+    messageKind: text("message_kind").notNull().default("user"),
   },
   (table) => [
     index("chat_messages_channel_id_idx").on(table.channel, table.id),

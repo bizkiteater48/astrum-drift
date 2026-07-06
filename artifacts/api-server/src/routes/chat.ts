@@ -6,6 +6,7 @@ import { requireAuth } from "../middlewares/auth";
 import {
   canShowStaffChatTag,
   getStaffChatTagForRole,
+  isStaffRole,
 } from "../lib/moderation";
 
 const router: IRouter = Router();
@@ -59,6 +60,7 @@ function serializeChatMessage(row: typeof chatMessagesTable.$inferSelect) {
     text: row.text,
     sentAt: row.createdAt.toISOString(),
     authorStaffTag: row.authorStaffTag ?? null,
+    messageKind: (row.messageKind ?? "user") as "user" | "moderation",
   };
 }
 
@@ -169,6 +171,13 @@ router.post(
       return;
     }
 
+    const displayAsRaw =
+      typeof req.body?.displayAs === "string" ? req.body.displayAs.trim() : "self";
+    const displayAs =
+      displayAsRaw === "admin" || displayAsRaw === "mod" || displayAsRaw === "self"
+        ? displayAsRaw
+        : "self";
+
     const playerId = req.session.playerId!;
     const [player] = await db
       .select({
@@ -193,19 +202,34 @@ router.post(
     }
 
     try {
-      const authorStaffTag =
-        player.showStaffChatTag && canShowStaffChatTag(player.role)
-          ? getStaffChatTagForRole(player.role)
-          : null;
+      let displayUsername = player.username;
+      let authorStaffTag: string | null = null;
+
+      if (displayAs !== "self" && isStaffRole(player.role)) {
+        if (displayAs === "admin" && player.role === "admin") {
+          displayUsername = "Admin";
+        } else if (displayAs === "mod" && (player.role === "mod" || player.role === "admin")) {
+          displayUsername = "Mod";
+        } else {
+          res.status(403).json({ error: "Invalid displayAs for your role" });
+          return;
+        }
+      } else if (displayAs !== "self") {
+        res.status(403).json({ error: "displayAs is staff-only" });
+        return;
+      } else if (player.showStaffChatTag && canShowStaffChatTag(player.role)) {
+        authorStaffTag = getStaffChatTagForRole(player.role);
+      }
 
       const [inserted] = await db
         .insert(chatMessagesTable)
         .values({
           channel,
           playerId,
-          username: player.username,
+          username: displayUsername,
           text,
           authorStaffTag,
+          messageKind: "user",
         })
         .returning();
 

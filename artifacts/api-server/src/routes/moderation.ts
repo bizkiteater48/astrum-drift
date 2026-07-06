@@ -12,9 +12,11 @@ import { requireAuth } from "../middlewares/auth";
 import { requireStaff } from "../middlewares/staff";
 import {
   formatMuteDuration,
-  getEscalatedMuteMinutes,
   isReportReason,
+  isValidMuteDurationMinutes,
+  parseMuteDurationMinutes,
   REPORT_REASON_LABELS,
+  DEFAULT_MUTE_MINUTES,
   type ReportReason,
 } from "../lib/moderation";
 import {
@@ -50,10 +52,10 @@ async function applyMute(
   playerId: number,
   moderatorId: number,
   reason: string,
+  durationMinutes: number,
   reportId?: number,
 ): Promise<{ mutedUntil: Date; durationMinutes: number; offenseNumber: number }> {
   const offenseNumber = (await countPlayerMutes(playerId)) + 1;
-  const durationMinutes = getEscalatedMuteMinutes(offenseNumber - 1);
   const mutedUntil = new Date(Date.now() + durationMinutes * 60 * 1000);
 
   await db.transaction(async (tx) => {
@@ -73,6 +75,23 @@ async function applyMute(
   });
 
   return { mutedUntil, durationMinutes, offenseNumber };
+}
+
+async function postMuteGlobalAnnouncement(
+  mutedUsername: string,
+  durationMinutes: number,
+  reason: string,
+  moderatorId: number,
+): Promise<void> {
+  const text = `${mutedUsername} has been muted for ${formatMuteDuration(durationMinutes)}. Reason: ${reason}`;
+
+  await db.insert(chatMessagesTable).values({
+    channel: "global",
+    playerId: moderatorId,
+    username: "System",
+    text,
+    messageKind: "moderation",
+  });
 }
 
 function serializeReport(row: typeof playerReportsTable.$inferSelect, extras?: {
@@ -229,9 +248,26 @@ router.post(
     const moderatorId = req.session.playerId!;
     const note =
       typeof req.body?.note === "string" ? req.body.note.trim() : null;
+    const reason =
+      typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+    const durationMinutes =
+      parseMuteDurationMinutes(req.body?.durationMinutes) ??
+      DEFAULT_MUTE_MINUTES;
 
     if (!Number.isInteger(reportId) || reportId <= 0) {
       res.status(400).json({ error: "Invalid report id" });
+      return;
+    }
+
+    if (!reason) {
+      res.status(400).json({ error: "Mute reason is required" });
+      return;
+    }
+
+    if (!isValidMuteDurationMinutes(durationMinutes)) {
+      res.status(400).json({
+        error: "durationMinutes must be a positive multiple of 5 (min 5)",
+      });
       return;
     }
 
@@ -250,11 +286,16 @@ router.post(
       return;
     }
 
-    const reason = `Report #${report.id}: ${report.reason}`;
+    const [reportedPlayer] = await db
+      .select({ username: playersTable.username })
+      .from(playersTable)
+      .where(eq(playersTable.id, report.reportedPlayerId));
+
     const muteResult = await applyMute(
       report.reportedPlayerId,
       moderatorId,
       reason,
+      durationMinutes,
       report.id,
     );
 
@@ -263,11 +304,7 @@ router.post(
         report.reportedPlayerId,
         "Moderation Team",
         "Account Muted",
-        buildMuteInboxBody(
-          muteResult.durationMinutes,
-          REPORT_REASON_LABELS[report.reason as ReportReason] ?? report.reason,
-          report.details,
-        ),
+        buildMuteInboxBody(muteResult.durationMinutes, reason),
       );
     } catch (inboxError) {
       req.log.error(
@@ -276,12 +313,33 @@ router.post(
       );
     }
 
+    if (reportedPlayer?.username) {
+      try {
+        await postMuteGlobalAnnouncement(
+          reportedPlayer.username,
+          muteResult.durationMinutes,
+          reason,
+          moderatorId,
+        );
+      } catch (announcementError) {
+        req.log.error(
+          { announcementError, playerId: report.reportedPlayerId },
+          "Failed to post mute global announcement",
+        );
+      }
+    }
+
+    const reportContext = `Report #${report.id}: ${REPORT_REASON_LABELS[report.reason as ReportReason] ?? report.reason}`;
+    const resolutionNote =
+      note ??
+      `Muted for ${formatMuteDuration(muteResult.durationMinutes)} (offense #${muteResult.offenseNumber}). Context: ${reportContext}`;
+
     const [updated] = await db
       .update(playerReportsTable)
       .set({
         status: "resolved",
         resolvedBy: moderatorId,
-        resolutionNote: note ?? `Muted for ${formatMuteDuration(muteResult.durationMinutes)} (offense #${muteResult.offenseNumber})`,
+        resolutionNote,
         resolvedAt: new Date(),
       })
       .where(eq(playerReportsTable.id, reportId))
@@ -358,6 +416,9 @@ router.post(
     const moderatorId = req.session.playerId!;
     const reason =
       typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+    const durationMinutes =
+      parseMuteDurationMinutes(req.body?.durationMinutes) ??
+      DEFAULT_MUTE_MINUTES;
 
     if (!Number.isInteger(playerId) || playerId <= 0) {
       res.status(400).json({ error: "Invalid player id" });
@@ -369,8 +430,15 @@ router.post(
       return;
     }
 
+    if (!isValidMuteDurationMinutes(durationMinutes)) {
+      res.status(400).json({
+        error: "durationMinutes must be a positive multiple of 5 (min 5)",
+      });
+      return;
+    }
+
     const [player] = await db
-      .select({ id: playersTable.id })
+      .select({ id: playersTable.id, username: playersTable.username })
       .from(playersTable)
       .where(eq(playersTable.id, playerId));
 
@@ -379,7 +447,12 @@ router.post(
       return;
     }
 
-    const muteResult = await applyMute(playerId, moderatorId, reason);
+    const muteResult = await applyMute(
+      playerId,
+      moderatorId,
+      reason,
+      durationMinutes,
+    );
 
     try {
       await sendPlayerInboxMessage(
@@ -392,6 +465,20 @@ router.post(
       req.log.error(
         { inboxError, playerId },
         "Failed to send mute inbox notification",
+      );
+    }
+
+    try {
+      await postMuteGlobalAnnouncement(
+        player.username,
+        muteResult.durationMinutes,
+        reason,
+        moderatorId,
+      );
+    } catch (announcementError) {
+      req.log.error(
+        { announcementError, playerId },
+        "Failed to post mute global announcement",
       );
     }
 

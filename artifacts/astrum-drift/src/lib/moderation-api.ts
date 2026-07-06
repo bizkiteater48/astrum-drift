@@ -45,6 +45,44 @@ export type SubmitReportBody = {
   messageId?: number;
 };
 
+export const MUTE_DURATION_MIN = 5;
+export const MUTE_DURATION_MAX = 7 * 24 * 60;
+export const MUTE_DURATION_STEP = 5;
+export const DEFAULT_MUTE_MINUTES = 5;
+
+export function getSuggestedMuteMinutes(_previousMuteCount: number): number {
+  return DEFAULT_MUTE_MINUTES;
+}
+
+export const MUTE_DURATION_PRESETS = [
+  5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 360, 480, 720, 1440, 2880, 4320,
+  MUTE_DURATION_MAX,
+] as const;
+
+export function buildMuteDurationOptions(): number[] {
+  const options: number[] = [];
+  for (
+    let minutes = MUTE_DURATION_MIN;
+    minutes <= MUTE_DURATION_MAX;
+    minutes += MUTE_DURATION_STEP
+  ) {
+    options.push(minutes);
+  }
+  return options;
+}
+
+export const MUTE_DURATION_OPTIONS = buildMuteDurationOptions();
+
+export function formatMuteDurationLabel(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+  if (minutes < 24 * 60) {
+    const hours = minutes / 60;
+    return hours === Math.floor(hours) ? `${hours} hr` : `${hours} hr`;
+  }
+  const days = minutes / (24 * 60);
+  return days === Math.floor(days) ? `${days} day${days === 1 ? "" : "s"}` : `${days} days`;
+}
+
 export function submitPlayerReport(body: SubmitReportBody) {
   return customFetch<{ report: PlayerReport }>("/api/moderation/reports", {
     method: "POST",
@@ -67,7 +105,13 @@ export function getPendingReportCount() {
   );
 }
 
-export function muteFromReport(reportId: number, note?: string) {
+export type MuteFromReportBody = {
+  reason: string;
+  durationMinutes?: number;
+  note?: string;
+};
+
+export function muteFromReport(reportId: number, body: MuteFromReportBody) {
   return customFetch<{
     report: PlayerReport;
     mute: {
@@ -78,7 +122,26 @@ export function muteFromReport(reportId: number, note?: string) {
   }>(`/api/moderation/reports/${reportId}/mute`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ note }),
+    body: JSON.stringify(body),
+  });
+}
+
+export type MutePlayerBody = {
+  reason: string;
+  durationMinutes?: number;
+};
+
+export function mutePlayer(playerId: number, body: MutePlayerBody) {
+  return customFetch<{
+    mute: {
+      durationMinutes: number;
+      mutedUntil: string;
+      offenseNumber: number;
+    };
+  }>(`/api/moderation/players/${playerId}/mute`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
 }
 
@@ -150,5 +213,3 @@ export const REPORT_REASON_LABELS: Record<ReportReason, string> = {
   inappropriate: "Inappropriate content",
   other: "Other",
 };
-
-export const MUTE_ESCALATION_LABELS = ["15m", "1h", "24h", "7d"];

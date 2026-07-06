@@ -485,7 +485,7 @@
             post:
               operationId: muteFromReport
               tags: [moderation]
-              summary: Mute reported player with escalating duration (staff only)
+              summary: Mute reported player (staff only)
               parameters:
                 - name: reportId
                   in: path
@@ -493,10 +493,11 @@
                   schema:
                     type: integer
               requestBody:
+                required: true
                 content:
                   application/json:
                     schema:
-                      $ref: "#/components/schemas/ModerationNoteBody"
+                      $ref: "#/components/schemas/MuteFromReportBody"
               responses:
                 "200":
                   description: Player muted
@@ -931,6 +932,10 @@
                   type:
                     - string
                     - "null"
+                messageKind:
+                  type: string
+                  enum: [user, moderation]
+                  default: user
               required:
                 - id
                 - channel
@@ -938,6 +943,7 @@
                 - text
                 - sentAt
                 - authorStaffTag
+                - messageKind
 
             ChatMessageList:
               type: object
@@ -956,6 +962,11 @@
                   type: string
                   minLength: 1
                   maxLength: 500
+                displayAs:
+                  type: string
+                  enum: [self, admin, mod]
+                  default: self
+                  description: Staff-only. Post as Admin or Mod instead of your username.
               required:
                 - text
 
@@ -1235,6 +1246,22 @@
                 note:
                   type: string
 
+            MuteFromReportBody:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+                durationMinutes:
+                  type: integer
+                  minimum: 5
+                  multipleOf: 5
+                  default: 5
+                note:
+                  type: string
+              required:
+                - reason
+
             MuteResult:
               type: object
               properties:
@@ -1266,6 +1293,11 @@
               properties:
                 reason:
                   type: string
+                durationMinutes:
+                  type: integer
+                  minimum: 5
+                  multipleOf: 5
+                  default: 5
               required:
                 - reason
 
