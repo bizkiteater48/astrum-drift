@@ -14,6 +14,7 @@ export type PlayerReport = {
   reportedPlayerId: number;
   reporterUsername?: string;
   reportedUsername?: string;
+  reportedPlayerRole?: string;
   channel?: string | null;
   messageId?: number | null;
   reason: ReportReason;
@@ -180,6 +181,33 @@ export function getPlayerModerationRecords(playerId: number) {
   }>(`/api/moderation/players/${playerId}/records`, { method: "GET" });
 }
 
+export type MutedPlayer = {
+  id: number;
+  username: string;
+  role: string;
+  mutedUntil: string;
+};
+
+export function listMutedPlayers() {
+  return customFetch<{ players: MutedPlayer[] }>("/api/moderation/muted-players", {
+    method: "GET",
+  });
+}
+
+export function unmutePlayer(playerId: number, note?: string) {
+  return customFetch<{
+    player: {
+      id: number;
+      username: string;
+      mutedUntil: null;
+    };
+  }>(`/api/moderation/players/${playerId}/unmute`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ note }),
+  });
+}
+
 export function isStaffRole(role?: string | null): boolean {
   return role === "mod" || role === "admin";
 }
@@ -204,6 +232,32 @@ export function formatMuteDuration(minutes: number): string {
   if (minutes < 60) return `${minutes}m`;
   if (minutes < 24 * 60) return `${Math.round(minutes / 60)}h`;
   return `${Math.round(minutes / (24 * 60))}d`;
+}
+
+export function formatMuteTimeRemaining(
+  mutedUntil: string,
+  nowMs: number = Date.now(),
+): string {
+  const remainingMs = new Date(mutedUntil).getTime() - nowMs;
+  if (remainingMs <= 0) return "Expired";
+
+  const totalMinutes = Math.ceil(remainingMs / 60_000);
+  if (totalMinutes < 60) {
+    return `${totalMinutes} min remaining`;
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours < 24) {
+    return minutes > 0 ? `${hours} hr ${minutes} min remaining` : `${hours} hr remaining`;
+  }
+
+  const days = Math.floor(hours / 24);
+  const remHours = hours % 24;
+  if (remHours > 0) {
+    return `${days} day${days === 1 ? "" : "s"} ${remHours} hr remaining`;
+  }
+  return `${days} day${days === 1 ? "" : "s"} remaining`;
 }
 
 export const REPORT_REASON_LABELS: Record<ReportReason, string> = {

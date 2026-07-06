@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import rateLimit from "express-rate-limit";
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import {
   db,
   playersTable,
@@ -9,7 +9,7 @@ import {
   moderationRecordsTable,
 } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
-import { requireStaff } from "../middlewares/staff";
+import { requireStaff, requireAdmin } from "../middlewares/staff";
 import {
   formatMuteDuration,
   isReportReason,
@@ -80,10 +80,9 @@ async function applyMute(
 async function postMuteGlobalAnnouncement(
   mutedUsername: string,
   durationMinutes: number,
-  reason: string,
   moderatorId: number,
 ): Promise<void> {
-  const text = `${mutedUsername} has been muted for ${formatMuteDuration(durationMinutes)}. Reason: ${reason}`;
+  const text = `${mutedUsername} has been muted for ${formatMuteDuration(durationMinutes)}.`;
 
   await db.insert(chatMessagesTable).values({
     channel: "global",
@@ -97,6 +96,7 @@ async function postMuteGlobalAnnouncement(
 function serializeReport(row: typeof playerReportsTable.$inferSelect, extras?: {
   reporterUsername?: string;
   reportedUsername?: string;
+  reportedPlayerRole?: string;
 }) {
   return {
     id: row.id,
@@ -104,6 +104,7 @@ function serializeReport(row: typeof playerReportsTable.$inferSelect, extras?: {
     reportedPlayerId: row.reportedPlayerId,
     reporterUsername: extras?.reporterUsername,
     reportedUsername: extras?.reportedUsername,
+    reportedPlayerRole: extras?.reportedPlayerRole,
     channel: row.channel,
     messageId: row.messageId,
     reason: row.reason,
@@ -213,13 +214,14 @@ router.get("/moderation/reports", requireStaff, async (req, res): Promise<void> 
   const reports = await Promise.all(
     rows.map(async (row) => {
       const [reported] = await db
-        .select({ username: playersTable.username })
+        .select({ username: playersTable.username, role: playersTable.role })
         .from(playersTable)
         .where(eq(playersTable.id, row.report.reportedPlayerId));
 
       return serializeReport(row.report, {
         reporterUsername: row.reporterUsername,
         reportedUsername: reported?.username,
+        reportedPlayerRole: reported?.role,
       });
     }),
   );
@@ -287,9 +289,17 @@ router.post(
     }
 
     const [reportedPlayer] = await db
-      .select({ username: playersTable.username })
+      .select({
+        username: playersTable.username,
+        role: playersTable.role,
+      })
       .from(playersTable)
       .where(eq(playersTable.id, report.reportedPlayerId));
+
+    if (!reportedPlayer) {
+      res.status(404).json({ error: "Reported player not found" });
+      return;
+    }
 
     const muteResult = await applyMute(
       report.reportedPlayerId,
@@ -318,7 +328,6 @@ router.post(
         await postMuteGlobalAnnouncement(
           reportedPlayer.username,
           muteResult.durationMinutes,
-          reason,
           moderatorId,
         );
       } catch (announcementError) {
@@ -438,7 +447,11 @@ router.post(
     }
 
     const [player] = await db
-      .select({ id: playersTable.id, username: playersTable.username })
+      .select({
+        id: playersTable.id,
+        username: playersTable.username,
+        role: playersTable.role,
+      })
       .from(playersTable)
       .where(eq(playersTable.id, playerId));
 
@@ -472,7 +485,6 @@ router.post(
       await postMuteGlobalAnnouncement(
         player.username,
         muteResult.durationMinutes,
-        reason,
         moderatorId,
       );
     } catch (announcementError) {
@@ -487,6 +499,103 @@ router.post(
         durationMinutes: muteResult.durationMinutes,
         mutedUntil: muteResult.mutedUntil.toISOString(),
         offenseNumber: muteResult.offenseNumber,
+      },
+    });
+  },
+);
+
+router.get("/moderation/muted-players", requireStaff, async (_req, res): Promise<void> => {
+  const now = new Date();
+
+  const rows = await db
+    .select({
+      id: playersTable.id,
+      username: playersTable.username,
+      role: playersTable.role,
+      mutedUntil: playersTable.mutedUntil,
+    })
+    .from(playersTable)
+    .where(gt(playersTable.mutedUntil, now))
+    .orderBy(playersTable.mutedUntil);
+
+  res.status(200).json({
+    players: rows.map((row) => ({
+      id: row.id,
+      username: row.username,
+      role: row.role,
+      mutedUntil: row.mutedUntil!.toISOString(),
+    })),
+  });
+});
+
+router.post(
+  "/moderation/players/:playerId/unmute",
+  requireAdmin,
+  async (req, res): Promise<void> => {
+    const playerId = Number(req.params.playerId);
+    const moderatorId = req.session.playerId!;
+    const note =
+      typeof req.body?.note === "string" ? req.body.note.trim() : "";
+
+    if (!Number.isInteger(playerId) || playerId <= 0) {
+      res.status(400).json({ error: "Invalid player id" });
+      return;
+    }
+
+    const [player] = await db
+      .select({
+        id: playersTable.id,
+        username: playersTable.username,
+        mutedUntil: playersTable.mutedUntil,
+      })
+      .from(playersTable)
+      .where(eq(playersTable.id, playerId));
+
+    if (!player) {
+      res.status(404).json({ error: "Player not found" });
+      return;
+    }
+
+    if (!player.mutedUntil || player.mutedUntil.getTime() <= Date.now()) {
+      res.status(400).json({ error: "Player is not currently muted" });
+      return;
+    }
+
+    const reason = note || "Unmuted by admin";
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(playersTable)
+        .set({ mutedUntil: null })
+        .where(eq(playersTable.id, playerId));
+
+      await tx.insert(moderationRecordsTable).values({
+        playerId,
+        moderatorId,
+        action: "unmute",
+        reason,
+      });
+    });
+
+    try {
+      await sendPlayerInboxMessage(
+        playerId,
+        "Moderation Team",
+        "Mute Lifted",
+        "Your account mute has been lifted. You may use chat again.",
+      );
+    } catch (inboxError) {
+      req.log.error(
+        { inboxError, playerId },
+        "Failed to send unmute inbox notification",
+      );
+    }
+
+    res.status(200).json({
+      player: {
+        id: player.id,
+        username: player.username,
+        mutedUntil: null,
       },
     });
   },

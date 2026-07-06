@@ -106,6 +106,8 @@ export interface ChatMessage {
   id: number;
   channel: ChatChannel;
   author: string;
+  authorId: number;
+  authorRole: PlayerRole;
   text: string;
   sentAt: string;
   /** @nullable */
@@ -119,6 +121,7 @@ export type ChatMessageMessageKind =
 export const ChatMessageMessageKind = {
   user: "user",
   moderation: "moderation",
+  staff: "staff",
 } as const;
 
 export interface ChatMessageList {

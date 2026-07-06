@@ -70,3 +70,16 @@ CREATE INDEX IF NOT EXISTS "player_inbox_messages_player_created_idx"
 CREATE INDEX IF NOT EXISTS "player_inbox_messages_player_unread_idx"
   ON "player_inbox_messages" ("player_id")
   WHERE "read_at" IS NULL;
+--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "player_chat_ignores" (
+  "id" serial PRIMARY KEY,
+  "player_id" integer NOT NULL REFERENCES "players"("id") ON DELETE CASCADE,
+  "ignored_player_id" integer NOT NULL REFERENCES "players"("id") ON DELETE CASCADE,
+  "created_at" timestamptz NOT NULL DEFAULT now()
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "player_chat_ignores_pair_idx"
+  ON "player_chat_ignores" ("player_id", "ignored_player_id");
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "player_chat_ignores_player_idx"
+  ON "player_chat_ignores" ("player_id");

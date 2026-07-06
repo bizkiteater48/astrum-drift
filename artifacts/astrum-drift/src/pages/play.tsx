@@ -23,6 +23,7 @@ import {
   Shield,
   CircleHelp,
   Flag,
+  EyeOff,
 } from "lucide-react";
 import earthOrbitImg from "@/assets/earth-orbit.png";
 import earthLaunchIntroImg from "@/assets/earth-launch-intro.jpg";
@@ -83,6 +84,13 @@ import {
   type SkillId,
 } from "@/lib/main-game";
 import { formatUtcChatTime, LIVE_CHAT_LIMIT, sortChatMessagesNewestFirst } from "@/lib/chat";
+import {
+  addChatIgnore,
+  canBeChatIgnored,
+  listChatIgnores,
+  removeChatIgnore,
+  type ChatIgnore,
+} from "@/lib/chat-ignores-api";
 import { SILVER_ORE_ITEM } from "@/lib/gambling";
 import { mintSilverCoins } from "@/lib/gambling-api";
 
@@ -495,6 +503,8 @@ export default function PlayPage() {
   const [reportSubmittedNotice, setReportSubmittedNotice] = useState<
     string | null
   >(null);
+  const [chatIgnores, setChatIgnores] = useState<ChatIgnore[]>([]);
+  const [chatIgnoreSaving, setChatIgnoreSaving] = useState(false);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const chatSendInFlightRef = useRef(false);
@@ -540,6 +550,15 @@ export default function PlayPage() {
     }
   };
 
+  const refreshChatIgnores = async () => {
+    try {
+      const result = await listChatIgnores();
+      setChatIgnores(result.ignores);
+    } catch {
+      // Ignore chat ignore load errors.
+    }
+  };
+
   const refreshPendingReportCount = async () => {
     if (!isStaffRole(player?.role)) return;
 
@@ -567,6 +586,7 @@ export default function PlayPage() {
 
     void refreshInboxUnreadCount();
     void refreshPendingReportCount();
+    void refreshChatIgnores();
 
     const intervalId = window.setInterval(() => {
       void refreshInboxUnreadCount();
@@ -649,9 +669,21 @@ export default function PlayPage() {
   };
 
   const activeChannelMessages = chatData?.messages ?? [];
+  const ignoredPlayerIds = useMemo(
+    () => new Set(chatIgnores.map((entry) => entry.playerId)),
+    [chatIgnores],
+  );
   const liveChatMessages = useMemo(
-    () => sortChatMessagesNewestFirst(activeChannelMessages),
-    [activeChannelMessages],
+    () =>
+      sortChatMessagesNewestFirst(activeChannelMessages).filter(
+        (message) =>
+          message.messageKind === "moderation" ||
+          message.messageKind === "staff" ||
+          ((message.author === "Admin" || message.author === "Mod") &&
+            (message.authorRole === "admin" || message.authorRole === "mod")) ||
+          !ignoredPlayerIds.has(message.authorId),
+      ),
+    [activeChannelMessages, ignoredPlayerIds],
   );
   const chatLoadErrorMessage =
     isChatLoadError &&
@@ -690,22 +722,81 @@ export default function PlayPage() {
     }
   };
 
+  const handleIgnoreChatPlayer = async (username: string) => {
+    setChatIgnoreSaving(true);
+    try {
+      await addChatIgnore(username);
+      await refreshChatIgnores();
+      setRecentSystemNotice(`Ignored ${username} in chat.`);
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? (error.data as { error?: string } | null)?.error ?? error.message
+          : "Failed to ignore player.";
+      setChatSendError(message);
+    } finally {
+      setChatIgnoreSaving(false);
+    }
+  };
+
+  const handleUnignoreChatPlayer = async (playerId: number, username: string) => {
+    setChatIgnoreSaving(true);
+    try {
+      await removeChatIgnore(playerId);
+      await refreshChatIgnores();
+      setRecentSystemNotice(`${username} is no longer ignored.`);
+    } catch {
+      setRecentSystemNotice("Failed to unignore player.");
+    } finally {
+      setChatIgnoreSaving(false);
+    }
+  };
+
   const renderChatMessage = (message: ChatMessage, channelId: ChatChannelId) => {
     const channelStyle = CHAT_CHANNEL_STYLES[channelId];
     const isStaff = isStaffRole(player?.role);
-    const isModerationMessage = message.messageKind === "moderation";
-    const isOwnMessage =
-      !isModerationMessage &&
-      message.author.toLowerCase() === player?.username?.toLowerCase();
-    const showReportAction = !isOwnMessage && !isModerationMessage;
+    const isStaffAliasMessage =
+      (message.author === "Admin" || message.author === "Mod") &&
+      (message.authorRole === "admin" || message.authorRole === "mod");
+    const isOfficialMessage =
+      message.messageKind === "moderation" ||
+      message.messageKind === "staff" ||
+      isStaffAliasMessage;
+    const isOwnMessage = !isOfficialMessage && message.authorId === player?.id;
+    const showPlayerActions =
+      !isOwnMessage &&
+      !isOfficialMessage &&
+      canBeChatIgnored(message.authorRole);
+    const showReportAction = showPlayerActions;
 
-    if (isModerationMessage) {
+    if (isOfficialMessage) {
+      const showStaffAuthor =
+        message.messageKind === "staff" || isStaffAliasMessage;
+
       return (
-        <div key={message.id} className="text-[11px] font-mono leading-snug">
-          <span className="whitespace-nowrap text-destructive/70">
-            [{formatUtcChatTime(message.sentAt)}]
-          </span>{" "}
-          <span className="text-destructive break-words">{message.text}</span>
+        <div key={message.id} className="group flex items-start gap-1">
+          <div className="flex-1 min-w-0 text-[11px] font-mono leading-snug">
+            <span className="whitespace-nowrap text-destructive/70">
+              [{formatUtcChatTime(message.sentAt)}]
+            </span>{" "}
+            {showStaffAuthor && (
+              <>
+                <span className="text-destructive font-semibold">{message.author}</span>
+                <span className="text-destructive mx-1">·</span>
+              </>
+            )}
+            <span className="text-destructive break-words">{message.text}</span>
+          </div>
+          {isStaff && (
+            <button
+              type="button"
+              aria-label="Delete message"
+              onClick={() => void handleDeleteChatMessage(message.id)}
+              className="h-5 w-5 shrink-0 rounded border border-destructive/30 text-destructive text-xs hover:bg-destructive/10 max-lg:opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
+            >
+              ×
+            </button>
+          )}
         </div>
       );
     }
@@ -731,7 +822,7 @@ export default function PlayPage() {
             {message.text}
           </span>
         </div>
-        {(isStaff || showReportAction) && (
+        {(isStaff || showPlayerActions) && (
           <div className="flex items-center gap-0.5 shrink-0 pt-0.5 max-lg:opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
             {isStaff && (
               <button
@@ -741,6 +832,17 @@ export default function PlayPage() {
                 className="h-5 w-5 rounded border border-destructive/30 text-destructive text-xs hover:bg-destructive/10"
               >
                 ×
+              </button>
+            )}
+            {showPlayerActions && (
+              <button
+                type="button"
+                aria-label="Ignore player"
+                disabled={chatIgnoreSaving}
+                onClick={() => void handleIgnoreChatPlayer(message.author)}
+                className="h-5 w-5 rounded border border-muted-foreground/30 text-muted-foreground hover:bg-muted/20 disabled:opacity-50"
+              >
+                <EyeOff className="size-2.5 mx-auto" aria-hidden="true" />
               </button>
             )}
             {showReportAction && (
@@ -4474,6 +4576,48 @@ export default function PlayPage() {
                   </Button>
                 </div>
               </div>
+              <div className="rounded-lg border border-primary/10 bg-background/40 p-3">
+                <div>
+                  <p className="text-sm text-primary uppercase tracking-widest">
+                    Ignored Chat Players
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Hide messages from specific players. Admins and moderators
+                    cannot be ignored. Guides can be ignored.
+                  </p>
+                  {chatIgnores.length === 0 ? (
+                    <p className="text-xs text-muted-foreground mt-3 uppercase tracking-widest">
+                      No ignored players.
+                    </p>
+                  ) : (
+                    <ul className="mt-3 space-y-2">
+                      {chatIgnores.map((ignored) => (
+                        <li
+                          key={ignored.playerId}
+                          className="flex items-center justify-between gap-3"
+                        >
+                          <span className="text-xs font-mono text-foreground">
+                            {ignored.username}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={chatIgnoreSaving}
+                            onClick={() =>
+                              void handleUnignoreChatPlayer(
+                                ignored.playerId,
+                                ignored.username,
+                              )
+                            }
+                            className="h-7 px-3 rounded border border-primary/20 text-primary/70 text-[10px] uppercase tracking-widest hover:bg-primary/10 disabled:opacity-50"
+                          >
+                            Unignore
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
               {player && canShowStaffChatTag(player.role) && (
                 <div className="rounded-lg border border-primary/10 bg-background/40 p-3">
                   <div className="flex items-center justify-between gap-4">
@@ -4701,6 +4845,7 @@ export default function PlayPage() {
       )}
       {showModerationPanel && (
         <ModerationPanel
+          canUnmute={isAdminRole(player?.role)}
           onClose={() => {
             setShowModerationPanel(false);
             void refreshPendingReportCount();

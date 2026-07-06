@@ -40,5 +40,24 @@ export async function ensureMessagingSchema(): Promise<void> {
       WHERE read_at IS NULL;
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS player_chat_ignores (
+      id serial PRIMARY KEY,
+      player_id integer NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      ignored_player_id integer NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS player_chat_ignores_pair_idx
+      ON player_chat_ignores (player_id, ignored_player_id);
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS player_chat_ignores_player_idx
+      ON player_chat_ignores (player_id);
+  `);
+
   logger.info("Messaging schema ready");
 }

@@ -26,6 +26,10 @@ export function isStaffRole(role: string): boolean {
   return role === "mod" || role === "admin";
 }
 
+export function canBeChatIgnored(role: string): boolean {
+  return !isStaffRole(role);
+}
+
 export function isGuideRole(role: string): boolean {
   return role === "guide";
 }

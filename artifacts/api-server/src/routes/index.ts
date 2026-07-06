@@ -8,6 +8,7 @@ import gamblingRouter from "./gambling";
 import adminRouter from "./admin";
 import inboxRouter from "./inbox";
 import playersRouter from "./players";
+import chatIgnoresRouter from "./chat-ignores";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(gamblingRouter);
 router.use(adminRouter);
 router.use(inboxRouter);
 router.use(playersRouter);
+router.use(chatIgnoresRouter);
 
 export default router;

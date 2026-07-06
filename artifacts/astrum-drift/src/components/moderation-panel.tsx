@@ -5,22 +5,28 @@ import {
   dismissReport,
   formatMuteDuration,
   formatMuteDurationLabel,
+  formatMuteTimeRemaining,
   getPlayerModerationRecords,
   getSuggestedMuteMinutes,
+  listMutedPlayers,
   listPendingReports,
   muteFromReport,
+  unmutePlayer,
   MUTE_DURATION_PRESETS,
   REPORT_REASON_LABELS,
   type ModerationRecord,
+  type MutedPlayer,
   type PlayerReport,
 } from "@/lib/moderation-api";
 
 type ModerationPanelProps = {
   onClose: () => void;
+  canUnmute: boolean;
 };
 
-export function ModerationPanel({ onClose }: ModerationPanelProps) {
+export function ModerationPanel({ onClose, canUnmute }: ModerationPanelProps) {
   const [reports, setReports] = useState<PlayerReport[]>([]);
+  const [mutedPlayers, setMutedPlayers] = useState<MutedPlayer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
@@ -32,18 +38,30 @@ export function ModerationPanel({ onClose }: ModerationPanelProps) {
   const [records, setRecords] = useState<ModerationRecord[]>([]);
   const [muteCount, setMuteCount] = useState(0);
   const [isActing, setIsActing] = useState(false);
+  const [, setMuteCountdownTick] = useState(0);
 
-  const loadReports = useCallback(async () => {
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setMuteCountdownTick((tick) => tick + 1);
+    }, 30_000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  const loadPanelData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await listPendingReports();
-      setReports(data.reports);
+      const [reportsData, mutedData] = await Promise.all([
+        listPendingReports(),
+        listMutedPlayers(),
+      ]);
+      setReports(reportsData.reports);
+      setMutedPlayers(mutedData.players);
     } catch (err) {
       setError(
         err instanceof ApiError
           ? (err.data as { error?: string } | null)?.error ?? err.message
-          : "Failed to load reports",
+          : "Failed to load moderation data",
       );
     } finally {
       setIsLoading(false);
@@ -51,8 +69,8 @@ export function ModerationPanel({ onClose }: ModerationPanelProps) {
   }, []);
 
   useEffect(() => {
-    void loadReports();
-  }, [loadReports]);
+    void loadPanelData();
+  }, [loadPanelData]);
 
   const loadRecords = async (report: PlayerReport) => {
     setSelectedReportId(report.id);
@@ -102,7 +120,7 @@ export function ModerationPanel({ onClose }: ModerationPanelProps) {
         reason: trimmedReason,
         durationMinutes: muteDurationMinutes,
       });
-      await loadReports();
+      await loadPanelData();
       setSelectedReportId(null);
       closeMuteForm();
       setError(
@@ -124,7 +142,7 @@ export function ModerationPanel({ onClose }: ModerationPanelProps) {
     setError(null);
     try {
       await dismissReport(report.id);
-      await loadReports();
+      await loadPanelData();
       setSelectedReportId(null);
       closeMuteForm();
     } catch (err) {
@@ -132,6 +150,24 @@ export function ModerationPanel({ onClose }: ModerationPanelProps) {
         err instanceof ApiError
           ? (err.data as { error?: string } | null)?.error ?? err.message
           : "Failed to dismiss report",
+      );
+    } finally {
+      setIsActing(false);
+    }
+  };
+
+  const handleUnmute = async (muted: MutedPlayer) => {
+    setIsActing(true);
+    setError(null);
+    try {
+      await unmutePlayer(muted.id);
+      await loadPanelData();
+      setError(`Unmuted ${muted.username}.`);
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? (err.data as { error?: string } | null)?.error ?? err.message
+          : "Failed to unmute player",
       );
     } finally {
       setIsActing(false);
@@ -160,7 +196,7 @@ export function ModerationPanel({ onClose }: ModerationPanelProps) {
           </button>
         </div>
 
-        <div className="p-4 overflow-y-auto custom-scrollbar space-y-4">
+        <div className="p-4 overflow-y-auto custom-scrollbar space-y-6">
           <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
             Mute durations are chosen per action (5-minute increments). First offense
             defaults to 5 minutes.
@@ -174,137 +210,203 @@ export function ModerationPanel({ onClose }: ModerationPanelProps) {
             <div className="flex justify-center py-8">
               <Loader2 className="size-6 animate-spin text-primary" />
             </div>
-          ) : reports.length === 0 ? (
-            <p className="text-xs text-muted-foreground uppercase tracking-widest text-center py-8">
-              No pending player reports.
-            </p>
           ) : (
-            <div className="space-y-3">
-              {reports.map((report) => (
-                <div
-                  key={report.id}
-                  className="border border-primary/20 rounded-lg p-3 space-y-2"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <p className="text-xs font-mono text-primary">
-                        Report #{report.id} ·{" "}
-                        {REPORT_REASON_LABELS[report.reason] ?? report.reason}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {report.reporterUsername ?? "Unknown"} reported{" "}
-                        <span className="text-foreground">{report.reportedUsername}</span>
-                      </p>
-                      {report.details && (
-                        <p className="text-xs text-foreground/80 mt-1 italic">
-                          Player note: {report.details}
-                        </p>
-                      )}
-                      {report.messageId && (
-                        <p className="text-[10px] text-muted-foreground mt-1">
-                          Message #{report.messageId}
-                          {report.channel ? ` · ${report.channel}` : ""}
-                        </p>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => void loadRecords(report)}
-                      className="text-[10px] uppercase tracking-widest text-primary/70 hover:text-primary"
-                    >
-                      View history
-                    </button>
-                  </div>
+            <>
+              <section className="space-y-3">
+                <h3 className="text-xs text-primary uppercase tracking-widest font-bold">
+                  Pending Player Reports
+                </h3>
+                {reports.length === 0 ? (
+                  <p className="text-xs text-muted-foreground uppercase tracking-widest">
+                    No pending player reports.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {reports.map((report) => (
+                      <div
+                        key={report.id}
+                        className="border border-primary/20 rounded-lg p-3 space-y-2"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <p className="text-xs font-mono text-primary">
+                              Report #{report.id} ·{" "}
+                              {REPORT_REASON_LABELS[report.reason] ?? report.reason}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {report.reporterUsername ?? "Unknown"} reported{" "}
+                              <span className="text-foreground">
+                                {report.reportedUsername}
+                              </span>
+                            </p>
+                            {report.details && (
+                              <p className="text-xs text-foreground/80 mt-1 italic">
+                                Player note: {report.details}
+                              </p>
+                            )}
+                            {report.messageId && (
+                              <p className="text-[10px] text-muted-foreground mt-1">
+                                Message #{report.messageId}
+                                {report.channel ? ` · ${report.channel}` : ""}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void loadRecords(report)}
+                            className="text-[10px] uppercase tracking-widest text-primary/70 hover:text-primary"
+                          >
+                            View history
+                          </button>
+                        </div>
 
-                  {selectedReportId === report.id && (
-                    <div className="border-t border-primary/10 pt-2 space-y-1">
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                        Prior mutes: {muteCount} · Suggested duration:{" "}
-                        {formatMuteDurationLabel(suggestedMuteMinutes)}
-                      </p>
-                      {records.slice(0, 5).map((record) => (
-                        <p key={record.id} className="text-[10px] font-mono text-muted-foreground">
-                          {record.action} — {record.reason}
-                        </p>
-                      ))}
-                    </div>
-                  )}
+                        {selectedReportId === report.id && (
+                          <div className="border-t border-primary/10 pt-2 space-y-1">
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                              Prior mutes: {muteCount} · Suggested duration:{" "}
+                              {formatMuteDurationLabel(suggestedMuteMinutes)}
+                            </p>
+                            {records.slice(0, 5).map((record) => (
+                              <p
+                                key={record.id}
+                                className="text-[10px] font-mono text-muted-foreground"
+                              >
+                                {record.action} — {record.reason}
+                              </p>
+                            ))}
+                          </div>
+                        )}
 
-                  {muteTargetReportId === report.id ? (
-                    <div className="border-t border-primary/10 pt-2 space-y-2">
-                      <label className="block space-y-1">
-                        <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                          Mute reason (shown to player)
-                        </span>
-                        <textarea
-                          value={muteReason}
-                          onChange={(event) => setMuteReason(event.target.value)}
-                          rows={2}
-                          maxLength={500}
-                          placeholder="Explain why this player is being muted…"
-                          className="w-full rounded border border-primary/20 bg-background/60 px-2 py-1 text-xs text-foreground font-mono outline-none resize-none"
-                        />
-                      </label>
-                      <label className="block space-y-1">
-                        <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                          Duration
-                        </span>
-                        <select
-                          value={muteDurationMinutes}
-                          onChange={(event) =>
-                            setMuteDurationMinutes(Number(event.target.value))
-                          }
-                          className="w-full h-7 rounded border border-primary/20 bg-background/60 px-2 text-xs text-foreground font-mono outline-none"
-                        >
-                          {MUTE_DURATION_PRESETS.map((minutes) => (
-                            <option key={minutes} value={minutes}>
-                              {formatMuteDurationLabel(minutes)}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <div className="flex gap-2 pt-1">
-                        <button
-                          type="button"
-                          disabled={isActing}
-                          onClick={() => void handleMute(report)}
-                          className="h-7 px-3 rounded border border-destructive/40 text-destructive text-[10px] uppercase tracking-widest hover:bg-destructive/10 disabled:opacity-50"
-                        >
-                          Confirm mute
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isActing}
-                          onClick={closeMuteForm}
-                          className="h-7 px-3 rounded border border-primary/20 text-primary/70 text-[10px] uppercase tracking-widest hover:bg-primary/10 disabled:opacity-50"
-                        >
-                          Cancel
-                        </button>
+                        {muteTargetReportId === report.id ? (
+                          <div className="border-t border-primary/10 pt-2 space-y-2">
+                            <label className="block space-y-1">
+                              <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                                Mute reason (shown to player)
+                              </span>
+                              <textarea
+                                value={muteReason}
+                                onChange={(event) => setMuteReason(event.target.value)}
+                                rows={2}
+                                maxLength={500}
+                                placeholder="Explain why this player is being muted…"
+                                className="w-full rounded border border-primary/20 bg-background/60 px-2 py-1 text-xs text-foreground font-mono outline-none resize-none"
+                              />
+                            </label>
+                            <label className="block space-y-1">
+                              <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                                Duration
+                              </span>
+                              <select
+                                value={muteDurationMinutes}
+                                onChange={(event) =>
+                                  setMuteDurationMinutes(Number(event.target.value))
+                                }
+                                className="w-full h-7 rounded border border-primary/20 bg-background/60 px-2 text-xs text-foreground font-mono outline-none"
+                              >
+                                {MUTE_DURATION_PRESETS.map((minutes) => (
+                                  <option key={minutes} value={minutes}>
+                                    {formatMuteDurationLabel(minutes)}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <div className="flex gap-2 pt-1">
+                              <button
+                                type="button"
+                                disabled={isActing}
+                                onClick={() => void handleMute(report)}
+                                className="h-7 px-3 rounded border border-destructive/40 text-destructive text-[10px] uppercase tracking-widest hover:bg-destructive/10 disabled:opacity-50"
+                              >
+                                Confirm mute
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isActing}
+                                onClick={closeMuteForm}
+                                className="h-7 px-3 rounded border border-primary/20 text-primary/70 text-[10px] uppercase tracking-widest hover:bg-primary/10 disabled:opacity-50"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2 pt-1">
+                            <button
+                              type="button"
+                              disabled={isActing}
+                              onClick={() => void openMuteForm(report)}
+                              className="h-7 px-3 rounded border border-destructive/40 text-destructive text-[10px] uppercase tracking-widest hover:bg-destructive/10 disabled:opacity-50"
+                            >
+                              Mute
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isActing}
+                              onClick={() => void handleDismiss(report)}
+                              className="h-7 px-3 rounded border border-primary/20 text-primary/70 text-[10px] uppercase tracking-widest hover:bg-primary/10 disabled:opacity-50"
+                            >
+                              Dismiss
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2 pt-1">
-                      <button
-                        type="button"
-                        disabled={isActing}
-                        onClick={() => void openMuteForm(report)}
-                        className="h-7 px-3 rounded border border-destructive/40 text-destructive text-[10px] uppercase tracking-widest hover:bg-destructive/10 disabled:opacity-50"
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section className="space-y-3 border-t border-primary/10 pt-4">
+                <h3 className="text-xs text-destructive uppercase tracking-widest font-bold">
+                  Currently Muted
+                </h3>
+                {mutedPlayers.length === 0 ? (
+                  <p className="text-xs text-muted-foreground uppercase tracking-widest">
+                    No players are currently muted.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {mutedPlayers.map((muted) => (
+                      <div
+                        key={muted.id}
+                        className="border border-destructive/20 rounded-lg p-3 flex flex-wrap items-center justify-between gap-2"
                       >
-                        Mute
-                      </button>
-                      <button
-                        type="button"
-                        disabled={isActing}
-                        onClick={() => void handleDismiss(report)}
-                        className="h-7 px-3 rounded border border-primary/20 text-primary/70 text-[10px] uppercase tracking-widest hover:bg-primary/10 disabled:opacity-50"
-                      >
-                        Dismiss
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+                        <div>
+                          <p className="text-xs font-mono text-foreground">
+                            {muted.username}
+                            {muted.role !== "player" && (
+                              <span className="text-muted-foreground ml-2 uppercase">
+                                ({muted.role})
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-[10px] text-destructive mt-1 uppercase tracking-widest">
+                            {formatMuteTimeRemaining(muted.mutedUntil)}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            Until {new Date(muted.mutedUntil).toLocaleString()}
+                          </p>
+                        </div>
+                        {canUnmute && (
+                          <button
+                            type="button"
+                            disabled={isActing}
+                            onClick={() => void handleUnmute(muted)}
+                            className="h-7 px-3 rounded border border-primary/30 text-primary text-[10px] uppercase tracking-widest hover:bg-primary/10 disabled:opacity-50"
+                          >
+                            Unmute
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {!canUnmute && mutedPlayers.length > 0 && (
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                    Only admins can unmute players.
+                  </p>
+                )}
+              </section>
+            </>
           )}
         </div>
       </div>

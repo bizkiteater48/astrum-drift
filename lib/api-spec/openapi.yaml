@@ -934,7 +934,7 @@
                     - "null"
                 messageKind:
                   type: string
-                  enum: [user, moderation]
+                  enum: [user, moderation, staff]
                   default: user
               required:
                 - id

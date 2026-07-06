@@ -52,16 +52,40 @@ function isChatChannel(value: string): value is ChatChannel {
   return (CHAT_CHANNELS as readonly string[]).includes(value);
 }
 
-function serializeChatMessage(row: typeof chatMessagesTable.$inferSelect) {
+function serializeChatMessage(
+  row: typeof chatMessagesTable.$inferSelect,
+  authorRole: string,
+) {
   return {
     id: row.id,
     channel: row.channel as ChatChannel,
     author: row.username,
+    authorId: row.playerId,
+    authorRole,
     text: row.text,
     sentAt: row.createdAt.toISOString(),
     authorStaffTag: row.authorStaffTag ?? null,
-    messageKind: (row.messageKind ?? "user") as "user" | "moderation",
+    messageKind: (row.messageKind ?? "user") as "user" | "moderation" | "staff",
   };
+}
+
+async function fetchChatMessages(
+  whereClause: ReturnType<typeof and>,
+  orderByClause: ReturnType<typeof asc> | ReturnType<typeof desc>,
+  limit: number,
+) {
+  const rows = await db
+    .select({
+      message: chatMessagesTable,
+      authorRole: playersTable.role,
+    })
+    .from(chatMessagesTable)
+    .innerJoin(playersTable, eq(chatMessagesTable.playerId, playersTable.id))
+    .where(whereClause)
+    .orderBy(orderByClause)
+    .limit(limit);
+
+  return rows.map((row) => serializeChatMessage(row.message, row.authorRole));
 }
 
 router.get("/chat/:channel/messages", requireAuth, async (req, res): Promise<void> => {
@@ -93,55 +117,46 @@ router.get("/chat/:channel/messages", requireAuth, async (req, res): Promise<voi
 
   try {
     if (after !== undefined) {
-      const rows = await db
-        .select()
-        .from(chatMessagesTable)
-        .where(
-          and(
-            eq(chatMessagesTable.channel, channel),
-            gt(chatMessagesTable.id, after),
-            isNull(chatMessagesTable.deletedAt),
-          ),
-        )
-        .orderBy(asc(chatMessagesTable.id))
-        .limit(limit);
+      const messages = await fetchChatMessages(
+        and(
+          eq(chatMessagesTable.channel, channel),
+          gt(chatMessagesTable.id, after),
+          isNull(chatMessagesTable.deletedAt),
+        ),
+        asc(chatMessagesTable.id),
+        limit,
+      );
 
-      res.status(200).json({ messages: rows.map(serializeChatMessage) });
+      res.status(200).json({ messages });
       return;
     }
 
     if (useRollingWindow) {
       const windowStart = getRollingWindowStart(rollingHours);
-      const rows = await db
-        .select()
-        .from(chatMessagesTable)
-        .where(
-          and(
-            eq(chatMessagesTable.channel, channel),
-            gte(chatMessagesTable.createdAt, windowStart),
-            isNull(chatMessagesTable.deletedAt),
-          ),
-        )
-        .orderBy(asc(chatMessagesTable.id))
-        .limit(limit);
+      const messages = await fetchChatMessages(
+        and(
+          eq(chatMessagesTable.channel, channel),
+          gte(chatMessagesTable.createdAt, windowStart),
+          isNull(chatMessagesTable.deletedAt),
+        ),
+        asc(chatMessagesTable.id),
+        limit,
+      );
 
-      res.status(200).json({ messages: rows.map(serializeChatMessage) });
+      res.status(200).json({ messages });
       return;
     }
 
-    const rows = await db
-      .select()
-      .from(chatMessagesTable)
-      .where(
-        and(
-          eq(chatMessagesTable.channel, channel),
-          isNull(chatMessagesTable.deletedAt),
-        ),
-      )
-      .orderBy(desc(chatMessagesTable.id))
-      .limit(limit);
+    const messages = await fetchChatMessages(
+      and(
+        eq(chatMessagesTable.channel, channel),
+        isNull(chatMessagesTable.deletedAt),
+      ),
+      desc(chatMessagesTable.id),
+      limit,
+    );
 
-    res.status(200).json({ messages: rows.map(serializeChatMessage) });
+    res.status(200).json({ messages });
   } catch (err) {
     req.log.error({ err, channel }, "Failed to load chat messages");
     res.status(503).json({ error: "Chat is temporarily unavailable" });
@@ -204,12 +219,15 @@ router.post(
     try {
       let displayUsername = player.username;
       let authorStaffTag: string | null = null;
+      let messageKind: "user" | "staff" = "user";
 
       if (displayAs !== "self" && isStaffRole(player.role)) {
         if (displayAs === "admin" && player.role === "admin") {
           displayUsername = "Admin";
+          messageKind = "staff";
         } else if (displayAs === "mod" && (player.role === "mod" || player.role === "admin")) {
           displayUsername = "Mod";
+          messageKind = "staff";
         } else {
           res.status(403).json({ error: "Invalid displayAs for your role" });
           return;
@@ -229,11 +247,13 @@ router.post(
           username: displayUsername,
           text,
           authorStaffTag,
-          messageKind: "user",
+          messageKind,
         })
         .returning();
 
-      res.status(201).json({ message: serializeChatMessage(inserted!) });
+      res.status(201).json({
+        message: serializeChatMessage(inserted!, player.role),
+      });
     } catch (err) {
       req.log.error({ err, channel, playerId }, "Failed to send chat message");
       res.status(503).json({ error: "Chat is temporarily unavailable" });
