@@ -168,7 +168,7 @@ export function deleteChatMessage(messageId: number, reason?: string) {
   );
 }
 
-export type ClearChatChannel = "all" | "global" | "trade" | "help" | "clan";
+export type ClearChatChannel = "all" | "global" | "trade" | "help" | "clan" | "staff";
 
 export function clearChat(channel: ClearChatChannel, reason?: string) {
   return customFetch<{ success: boolean; clearedCount: number; channel: ClearChatChannel }>(
@@ -235,6 +235,32 @@ export function isGuideRole(role?: string | null): boolean {
 
 export function canShowStaffChatTag(role?: string | null): boolean {
   return role === "mod" || role === "admin" || role === "guide";
+}
+
+export function canAccessStaffChat(role?: string | null): boolean {
+  return canShowStaffChatTag(role);
+}
+
+export function getStaffChatTagPreferenceCopy(role?: string | null): {
+  title: string;
+  description: string;
+} {
+  if (role === "admin") {
+    return {
+      title: "Show Admin Tag in Chat",
+      description: "Display your ADMIN tag before your name in live chat.",
+    };
+  }
+  if (role === "mod") {
+    return {
+      title: "Show Mod Tag in Chat",
+      description: "Display your MOD tag before your name in live chat.",
+    };
+  }
+  return {
+    title: "Show Guide Tag in Chat",
+    description: "Display your GUIDE tag before your name in live chat.",
+  };
 }
 
 export function updatePlayerPreferences(showStaffChatTag: boolean) {

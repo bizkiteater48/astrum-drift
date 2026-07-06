@@ -8,12 +8,13 @@ import {
 } from "@workspace/api-client-react";
 import { Loader2, TerminalSquare } from "lucide-react";
 import {
-  CHAT_CHANNELS,
   formatUtcChatTime,
+  getVisibleChatChannels,
   HISTORY_CHAT_HOURS,
   HISTORY_CHAT_LIMIT,
   type ChatChannelId,
 } from "@/lib/chat";
+import { canAccessStaffChat } from "@/lib/moderation-api";
 
 export default function ChatHistoryPage() {
   const [, setLocation] = useLocation();
@@ -26,6 +27,8 @@ export default function ChatHistoryPage() {
     },
   });
 
+  const visibleChannels = getVisibleChatChannels(player?.role);
+
   const {
     data: chatData,
     isLoading: isChatLoading,
@@ -35,11 +38,19 @@ export default function ChatHistoryPage() {
     { hours: HISTORY_CHAT_HOURS, limit: HISTORY_CHAT_LIMIT },
     {
       query: {
-        enabled: Boolean(player?.username),
+        enabled:
+          Boolean(player?.username) &&
+          (activeChannel !== "staff" || canAccessStaffChat(player?.role)),
         refetchInterval: 30_000,
       },
     },
   );
+
+  useEffect(() => {
+    if (activeChannel === "staff" && !canAccessStaffChat(player?.role)) {
+      setActiveChannel("global");
+    }
+  }, [activeChannel, player?.role]);
 
   useEffect(() => {
     if (!meLoading && !player) {
@@ -73,7 +84,7 @@ export default function ChatHistoryPage() {
         </header>
 
         <div className="flex items-center gap-1 overflow-x-auto custom-scrollbar pb-1">
-          {CHAT_CHANNELS.map((channel) => {
+          {visibleChannels.map((channel) => {
             const isActive = activeChannel === channel.id;
 
             return (

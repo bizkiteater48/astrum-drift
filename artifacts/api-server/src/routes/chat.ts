@@ -1,19 +1,21 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Response } from "express";
 import rateLimit from "express-rate-limit";
 import { and, asc, desc, eq, gt, gte, isNull } from "drizzle-orm";
 import { db, chatMessagesTable, playersTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
 import {
+  canAccessStaffChat,
   canShowStaffChatTag,
   canUseChatDisplayAs,
   getChatAliasDisplayName,
   getStaffChatTagForRole,
   isChatDisplayAs,
+  STAFF_CHAT_CHANNEL,
 } from "../lib/moderation";
 
 const router: IRouter = Router();
 
-export const CHAT_CHANNELS = ["global", "trade", "clan", "help"] as const;
+export const CHAT_CHANNELS = ["global", "trade", "clan", "help", "staff"] as const;
 export type ChatChannel = (typeof CHAT_CHANNELS)[number];
 
 const MAX_MESSAGE_LENGTH = 500;
@@ -52,6 +54,27 @@ const chatSendLimiter = rateLimit({
 
 function isChatChannel(value: string): value is ChatChannel {
   return (CHAT_CHANNELS as readonly string[]).includes(value);
+}
+
+async function loadPlayerRole(playerId: number): Promise<string | null> {
+  const [player] = await db
+    .select({ role: playersTable.role })
+    .from(playersTable)
+    .where(eq(playersTable.id, playerId));
+
+  return player?.role ?? null;
+}
+
+async function ensureStaffChatAccess(
+  res: Response,
+  playerId: number,
+): Promise<boolean> {
+  const role = await loadPlayerRole(playerId);
+  if (!canAccessStaffChat(role)) {
+    res.status(403).json({ error: "Staff chat requires staff access." });
+    return false;
+  }
+  return true;
 }
 
 function serializeChatMessage(
@@ -95,6 +118,11 @@ router.get("/chat/:channel/messages", requireAuth, async (req, res): Promise<voi
   if (!isChatChannel(channel)) {
     res.status(400).json({ error: "Invalid chat channel" });
     return;
+  }
+
+  if (channel === STAFF_CHAT_CHANNEL) {
+    const playerId = req.session.playerId!;
+    if (!(await ensureStaffChatAccess(res, playerId))) return;
   }
 
   const afterRaw = req.query.after;
@@ -181,6 +209,12 @@ router.post(
       return;
     }
 
+    const playerId = req.session.playerId!;
+
+    if (channel === STAFF_CHAT_CHANNEL) {
+      if (!(await ensureStaffChatAccess(res, playerId))) return;
+    }
+
     const rawText = req.body?.text;
     const text = typeof rawText === "string" ? rawText.trim() : "";
     if (!text || text.length > MAX_MESSAGE_LENGTH) {
@@ -192,7 +226,6 @@ router.post(
       typeof req.body?.displayAs === "string" ? req.body.displayAs.trim() : "self";
     const displayAs = isChatDisplayAs(displayAsRaw) ? displayAsRaw : "self";
 
-    const playerId = req.session.playerId!;
     const [player] = await db
       .select({
         username: playersTable.username,

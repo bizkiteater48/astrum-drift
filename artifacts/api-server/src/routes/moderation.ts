@@ -34,7 +34,7 @@ import {
 } from "../lib/player-ban";
 
 const router: IRouter = Router();
-const CHAT_CLEAR_CHANNELS = ["all", "global", "trade", "help", "clan"] as const;
+const CHAT_CLEAR_CHANNELS = ["all", "global", "trade", "help", "clan", "staff"] as const;
 type ChatClearChannel = (typeof CHAT_CLEAR_CHANNELS)[number];
 
 const reportLimiter = rateLimit({

@@ -367,6 +367,7 @@ export function ModerationPanel({
                       <option value="trade">Trade</option>
                       <option value="help">Help</option>
                       <option value="clan">Clan</option>
+                      <option value="staff">Staff</option>
                       <option value="all">All Channels</option>
                     </select>
                     <button

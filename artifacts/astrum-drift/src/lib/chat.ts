@@ -3,9 +3,17 @@ export const CHAT_CHANNELS = [
   { id: "trade", label: "Trade" },
   { id: "clan", label: "Clan" },
   { id: "help", label: "Help" },
+  { id: "staff", label: "Staff", staffOnly: true },
 ] as const;
 
 export type ChatChannelId = (typeof CHAT_CHANNELS)[number]["id"];
+
+export function getVisibleChatChannels(role?: string | null) {
+  const canAccessStaff = role === "mod" || role === "admin" || role === "guide";
+  return CHAT_CHANNELS.filter(
+    (channel) => !("staffOnly" in channel && channel.staffOnly) || canAccessStaff,
+  );
+}
 
 export const LIVE_CHAT_LIMIT = 100;
 export const HISTORY_CHAT_HOURS = 24;

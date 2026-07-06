@@ -22,6 +22,7 @@ import {
   Coins,
   Dices,
   Shield,
+  ShieldCheck,
   CircleHelp,
   Flag,
   EyeOff,
@@ -54,8 +55,9 @@ import { isAdminRole } from "@/lib/admin-api";
 import {
   deleteChatMessage,
   isStaffRole,
-  isGuideRole,
+  canAccessStaffChat,
   canShowStaffChatTag,
+  getStaffChatTagPreferenceCopy,
   updatePlayerPreferences,
   getPendingReportCount,
 } from "@/lib/moderation-api";
@@ -123,6 +125,7 @@ const CHAT_CHANNELS = [
   { id: "trade", label: "Trade", Icon: Coins },
   { id: "clan", label: "Clan", Icon: Shield },
   { id: "help", label: "Help", Icon: CircleHelp },
+  { id: "staff", label: "Staff", Icon: ShieldCheck },
 ] as const;
 
 type ChatChannelId = (typeof CHAT_CHANNELS)[number]["id"];
@@ -132,6 +135,7 @@ const CHAT_CHANNEL_EMPTY_TEXT: Record<ChatChannelId, string> = {
   trade: "Trade chat — list items and deals will appear here.",
   clan: "Join a clan to unlock clan chat.",
   help: "Help chat — ask questions and share tips with other pilots.",
+  staff: "Staff chat — internal coordination for moderators, guides, and admins.",
 };
 
 const CHAT_CHANNEL_PLACEHOLDER: Record<ChatChannelId, string> = {
@@ -139,6 +143,7 @@ const CHAT_CHANNEL_PLACEHOLDER: Record<ChatChannelId, string> = {
   trade: "Message Trade chat…",
   clan: "Clan chat unavailable",
   help: "Message Help chat…",
+  staff: "Message Staff chat…",
 };
 
 const isPlayerMuted = (player: Player | null | undefined): boolean => {
@@ -183,6 +188,13 @@ const CHAT_CHANNEL_STYLES: Record<
     author: "text-chart-4 font-semibold",
     message: "text-chart-4/80",
     messageBorder: "border-l-chart-4/50",
+  },
+  staff: {
+    tabActive: "border-violet-400/50 bg-violet-400/10 text-violet-300",
+    tabInactive: "border-violet-400/25 text-violet-400/60 hover:bg-violet-400/10",
+    author: "text-violet-300 font-semibold",
+    message: "text-violet-300/80",
+    messageBorder: "border-l-violet-400/50",
   },
 };
 
@@ -532,6 +544,22 @@ export default function PlayPage() {
 
   const logoutMutation = useLogout();
 
+  const visibleChatChannels = useMemo(
+    () =>
+      canAccessStaffChat(player?.role)
+        ? CHAT_CHANNELS
+        : CHAT_CHANNELS.filter((channel) => channel.id !== "staff"),
+    [player?.role],
+  );
+
+  const staffTagPreferenceCopy = useMemo(
+    () =>
+      player && canShowStaffChatTag(player.role)
+        ? getStaffChatTagPreferenceCopy(player.role)
+        : null,
+    [player?.role],
+  );
+
   const refreshInboxUnreadCount = async () => {
     try {
       const result = await getInboxUnreadCount();
@@ -607,7 +635,10 @@ export default function PlayPage() {
     { limit: LIVE_CHAT_LIMIT },
     {
       query: {
-        enabled: isChatOpen && Boolean(player?.username),
+        enabled:
+          isChatOpen &&
+          Boolean(player?.username) &&
+          (activeChatChannel !== "staff" || canAccessStaffChat(player?.role)),
         refetchInterval: isChatOpen ? 3000 : false,
       },
     },
@@ -695,6 +726,7 @@ export default function PlayPage() {
         : null;
   const isChatInputEnabled =
     activeChatChannel !== "clan" &&
+    (activeChatChannel !== "staff" || canAccessStaffChat(player?.role)) &&
     Boolean(player?.username) &&
     !chatLoadErrorMessage &&
     !isPlayerMuted(player);
@@ -762,7 +794,7 @@ export default function PlayPage() {
       !isOwnMessage &&
       !isOfficialMessage &&
       canBeChatIgnored(message.authorRole);
-    const showReportAction = showPlayerActions;
+    const showReportAction = showPlayerActions && channelId !== "staff";
 
     if (isOfficialMessage) {
       const showStaffAuthor = message.messageKind === "staff";
@@ -867,6 +899,7 @@ export default function PlayPage() {
       !trimmed ||
       !player?.username ||
       activeChatChannel === "clan" ||
+      (activeChatChannel === "staff" && !canAccessStaffChat(player.role)) ||
       chatSendInFlightRef.current ||
       !isChatInputEnabled
     ) {
@@ -916,6 +949,12 @@ export default function PlayPage() {
     if (!scrollContainer) return;
     scrollContainer.scrollTop = 0;
   }, [activeChatChannel, isChatOpen]);
+
+  useEffect(() => {
+    if (activeChatChannel === "staff" && !canAccessStaffChat(player?.role)) {
+      setActiveChatChannel("global");
+    }
+  }, [activeChatChannel, player?.role]);
   const currentTutorialStep = tutorialSteps[currentTutorialStepIndex];
   const getActiveSkillFromTutorialStep = () => {
     if (!currentTutorialStep) return "Mining";
@@ -1517,7 +1556,7 @@ export default function PlayPage() {
     },
     {
       title: "Player Chat",
-      text: "Switch between Global, Trade, Clan, and Help channels. Messages sync live with other players in the same channel.",
+      text: "Switch between Global, Trade, Clan, Help, and Staff channels. Staff chat is visible only to moderators, guides, and admins.",
     },
     {
       title: "Begin Training",
@@ -3769,7 +3808,8 @@ export default function PlayPage() {
                       Player Chat
                     </h3>
                     {canShowStaffChatTag(player?.role) &&
-                      activeChatChannel !== "clan" && (
+                      activeChatChannel !== "clan" &&
+                      activeChatChannel !== "staff" && (
                         <select
                           value={staffChatDisplayAs}
                           onChange={(event) =>
@@ -3807,7 +3847,7 @@ export default function PlayPage() {
                 </div>
 
                 <div className="flex items-center gap-1 border-b border-primary/20 px-3 py-1 overflow-x-auto custom-scrollbar">
-                  {CHAT_CHANNELS.map((channel) => {
+                  {visibleChatChannels.map((channel) => {
                     const channelStyle = CHAT_CHANNEL_STYLES[channel.id];
                     const isActive = activeChatChannel === channel.id;
                     const ChannelIcon = channel.Icon;
@@ -4628,15 +4668,15 @@ export default function PlayPage() {
                   )}
                 </div>
               </div>
-              {player && isGuideRole(player.role) && (
+              {staffTagPreferenceCopy && (
                 <div className="rounded-lg border border-primary/10 bg-background/40 p-3">
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <p className="text-sm text-primary uppercase tracking-widest">
-                        Show Guide Tag in Chat
+                        {staffTagPreferenceCopy.title}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Display your GUIDE tag before your name in live chat.
+                        {staffTagPreferenceCopy.description}
                       </p>
                     </div>
 

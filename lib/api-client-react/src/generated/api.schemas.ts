@@ -98,6 +98,7 @@ export const ChatChannel = {
   trade: "trade",
   clan: "clan",
   help: "help",
+  staff: "staff",
 } as const;
 
 export type ChatChannel = (typeof ChatChannel)[keyof typeof ChatChannel];

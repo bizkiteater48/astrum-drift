@@ -53,6 +53,12 @@ export function canShowStaffChatTag(role: string): boolean {
   return role === "mod" || role === "admin" || role === "guide";
 }
 
+export function canAccessStaffChat(role?: string | null): boolean {
+  return canShowStaffChatTag(role ?? "player");
+}
+
+export const STAFF_CHAT_CHANNEL = "staff" as const;
+
 export function getStaffChatTagForRole(role: string): StaffChatTag | null {
   if (role === "admin") return "ADMIN";
   if (role === "mod") return "MOD";

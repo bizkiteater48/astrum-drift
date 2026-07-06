@@ -953,7 +953,7 @@
           schemas:
             ChatChannel:
               type: string
-              enum: [global, trade, clan, help]
+              enum: [global, trade, clan, help, staff]
 
             ChatMessage:
               type: object
