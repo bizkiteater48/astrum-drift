@@ -574,6 +574,9 @@ export default function PlayPage() {
   const renderChatMessage = (message: ChatMessage, channelId: ChatChannelId) => {
     const channelStyle = CHAT_CHANNEL_STYLES[channelId];
     const isStaff = isStaffRole(player?.role);
+    const isOwnMessage =
+      message.author.toLowerCase() === player?.username?.toLowerCase();
+    const showReportAction = !isOwnMessage;
 
     return (
       <div key={message.id} className="group flex items-start gap-1">
@@ -591,32 +594,36 @@ export default function PlayPage() {
             {message.text}
           </span>
         </div>
-        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0 pt-0.5">
-          {isStaff && (
-            <button
-              type="button"
-              aria-label="Delete message"
-              onClick={() => void handleDeleteChatMessage(message.id)}
-              className="h-5 w-5 rounded border border-destructive/30 text-destructive text-xs hover:bg-destructive/10"
-            >
-              ×
-            </button>
-          )}
-          <button
-            type="button"
-            aria-label="Report player"
-            onClick={() =>
-              setReportDialog({
-                username: message.author,
-                channel: channelId,
-                messageId: message.id,
-              })
-            }
-            className="h-5 w-5 rounded border border-primary/20 text-primary/70 hover:bg-primary/10"
-          >
-            <Flag className="size-2.5 mx-auto" aria-hidden="true" />
-          </button>
-        </div>
+        {(isStaff || showReportAction) && (
+          <div className="flex items-center gap-0.5 shrink-0 pt-0.5 max-lg:opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
+            {isStaff && (
+              <button
+                type="button"
+                aria-label="Delete message"
+                onClick={() => void handleDeleteChatMessage(message.id)}
+                className="h-5 w-5 rounded border border-destructive/30 text-destructive text-xs hover:bg-destructive/10"
+              >
+                ×
+              </button>
+            )}
+            {showReportAction && (
+              <button
+                type="button"
+                aria-label="Report player"
+                onClick={() =>
+                  setReportDialog({
+                    username: message.author,
+                    channel: channelId,
+                    messageId: message.id,
+                  })
+                }
+                className="h-5 w-5 rounded border border-primary/20 text-primary/70 hover:bg-primary/10"
+              >
+                <Flag className="size-2.5 mx-auto" aria-hidden="true" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
     );
   };
