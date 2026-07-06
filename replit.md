@@ -25,14 +25,45 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 
 ### Replit publish / database migrations
 
-**Never approve a publish migration that contains `DROP TABLE`, `DROP COLUMN`, or `CASCADE` on game tables.** Replit may auto-generate destructive Drizzle migrations when its schema snapshot is behind production. Production schema is applied safely at API startup via `ensure*Schema()` (`ADD COLUMN IF NOT EXISTS`, `CREATE TABLE IF NOT EXISTS`).
+**STOP — do not approve destructive migrations.** If the publish preview shows `DROP TABLE`, `DROP COLUMN`, or `CASCADE` on `silver_coins`, `player_inbox_messages`, `admin_grants`, `gambling_challenges`, `show_staff_chat_tag`, `progress_version`, or `author_staff_tag`, **click Cancel** (not "Approve and publish"). Approving would delete silver coins, inbox mail, and admin grant history from production.
 
-If the publish preview shows drops for `silver_coins`, `player_inbox_messages`, `admin_grants`, or `gambling_challenges`:
+#### Why this happens
 
-1. **Cancel** — do not click "Approve and publish".
-2. **Pull latest `main`** on the Repl (must include `lib/db/src/schema/*` and `lib/db/migrations/`).
-3. Republish; the migration should only add objects, or show no destructive SQL.
-4. Schema changes belong in Drizzle schema files + idempotent `ensure-*-schema.ts`, not destructive publish diffs.
+Replit compares the **Development** database schema to **Production** at publish time. Production already has those columns/tables (applied safely at API startup via `ensure*Schema()`). If Development is missing them, Replit generates **DROP** migrations to "sync" production down — which destroys live data.
+
+#### Before every republish (Replit Shell)
+
+Run these commands **in order** in the Replit **Shell** (`~/workspace`):
+
+```bash
+cd ~/workspace
+git pull
+pnpm install --frozen-lockfile
+pnpm --filter @workspace/api-server run sync-schema
+```
+
+Alternative (same baseline SQL, no TypeScript):
+
+```bash
+node scripts/sync-dev-database-schema.mjs
+```
+
+Both commands target `$DATABASE_URL` (Development). You should see `Verified: players.silver_coins exists on development DB.` or `Development database schema synced`.
+
+Confirm in **Database → Development** that the `players` table has a `silver_coins` column.
+
+#### Then republish
+
+1. Open **Publish** / **Republish**.
+2. The migration preview should be **empty** or **add-only** (no `DROP`).
+3. If you still see `DROP`, **cancel**, re-run the sync commands above, and try again.
+4. Only publish when the preview has no destructive statements.
+
+#### `ignoreDatabaseMigrations`
+
+`.replit` sets `ignoreDatabaseMigrations = true` under `[deployment]`. This tells Replit **not** to auto-run its database provisioner on deploy; schema changes are applied at API startup via `ensure*Schema()` (`ADD COLUMN IF NOT EXISTS`, `CREATE TABLE IF NOT EXISTS`).
+
+**Important:** This flag does **not** always hide the publish-time schema comparison dialog. You may still see the migration preview — treat it as a safety check. **Never approve a preview that contains DROP statements**, even with this flag set.
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
