@@ -22,6 +22,21 @@ export function isPlayerRole(value: string): value is PlayerRole {
   return (PLAYER_ROLES as readonly string[]).includes(value);
 }
 
+/** Roles an admin may assign from Player Support (not admin). */
+export const ADMIN_ASSIGNABLE_ROLES = ["player", "mod", "guide"] as const;
+export type AdminAssignableRole = (typeof ADMIN_ASSIGNABLE_ROLES)[number];
+
+export function isAdminAssignableRole(value: string): value is AdminAssignableRole {
+  return (ADMIN_ASSIGNABLE_ROLES as readonly string[]).includes(value);
+}
+
+export function formatPlayerRoleLabel(role: string): string {
+  if (role === "mod") return "Moderator";
+  if (role === "guide") return "Guide";
+  if (role === "admin") return "Admin";
+  return "Player";
+}
+
 export function isStaffRole(role: string): boolean {
   return role === "mod" || role === "admin";
 }

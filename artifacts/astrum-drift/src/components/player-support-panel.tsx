@@ -2,9 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, ShieldCheck, X } from "lucide-react";
 import { ApiError } from "@workspace/api-client-react";
 import {
+  ADMIN_ASSIGNABLE_ROLES,
+  formatPlayerRoleLabel,
   getPlayerSupportSnapshot,
   grantToPlayer,
   listAdminGrants,
+  updatePlayerRole,
+  type AdminAssignableRole,
   type AdminGrantRecord,
   type PlayerSupportSnapshot,
 } from "@/lib/admin-api";
@@ -31,12 +35,14 @@ type PlayerSupportPanelProps = {
   onClose: () => void;
   onNotice: (message: string) => void;
   onGrantApplied?: () => void;
+  selfUsername?: string | null;
 };
 
 export function PlayerSupportPanel({
   onClose,
   onNotice,
   onGrantApplied,
+  selfUsername,
 }: PlayerSupportPanelProps) {
   const [username, setUsername] = useState("");
   const [lookupUsername, setLookupUsername] = useState("");
@@ -50,6 +56,8 @@ export function PlayerSupportPanel({
   const [note, setNote] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isGranting, setIsGranting] = useState(false);
+  const [isUpdatingRole, setIsUpdatingRole] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<AdminAssignableRole>("player");
   const [error, setError] = useState<string | null>(null);
 
   const itemOptions = useMemo(
@@ -90,6 +98,7 @@ export function PlayerSupportPanel({
       const data = await getPlayerSupportSnapshot(trimmed);
       setSnapshot(data);
       setLookupUsername(trimmed);
+      setSelectedRole(normalizeAssignableRole(data.player.role));
       setPendingItems({});
     } catch (err) {
       setSnapshot(null);
@@ -167,6 +176,46 @@ export function PlayerSupportPanel({
     }
   };
 
+  const handleRoleChange = async () => {
+    if (!lookupUsername || !snapshot) {
+      setError("Look up a player first.");
+      return;
+    }
+
+    if (snapshot.player.role === "admin") {
+      setError("Admin roles cannot be changed here.");
+      return;
+    }
+
+    if (
+      selfUsername &&
+      lookupUsername.toLowerCase() === selfUsername.toLowerCase()
+    ) {
+      setError("You cannot change your own role.");
+      return;
+    }
+
+    if (selectedRole === normalizeAssignableRole(snapshot.player.role)) {
+      setError("Select a different role to apply.");
+      return;
+    }
+
+    setIsUpdatingRole(true);
+    setError(null);
+    try {
+      const result = await updatePlayerRole(lookupUsername, selectedRole);
+      setSnapshot(result.snapshot);
+      setSelectedRole(normalizeAssignableRole(result.snapshot.player.role));
+      onNotice(
+        `${lookupUsername} is now ${formatPlayerRoleLabel(selectedRole)}.`,
+      );
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to update staff role."));
+    } finally {
+      setIsUpdatingRole(false);
+    }
+  };
+
   const inventoryEntries = Object.entries(snapshot?.inventory ?? {})
     .filter(([, qty]) => qty > 0)
     .sort(([a], [b]) => a.localeCompare(b));
@@ -233,6 +282,12 @@ export function PlayerSupportPanel({
                     {(snapshot.player.silverCoins ?? 0).toLocaleString()}
                   </p>
                 </div>
+                <div>
+                  <span className="text-muted-foreground">Staff Role</span>
+                  <p className="text-primary font-bold uppercase tracking-widest">
+                    {formatPlayerRoleLabel(snapshot.player.role)}
+                  </p>
+                </div>
               </div>
               {snapshot.creditsDesync && (
                 <p className="text-[10px] text-destructive uppercase tracking-widest">
@@ -261,6 +316,57 @@ export function PlayerSupportPanel({
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {snapshot && (
+            <div className="space-y-2 border-t border-primary/10 pt-4">
+              <h3 className="text-xs uppercase tracking-widest text-primary/80">
+                Staff Role
+              </h3>
+              {snapshot.player.role === "admin" ? (
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                  Admin accounts cannot be promoted or demoted here.
+                </p>
+              ) : selfUsername &&
+                lookupUsername.toLowerCase() === selfUsername.toLowerCase() ? (
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                  You cannot change your own role.
+                </p>
+              ) : (
+                <>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                    Promote or demote between Player, Moderator, and Guide.
+                  </p>
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedRole}
+                      onChange={(event) =>
+                        setSelectedRole(event.target.value as AdminAssignableRole)
+                      }
+                      className="flex-1 h-8 bg-background/60 border border-primary/20 rounded-lg px-2 text-xs font-mono outline-none"
+                    >
+                      {ADMIN_ASSIGNABLE_ROLES.map((role) => (
+                        <option key={role} value={role}>
+                          {formatPlayerRoleLabel(role)}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => void handleRoleChange()}
+                      disabled={
+                        isUpdatingRole ||
+                        selectedRole ===
+                          normalizeAssignableRole(snapshot.player.role)
+                      }
+                      className="h-8 px-3 rounded border border-primary/30 text-primary text-[10px] uppercase tracking-widest hover:bg-primary/10 disabled:opacity-40"
+                    >
+                      {isUpdatingRole ? "Saving…" : "Apply Role"}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -410,4 +516,9 @@ export function PlayerSupportPanel({
 
 function formatDelta(value: number): string {
   return value > 0 ? `+${value}` : `${value}`;
+}
+
+function normalizeAssignableRole(role?: string | null): AdminAssignableRole {
+  if (role === "mod" || role === "guide") return role;
+  return "player";
 }

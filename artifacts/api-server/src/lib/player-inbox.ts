@@ -80,3 +80,24 @@ export function buildUnbanInboxBody(note?: string | null): string {
   }
   return "Your account ban has been lifted. You may sign in and play again.";
 }
+
+export function buildStaffRoleChangeInboxBody(
+  previousRole: string,
+  nextRole: string,
+): string {
+  const previousLabel = formatStaffRoleInboxLabel(previousRole);
+  const nextLabel = formatStaffRoleInboxLabel(nextRole);
+
+  if (nextRole === "player") {
+    return `Your staff role has been updated from ${previousLabel} to ${nextLabel}.`;
+  }
+
+  return `You have been assigned the ${nextLabel} role. Open Settings to configure your chat tag if needed.`;
+}
+
+function formatStaffRoleInboxLabel(role: string): string {
+  if (role === "mod") return "Moderator";
+  if (role === "guide") return "Guide";
+  if (role === "admin") return "Admin";
+  return "Player";
+}

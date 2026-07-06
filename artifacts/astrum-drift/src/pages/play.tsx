@@ -4888,6 +4888,7 @@ export default function PlayPage() {
       )}
       {showPlayerSupportPanel && (
         <PlayerSupportPanel
+          selfUsername={player?.username}
           onClose={() => setShowPlayerSupportPanel(false)}
           onNotice={(message) => {
             addMessage(`[ADMIN] ${message}`);

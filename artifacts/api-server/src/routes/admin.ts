@@ -3,7 +3,15 @@ import { eq, ilike } from "drizzle-orm";
 import { db, pool, playersTable } from "@workspace/db";
 import { requireAdmin } from "../middlewares/staff";
 import { serializePlayer } from "../lib/player";
-import { buildAdminGrantInboxBody } from "../lib/player-inbox";
+import {
+  buildAdminGrantInboxBody,
+  buildStaffRoleChangeInboxBody,
+  sendPlayerInboxMessage,
+} from "../lib/player-inbox";
+import {
+  isAdminAssignableRole,
+  type AdminAssignableRole,
+} from "../lib/moderation";
 import {
   applyBalanceMirrors,
   getInventoryFromProgress,
@@ -305,6 +313,92 @@ router.post(
       req.log.error({ error, username }, "Failed to load grant snapshot");
       res.status(503).json({ error: "Grant applied but snapshot failed." });
     }
+  },
+);
+
+router.patch(
+  "/admin/players/:username/role",
+  requireAdmin,
+  async (req, res): Promise<void> => {
+    const username = req.params.username?.trim();
+    const roleRaw = typeof req.body?.role === "string" ? req.body.role.trim() : "";
+
+    if (!username) {
+      res.status(400).json({ error: "Username is required." });
+      return;
+    }
+
+    if (!isAdminAssignableRole(roleRaw)) {
+      res.status(400).json({ error: "Role must be player, mod, or guide." });
+      return;
+    }
+
+    const nextRole: AdminAssignableRole = roleRaw;
+    const adminId = req.session.playerId!;
+
+    const [target] = await db
+      .select()
+      .from(playersTable)
+      .where(ilike(playersTable.username, username));
+
+    if (!target) {
+      res.status(404).json({ error: "Player not found." });
+      return;
+    }
+
+    if (target.id === adminId) {
+      res.status(400).json({ error: "You cannot change your own role." });
+      return;
+    }
+
+    if (target.role === "admin") {
+      res.status(403).json({ error: "Admin roles cannot be changed here." });
+      return;
+    }
+
+    const previousRole = target.role ?? "player";
+    if (previousRole === nextRole) {
+      res.status(200).json({ snapshot: buildSnapshot(target) });
+      return;
+    }
+
+    const [updated] = await db
+      .update(playersTable)
+      .set({ role: nextRole })
+      .where(eq(playersTable.id, target.id))
+      .returning();
+
+    if (!updated) {
+      res.status(503).json({ error: "Failed to update player role." });
+      return;
+    }
+
+    try {
+      await sendPlayerInboxMessage(
+        updated.id,
+        "Admin",
+        "Staff Role Updated",
+        buildStaffRoleChangeInboxBody(previousRole, nextRole),
+      );
+    } catch (error) {
+      req.log.error(
+        { error, targetPlayerId: updated.id, nextRole },
+        "Role updated but inbox notice failed",
+      );
+    }
+
+    req.log.info(
+      {
+        adminId,
+        targetPlayerId: updated.id,
+        targetUsername: updated.username,
+        previousRole,
+        nextRole,
+      },
+      "Updated player staff role",
+    );
+
+    res.status(200).json({ snapshot: buildSnapshot(updated) });
   },
 );
 
