@@ -5,8 +5,8 @@ import { db, chatMessagesTable, playersTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
 import {
   canShowStaffChatTag,
+  getStaffChatDisplayName,
   getStaffChatTagForRole,
-  isStaffRole,
 } from "../lib/moderation";
 
 const router: IRouter = Router();
@@ -186,13 +186,6 @@ router.post(
       return;
     }
 
-    const displayAsRaw =
-      typeof req.body?.displayAs === "string" ? req.body.displayAs.trim() : "self";
-    const displayAs =
-      displayAsRaw === "admin" || displayAsRaw === "mod" || displayAsRaw === "self"
-        ? displayAsRaw
-        : "self";
-
     const playerId = req.session.playerId!;
     const [player] = await db
       .select({
@@ -221,20 +214,10 @@ router.post(
       let authorStaffTag: string | null = null;
       let messageKind: "user" | "staff" = "user";
 
-      if (displayAs !== "self" && isStaffRole(player.role)) {
-        if (displayAs === "admin" && player.role === "admin") {
-          displayUsername = "Admin";
-          messageKind = "staff";
-        } else if (displayAs === "mod" && (player.role === "mod" || player.role === "admin")) {
-          displayUsername = "Mod";
-          messageKind = "staff";
-        } else {
-          res.status(403).json({ error: "Invalid displayAs for your role" });
-          return;
-        }
-      } else if (displayAs !== "self") {
-        res.status(403).json({ error: "displayAs is staff-only" });
-        return;
+      const staffDisplayName = getStaffChatDisplayName(player.role);
+      if (staffDisplayName) {
+        displayUsername = staffDisplayName;
+        messageKind = "staff";
       } else if (player.showStaffChatTag && canShowStaffChatTag(player.role)) {
         authorStaffTag = getStaffChatTagForRole(player.role);
       }

@@ -53,6 +53,7 @@ import { isAdminRole } from "@/lib/admin-api";
 import {
   deleteChatMessage,
   isStaffRole,
+  isGuideRole,
   canShowStaffChatTag,
   updatePlayerPreferences,
   getPendingReportCount,
@@ -482,9 +483,6 @@ export default function PlayPage() {
     useState<ChatChannelId>("global");
   const [chatDraft, setChatDraft] = useState("");
   const [chatSendError, setChatSendError] = useState<string | null>(null);
-  const [staffChatDisplayAs, setStaffChatDisplayAs] = useState<
-    "self" | "admin" | "mod"
-  >("self");
   const [showModerationPanel, setShowModerationPanel] = useState(false);
   const [showMessagesPanel, setShowMessagesPanel] = useState(false);
   const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
@@ -679,8 +677,8 @@ export default function PlayPage() {
         (message) =>
           message.messageKind === "moderation" ||
           message.messageKind === "staff" ||
-          ((message.author === "Admin" || message.author === "Mod") &&
-            (message.authorRole === "admin" || message.authorRole === "mod")) ||
+          message.authorRole === "admin" ||
+          message.authorRole === "mod" ||
           !ignoredPlayerIds.has(message.authorId),
       ),
     [activeChannelMessages, ignoredPlayerIds],
@@ -755,13 +753,11 @@ export default function PlayPage() {
   const renderChatMessage = (message: ChatMessage, channelId: ChatChannelId) => {
     const channelStyle = CHAT_CHANNEL_STYLES[channelId];
     const isStaff = isStaffRole(player?.role);
-    const isStaffAliasMessage =
-      (message.author === "Admin" || message.author === "Mod") &&
-      (message.authorRole === "admin" || message.authorRole === "mod");
     const isOfficialMessage =
       message.messageKind === "moderation" ||
       message.messageKind === "staff" ||
-      isStaffAliasMessage;
+      message.authorRole === "admin" ||
+      message.authorRole === "mod";
     const isOwnMessage = !isOfficialMessage && message.authorId === player?.id;
     const showPlayerActions =
       !isOwnMessage &&
@@ -771,7 +767,9 @@ export default function PlayPage() {
 
     if (isOfficialMessage) {
       const showStaffAuthor =
-        message.messageKind === "staff" || isStaffAliasMessage;
+        message.messageKind === "staff" ||
+        message.authorRole === "admin" ||
+        message.authorRole === "mod";
 
       return (
         <div key={message.id} className="group flex items-start gap-1">
@@ -887,9 +885,6 @@ export default function PlayPage() {
         channel: activeChatChannel as ChatChannel,
         data: {
           text: trimmed,
-          ...(isStaffRole(player.role) && staffChatDisplayAs !== "self"
-            ? { displayAs: staffChatDisplayAs }
-            : {}),
         },
       });
       setChatDraft("");
@@ -3816,30 +3811,6 @@ export default function PlayPage() {
                       {muteMessage ?? chatSendError}
                     </p>
                   )}
-                  {isStaffRole(player?.role) && activeChatChannel !== "clan" && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-[9px] text-muted-foreground uppercase tracking-widest shrink-0">
-                        Post as
-                      </span>
-                      <select
-                        value={staffChatDisplayAs}
-                        onChange={(event) =>
-                          setStaffChatDisplayAs(
-                            event.target.value as "self" | "admin" | "mod",
-                          )
-                        }
-                        className="h-6 flex-1 rounded border border-primary/20 bg-background/60 px-1.5 text-[10px] text-foreground font-mono outline-none"
-                      >
-                        <option value="self">Self</option>
-                        {(player?.role === "mod" || player?.role === "admin") && (
-                          <option value="mod">Mod</option>
-                        )}
-                        {player?.role === "admin" && (
-                          <option value="admin">Admin</option>
-                        )}
-                      </select>
-                    </div>
-                  )}
                   <div className="flex gap-1.5">
                     <input
                       ref={chatInputRef}
@@ -4618,16 +4589,15 @@ export default function PlayPage() {
                   )}
                 </div>
               </div>
-              {player && canShowStaffChatTag(player.role) && (
+              {player && isGuideRole(player.role) && (
                 <div className="rounded-lg border border-primary/10 bg-background/40 p-3">
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <p className="text-sm text-primary uppercase tracking-widest">
-                        Show Staff Tag in Chat
+                        Show Guide Tag in Chat
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Display your MOD, ADMIN, or GUIDE tag before your name in
-                        live chat.
+                        Display your GUIDE tag before your name in live chat.
                       </p>
                     </div>
 

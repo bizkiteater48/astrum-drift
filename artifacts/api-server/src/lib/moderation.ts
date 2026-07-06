@@ -45,6 +45,12 @@ export function getStaffChatTagForRole(role: string): StaffChatTag | null {
   return null;
 }
 
+export function getStaffChatDisplayName(role: string): string | null {
+  if (role === "admin") return "ADMIN";
+  if (role === "mod") return "MOD";
+  return null;
+}
+
 export const REPORT_REASON_LABELS: Record<ReportReason, string> = {
   harassment: "Harassment",
   spam: "Spam",
