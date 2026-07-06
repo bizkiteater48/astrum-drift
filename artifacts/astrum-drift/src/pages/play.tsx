@@ -680,8 +680,6 @@ export default function PlayPage() {
         (message) =>
           message.messageKind === "moderation" ||
           message.messageKind === "staff" ||
-          message.authorRole === "admin" ||
-          message.authorRole === "mod" ||
           !ignoredPlayerIds.has(message.authorId),
       ),
     [activeChannelMessages, ignoredPlayerIds],
@@ -757,10 +755,7 @@ export default function PlayPage() {
     const channelStyle = CHAT_CHANNEL_STYLES[channelId];
     const isStaff = isStaffRole(player?.role);
     const isOfficialMessage =
-      message.messageKind === "moderation" ||
-      message.messageKind === "staff" ||
-      message.authorRole === "admin" ||
-      message.authorRole === "mod";
+      message.messageKind === "moderation" || message.messageKind === "staff";
     const isOwnMessage = !isOfficialMessage && message.authorId === player?.id;
     const showPlayerActions =
       !isOwnMessage &&
