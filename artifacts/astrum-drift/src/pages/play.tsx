@@ -3345,7 +3345,7 @@ export default function PlayPage() {
             } lg:block mt-auto w-full p-[2px] ${getCommandTourHighlightClass("chat")}`}
           >
             {isChatOpen ? (
-              <div className="glass-panel border border-primary/20 rounded-lg h-[58vh] min-h-[320px] lg:h-80 lg:min-h-0 flex flex-col overflow-hidden">
+              <div className="glass-panel border border-primary/20 rounded-lg h-[58vh] min-h-[320px] lg:h-96 lg:min-h-0 flex flex-col overflow-hidden">
                 <div className="flex items-center justify-between gap-2 border-b border-primary/20 px-3 py-1">
                   <h3 className="uppercase tracking-widest text-[10px] text-primary/70 shrink-0">
                     Player Chat
