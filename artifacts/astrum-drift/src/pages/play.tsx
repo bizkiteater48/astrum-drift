@@ -474,7 +474,9 @@ export default function PlayPage() {
   const [reportSubmittedNotice, setReportSubmittedNotice] = useState<
     string | null
   >(null);
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<HTMLInputElement>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const chatSendInFlightRef = useRef(false);
   const [showLaunchIntro, setShowLaunchIntro] = useState(true);
   const [showCommandTour, setShowCommandTour] = useState(true);
   const [commandTourStep, setCommandTourStep] = useState(0);
@@ -539,9 +541,12 @@ export default function PlayPage() {
   const isChatInputEnabled =
     activeChatChannel !== "clan" &&
     Boolean(player?.username) &&
-    !sendChatMutation.isPending &&
     !chatLoadErrorMessage &&
     !isPlayerMuted(player);
+  const isChatSendEnabled =
+    isChatInputEnabled &&
+    !sendChatMutation.isPending &&
+    chatDraft.trim().length > 0;
   const muteMessage =
     isPlayerMuted(player) && player?.mutedUntil
       ? `You are muted until ${new Date(player.mutedUntil).toLocaleString()}.`
@@ -610,8 +615,17 @@ export default function PlayPage() {
 
   const sendChatMessage = async () => {
     const trimmed = chatDraft.trim();
-    if (!trimmed || !player?.username || activeChatChannel === "clan") return;
+    if (
+      !trimmed ||
+      !player?.username ||
+      activeChatChannel === "clan" ||
+      chatSendInFlightRef.current ||
+      !isChatInputEnabled
+    ) {
+      return;
+    }
 
+    chatSendInFlightRef.current = true;
     setChatSendError(null);
 
     try {
@@ -634,12 +648,17 @@ export default function PlayPage() {
           ? (error.data as { error?: string } | null)?.error ?? error.message
           : "Failed to send chat message.";
       setChatSendError(message);
+    } finally {
+      chatSendInFlightRef.current = false;
+      chatInputRef.current?.focus();
     }
   };
 
   useEffect(() => {
     if (!isChatOpen) return;
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const scrollContainer = chatScrollRef.current;
+    if (!scrollContainer) return;
+    scrollContainer.scrollTop = scrollContainer.scrollHeight;
   }, [chatData, activeChatChannel, isChatOpen]);
   const currentTutorialStep = tutorialSteps[currentTutorialStepIndex];
   const getActiveSkillFromTutorialStep = () => {
@@ -3364,7 +3383,10 @@ export default function PlayPage() {
                   </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-2">
+                <div
+                  ref={chatScrollRef}
+                  className="flex-1 overflow-y-auto custom-scrollbar px-4 py-2"
+                >
                   {chatLoadErrorMessage ? (
                     <div className="text-xs text-destructive uppercase tracking-widest">
                       {chatLoadErrorMessage}
@@ -3380,7 +3402,6 @@ export default function PlayPage() {
                       )}
                     </div>
                   )}
-                  <div ref={chatEndRef} />
                 </div>
 
                 <div className="border-t border-primary/20 px-4 py-2 flex flex-col gap-2">
@@ -3391,6 +3412,7 @@ export default function PlayPage() {
                   )}
                   <div className="flex gap-2">
                   <input
+                    ref={chatInputRef}
                     type="text"
                     value={chatDraft}
                     onChange={(event) => {
@@ -3400,7 +3422,7 @@ export default function PlayPage() {
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
                         event.preventDefault();
-                        sendChatMessage();
+                        void sendChatMessage();
                       }
                     }}
                     disabled={!isChatInputEnabled}
@@ -3410,8 +3432,8 @@ export default function PlayPage() {
 
                   <button
                     type="button"
-                    onClick={sendChatMessage}
-                    disabled={!isChatInputEnabled || chatDraft.trim().length === 0}
+                    onClick={() => void sendChatMessage()}
+                    disabled={!isChatSendEnabled}
                     className="h-8 px-4 rounded border border-primary/20 text-primary text-xs uppercase tracking-widest hover:bg-primary/10 disabled:text-primary/40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
                   >
                     Send
