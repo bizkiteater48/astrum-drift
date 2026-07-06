@@ -3,6 +3,10 @@ import rateLimit from "express-rate-limit";
 import { and, asc, desc, eq, gt, gte, isNull } from "drizzle-orm";
 import { db, chatMessagesTable, playersTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
+import {
+  canShowStaffChatTag,
+  getStaffChatTagForRole,
+} from "../lib/moderation";
 
 const router: IRouter = Router();
 
@@ -54,6 +58,7 @@ function serializeChatMessage(row: typeof chatMessagesTable.$inferSelect) {
     author: row.username,
     text: row.text,
     sentAt: row.createdAt.toISOString(),
+    authorStaffTag: row.authorStaffTag ?? null,
   };
 }
 
@@ -169,6 +174,8 @@ router.post(
       .select({
         username: playersTable.username,
         mutedUntil: playersTable.mutedUntil,
+        role: playersTable.role,
+        showStaffChatTag: playersTable.showStaffChatTag,
       })
       .from(playersTable)
       .where(eq(playersTable.id, playerId));
@@ -186,6 +193,11 @@ router.post(
     }
 
     try {
+      const authorStaffTag =
+        player.showStaffChatTag && canShowStaffChatTag(player.role)
+          ? getStaffChatTagForRole(player.role)
+          : null;
+
       const [inserted] = await db
         .insert(chatMessagesTable)
         .values({
@@ -193,6 +205,7 @@ router.post(
           playerId,
           username: player.username,
           text,
+          authorStaffTag,
         })
         .returning();
 

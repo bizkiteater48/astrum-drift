@@ -22,5 +22,6 @@ export function serializePlayer(player: Player) {
     cycleDurationSec: CYCLE_DURATION_SEC,
     mutedUntil,
     progressVersion: player.progressVersion ?? 0,
+    showStaffChatTag: player.showStaffChatTag ?? false,
   };
 }

@@ -29,9 +29,14 @@ const COMMON_GRANT_ITEMS = [
 type PlayerSupportPanelProps = {
   onClose: () => void;
   onNotice: (message: string) => void;
+  onGrantApplied?: () => void;
 };
 
-export function PlayerSupportPanel({ onClose, onNotice }: PlayerSupportPanelProps) {
+export function PlayerSupportPanel({
+  onClose,
+  onNotice,
+  onGrantApplied,
+}: PlayerSupportPanelProps) {
   const [username, setUsername] = useState("");
   const [lookupUsername, setLookupUsername] = useState("");
   const [snapshot, setSnapshot] = useState<PlayerSupportSnapshot | null>(null);
@@ -152,6 +157,7 @@ export function PlayerSupportPanel({ onClose, onNotice }: PlayerSupportPanelProp
       setSilverCoinsDelta("0");
       setNote("");
       onNotice(`Grant applied to ${lookupUsername}.`);
+      onGrantApplied?.();
       await loadRecentGrants();
     } catch (err) {
       setError(getErrorMessage(err, "Failed to apply grant."));

@@ -1,4 +1,5 @@
 import { customFetch } from "@workspace/api-client-react";
+import type { Player } from "@workspace/api-client-react";
 
 export type ReportReason =
   | "harassment"
@@ -59,6 +60,13 @@ export function listPendingReports() {
   );
 }
 
+export function getPendingReportCount() {
+  return customFetch<{ count: number }>(
+    "/api/moderation/reports/pending-count",
+    { method: "GET" },
+  );
+}
+
 export function muteFromReport(reportId: number, note?: string) {
   return customFetch<{
     report: PlayerReport;
@@ -111,6 +119,22 @@ export function getPlayerModerationRecords(playerId: number) {
 
 export function isStaffRole(role?: string | null): boolean {
   return role === "mod" || role === "admin";
+}
+
+export function isGuideRole(role?: string | null): boolean {
+  return role === "guide";
+}
+
+export function canShowStaffChatTag(role?: string | null): boolean {
+  return role === "mod" || role === "admin" || role === "guide";
+}
+
+export function updatePlayerPreferences(showStaffChatTag: boolean) {
+  return customFetch<Player>("/api/players/preferences", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ showStaffChatTag }),
+  });
 }
 
 export function formatMuteDuration(minutes: number): string {

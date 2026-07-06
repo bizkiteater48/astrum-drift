@@ -1,5 +1,8 @@
-export const PLAYER_ROLES = ["player", "mod", "admin"] as const;
+export const PLAYER_ROLES = ["player", "mod", "admin", "guide"] as const;
 export type PlayerRole = (typeof PLAYER_ROLES)[number];
+
+export const STAFF_CHAT_TAGS = ["MOD", "ADMIN", "GUIDE"] as const;
+export type StaffChatTag = (typeof STAFF_CHAT_TAGS)[number];
 
 export const REPORT_REASONS = [
   "harassment",
@@ -19,6 +22,29 @@ export function isPlayerRole(value: string): value is PlayerRole {
 export function isStaffRole(role: string): boolean {
   return role === "mod" || role === "admin";
 }
+
+export function isGuideRole(role: string): boolean {
+  return role === "guide";
+}
+
+export function canShowStaffChatTag(role: string): boolean {
+  return role === "mod" || role === "admin" || role === "guide";
+}
+
+export function getStaffChatTagForRole(role: string): StaffChatTag | null {
+  if (role === "admin") return "ADMIN";
+  if (role === "mod") return "MOD";
+  if (role === "guide") return "GUIDE";
+  return null;
+}
+
+export const REPORT_REASON_LABELS: Record<ReportReason, string> = {
+  harassment: "Harassment",
+  spam: "Spam",
+  cheating: "Cheating",
+  inappropriate: "Inappropriate content",
+  other: "Other",
+};
 
 export function isReportReason(value: string): value is ReportReason {
   return (REPORT_REASONS as readonly string[]).includes(value);

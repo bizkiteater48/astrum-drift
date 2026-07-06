@@ -21,6 +21,7 @@ async function bootstrapStaffRoles(): Promise<void> {
     ]),
   ];
   const modUsernames = parseUsernameList(process.env.MOD_BOOTSTRAP_USERNAMES);
+  const guideUsernames = parseUsernameList(process.env.GUIDE_BOOTSTRAP_USERNAMES);
 
   for (const username of adminUsernames) {
     const result = await pool.query<{ id: number; username: string }>(
@@ -58,6 +59,26 @@ async function bootstrapStaffRoles(): Promise<void> {
       logger.info(
         { playerId: result.rows[0]!.id, username: result.rows[0]!.username },
         "Bootstrapped mod role",
+      );
+    }
+  }
+
+  for (const username of guideUsernames) {
+    const result = await pool.query<{ id: number; username: string }>(
+      `
+        UPDATE players
+        SET role = 'guide'
+        WHERE LOWER(username) = LOWER($1)
+          AND role = 'player'
+        RETURNING id, username
+      `,
+      [username],
+    );
+
+    if (result.rowCount && result.rowCount > 0) {
+      logger.info(
+        { playerId: result.rows[0]!.id, username: result.rows[0]!.username },
+        "Bootstrapped guide role",
       );
     }
   }

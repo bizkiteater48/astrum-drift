@@ -20,6 +20,8 @@
             description: Player chat channels
           - name: moderation
             description: Player reports and staff moderation
+          - name: inbox
+            description: Player inbox messages
 
         paths:
           /healthz:
@@ -131,6 +133,119 @@
                         $ref: "#/components/schemas/Player"
                 "401":
                   description: Not authenticated
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
+          /players/preferences:
+            patch:
+              operationId: updatePlayerPreferences
+              tags: [player]
+              summary: Update player preferences
+              description: Staff-only preference for showing role tag in live chat (mod, admin, guide).
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/UpdatePlayerPreferencesBody"
+              responses:
+                "200":
+                  description: Updated player
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/Player"
+                "400":
+                  description: Invalid payload
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "401":
+                  description: Not authenticated
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "403":
+                  description: Preference not available for this role
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
+          /inbox/messages:
+            get:
+              operationId: getInboxMessages
+              tags: [inbox]
+              summary: List inbox messages for the current player
+              responses:
+                "200":
+                  description: Inbox messages
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/InboxMessageList"
+                "401":
+                  description: Not authenticated
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
+          /inbox/unread-count:
+            get:
+              operationId: getInboxUnreadCount
+              tags: [inbox]
+              summary: Get unread inbox message count
+              responses:
+                "200":
+                  description: Unread count
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/InboxUnreadCount"
+                "401":
+                  description: Not authenticated
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
+          /inbox/messages/{messageId}/read:
+            post:
+              operationId: markInboxMessageRead
+              tags: [inbox]
+              summary: Mark an inbox message as read
+              parameters:
+                - name: messageId
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+              responses:
+                "200":
+                  description: Updated message
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/MarkInboxMessageReadResult"
+                "400":
+                  description: Invalid message id
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "401":
+                  description: Not authenticated
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                "404":
+                  description: Message not found
                   content:
                     application/json:
                       schema:
@@ -812,12 +927,17 @@
                 sentAt:
                   type: string
                   format: date-time
+                authorStaffTag:
+                  type:
+                    - string
+                    - "null"
               required:
                 - id
                 - channel
                 - author
                 - text
                 - sentAt
+                - authorStaffTag
 
             ChatMessageList:
               type: object
@@ -846,6 +966,67 @@
                   $ref: "#/components/schemas/ChatMessage"
               required:
                 - message
+
+            InboxMessage:
+              type: object
+              properties:
+                id:
+                  type: integer
+                senderLabel:
+                  type: string
+                subject:
+                  type: string
+                body:
+                  type: string
+                readAt:
+                  type:
+                    - string
+                    - "null"
+                  format: date-time
+                createdAt:
+                  type: string
+                  format: date-time
+              required:
+                - id
+                - senderLabel
+                - subject
+                - body
+                - readAt
+                - createdAt
+
+            InboxMessageList:
+              type: object
+              properties:
+                messages:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/InboxMessage"
+              required:
+                - messages
+
+            InboxUnreadCount:
+              type: object
+              properties:
+                count:
+                  type: integer
+              required:
+                - count
+
+            MarkInboxMessageReadResult:
+              type: object
+              properties:
+                message:
+                  $ref: "#/components/schemas/InboxMessage"
+              required:
+                - message
+
+            UpdatePlayerPreferencesBody:
+              type: object
+              properties:
+                showStaffChatTag:
+                  type: boolean
+              required:
+                - showStaffChatTag
 
             HealthStatus:
               type: object
@@ -939,6 +1120,8 @@
                     - string
                     - "null"
                   format: date-time
+                showStaffChatTag:
+                  type: boolean
               required:
                 - id
                 - username
@@ -952,10 +1135,11 @@
                 - miningStartedAt
                 - cycleDurationSec
                 - mutedUntil
+                - showStaffChatTag
 
             PlayerRole:
               type: string
-              enum: [player, mod, admin]
+              enum: [player, mod, admin, guide]
 
             ReportReason:
               type: string

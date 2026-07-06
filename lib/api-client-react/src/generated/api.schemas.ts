@@ -63,12 +63,14 @@ export interface Player {
   cycleDurationSec: number;
   /** @nullable */
   mutedUntil: string | null;
+  showStaffChatTag: boolean;
 }
 
 export const PlayerRole = {
   player: "player",
   mod: "mod",
   admin: "admin",
+  guide: "guide",
 } as const;
 
 export type PlayerRole = (typeof PlayerRole)[keyof typeof PlayerRole];
@@ -106,6 +108,8 @@ export interface ChatMessage {
   author: string;
   text: string;
   sentAt: string;
+  /** @nullable */
+  authorStaffTag: "MOD" | "ADMIN" | "GUIDE" | null;
 }
 
 export interface ChatMessageList {
@@ -127,3 +131,29 @@ export type GetChatMessagesParams = {
   /** Rolling window of chat history in hours (default 24). */
   hours?: number;
 };
+
+export interface InboxMessage {
+  id: number;
+  senderLabel: string;
+  subject: string;
+  body: string;
+  /** @nullable */
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface InboxMessageList {
+  messages: InboxMessage[];
+}
+
+export interface InboxUnreadCount {
+  count: number;
+}
+
+export interface MarkInboxMessageReadResult {
+  message: InboxMessage;
+}
+
+export interface UpdatePlayerPreferencesBody {
+  showStaffChatTag: boolean;
+}

@@ -14,7 +14,13 @@ import {
   formatMuteDuration,
   getEscalatedMuteMinutes,
   isReportReason,
+  REPORT_REASON_LABELS,
+  type ReportReason,
 } from "../lib/moderation";
+import {
+  buildMuteInboxBody,
+  sendPlayerInboxMessage,
+} from "../lib/player-inbox";
 
 const router: IRouter = Router();
 
@@ -202,6 +208,19 @@ router.get("/moderation/reports", requireStaff, async (req, res): Promise<void> 
   res.status(200).json({ reports });
 });
 
+router.get(
+  "/moderation/reports/pending-count",
+  requireStaff,
+  async (_req, res): Promise<void> => {
+    const [result] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(playerReportsTable)
+      .where(eq(playerReportsTable.status, "pending"));
+
+    res.status(200).json({ count: result?.count ?? 0 });
+  },
+);
+
 router.post(
   "/moderation/reports/:reportId/mute",
   requireStaff,
@@ -238,6 +257,24 @@ router.post(
       reason,
       report.id,
     );
+
+    try {
+      await sendPlayerInboxMessage(
+        report.reportedPlayerId,
+        "Moderation Team",
+        "Account Muted",
+        buildMuteInboxBody(
+          muteResult.durationMinutes,
+          REPORT_REASON_LABELS[report.reason as ReportReason] ?? report.reason,
+          report.details,
+        ),
+      );
+    } catch (inboxError) {
+      req.log.error(
+        { inboxError, playerId: report.reportedPlayerId },
+        "Failed to send mute inbox notification",
+      );
+    }
 
     const [updated] = await db
       .update(playerReportsTable)
@@ -343,6 +380,20 @@ router.post(
     }
 
     const muteResult = await applyMute(playerId, moderatorId, reason);
+
+    try {
+      await sendPlayerInboxMessage(
+        playerId,
+        "Moderation Team",
+        "Account Muted",
+        buildMuteInboxBody(muteResult.durationMinutes, reason),
+      );
+    } catch (inboxError) {
+      req.log.error(
+        { inboxError, playerId },
+        "Failed to send mute inbox notification",
+      );
+    }
 
     res.status(200).json({
       mute: {

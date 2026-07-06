@@ -3,6 +3,7 @@ import { eq, ilike } from "drizzle-orm";
 import { db, pool, playersTable } from "@workspace/db";
 import { requireAdmin } from "../middlewares/staff";
 import { serializePlayer } from "../lib/player";
+import { buildAdminGrantInboxBody } from "../lib/player-inbox";
 
 const router: IRouter = Router();
 
@@ -189,6 +190,7 @@ router.post(
 
     const adminId = req.session.playerId!;
     const client = await pool.connect();
+    let targetPlayerId: number | null = null;
 
     try {
       await client.query("BEGIN");
@@ -211,6 +213,8 @@ router.post(
         res.status(404).json({ error: "Player not found." });
         return;
       }
+
+      targetPlayerId = target.id;
 
       const nextCredits = Math.max(0, target.credits + creditsDelta);
       const nextSilverCoins = Math.max(
@@ -277,22 +281,41 @@ router.post(
         ],
       );
 
-      await client.query("COMMIT");
+      const grantBody = buildAdminGrantInboxBody(
+        creditsDelta,
+        silverCoinsDelta,
+        items,
+      );
+      await client.query(
+        `
+          INSERT INTO player_inbox_messages (player_id, sender_label, subject, body)
+          VALUES ($1, $2, $3, $4)
+        `,
+        [target.id, "Admin", "Player Support Grant", grantBody],
+      );
 
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      req.log.error({ error, username }, "Failed to apply admin grant");
+      res.status(503).json({ error: "Failed to apply grant." });
+      return;
+    } finally {
+      client.release();
+    }
+
+    try {
       const [updated] = await db
         .select()
         .from(playersTable)
-        .where(eq(playersTable.id, target.id));
+        .where(eq(playersTable.id, targetPlayerId!));
 
       res.status(200).json({
         snapshot: buildSnapshot(updated!),
       });
     } catch (error) {
-      await client.query("ROLLBACK");
-      req.log.error({ error, username }, "Failed to apply admin grant");
-      res.status(503).json({ error: "Failed to apply grant." });
-    } finally {
-      client.release();
+      req.log.error({ error, username }, "Failed to load grant snapshot");
+      res.status(503).json({ error: "Grant applied but snapshot failed." });
     }
   },
 );

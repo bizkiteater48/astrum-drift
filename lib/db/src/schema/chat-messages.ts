@@ -25,6 +25,7 @@ export const chatMessagesTable = pgTable(
     deletedBy: integer("deleted_by").references(() => playersTable.id, {
       onDelete: "set null",
     }),
+    authorStaffTag: text("author_staff_tag"),
   },
   (table) => [
     index("chat_messages_channel_id_idx").on(table.channel, table.id),

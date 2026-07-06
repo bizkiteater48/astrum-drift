@@ -1,13 +1,19 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Flag,
   History,
   Inbox,
+  Loader2,
   Mail,
   MessageSquare,
   X,
 } from "lucide-react";
 import { getChatHistoryUrl } from "@/lib/chat";
+import {
+  getInboxMessages,
+  markInboxMessageRead,
+  type InboxMessage,
+} from "@/lib/inbox-api";
 
 export type MessagesPanelView =
   | "menu"
@@ -18,17 +24,62 @@ export type MessagesPanelView =
 type MessagesPanelProps = {
   onClose: () => void;
   onReportPlayer: () => void;
+  onInboxRead?: () => void;
+  onUnreadCountChange?: (count: number) => void;
+  inboxUnreadCount?: number;
 };
 
-export function MessagesPanel({ onClose, onReportPlayer }: MessagesPanelProps) {
+function formatInboxTime(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export function MessagesPanel({
+  onClose,
+  onReportPlayer,
+  onInboxRead,
+  onUnreadCountChange,
+  inboxUnreadCount = 0,
+}: MessagesPanelProps) {
   const [view, setView] = useState<MessagesPanelView>("menu");
   const [recipient, setRecipient] = useState("");
   const [draft, setDraft] = useState("");
   const [composeNotice, setComposeNotice] = useState<string | null>(null);
+  const [inboxMessages, setInboxMessages] = useState<InboxMessage[]>([]);
+  const [inboxLoading, setInboxLoading] = useState(false);
+  const [inboxError, setInboxError] = useState<string | null>(null);
+  const [selectedMessageId, setSelectedMessageId] = useState<number | null>(
+    null,
+  );
+
+  const loadInbox = useCallback(async () => {
+    setInboxLoading(true);
+    setInboxError(null);
+    try {
+      const result = await getInboxMessages();
+      setInboxMessages(result.messages);
+      const unread = result.messages.filter((message) => !message.readAt).length;
+      onUnreadCountChange?.(unread);
+    } catch {
+      setInboxError("Could not load inbox messages.");
+    } finally {
+      setInboxLoading(false);
+    }
+  }, [onUnreadCountChange]);
+
+  useEffect(() => {
+    if (view !== "historical") return;
+    void loadInbox();
+  }, [view, loadInbox]);
 
   const handleBack = () => {
     setView("menu");
     setComposeNotice(null);
+    setSelectedMessageId(null);
   };
 
   const handleComposeSubmit = () => {
@@ -49,6 +100,30 @@ export function MessagesPanel({ onClose, onReportPlayer }: MessagesPanelProps) {
     onClose();
   };
 
+  const handleSelectInboxMessage = async (message: InboxMessage) => {
+    setSelectedMessageId(message.id);
+    if (!message.readAt) {
+      try {
+        await markInboxMessageRead(message.id);
+        setInboxMessages((current) => {
+          const next = current.map((entry) =>
+            entry.id === message.id
+              ? { ...entry, readAt: new Date().toISOString() }
+              : entry,
+          );
+          onUnreadCountChange?.(next.filter((entry) => !entry.readAt).length);
+          return next;
+        });
+        onInboxRead?.();
+      } catch {
+        // Keep message visible even if mark-read fails.
+      }
+    }
+  };
+
+  const selectedMessage =
+    inboxMessages.find((message) => message.id === selectedMessageId) ?? null;
+
   const menuItems = [
     {
       id: "compose" as const,
@@ -62,12 +137,13 @@ export function MessagesPanel({ onClose, onReportPlayer }: MessagesPanelProps) {
     },
     {
       id: "historical" as const,
-      label: "Historical Messages",
-      description: "View your private message history",
+      label: "Inbox",
+      description: "System messages from Admin and Moderation Team",
       Icon: Inbox,
       onSelect: () => {
         setView("historical");
         setComposeNotice(null);
+        setSelectedMessageId(null);
       },
     },
     {
@@ -110,7 +186,7 @@ export function MessagesPanel({ onClose, onReportPlayer }: MessagesPanelProps) {
               <h2 className="text-lg text-primary font-bold uppercase tracking-widest truncate">
                 {view === "menu" && "Messages"}
                 {view === "compose" && "Message a Player"}
-                {view === "historical" && "Historical Messages"}
+                {view === "historical" && "Inbox"}
               </h2>
             </div>
           </div>
@@ -136,9 +212,14 @@ export function MessagesPanel({ onClose, onReportPlayer }: MessagesPanelProps) {
                 >
                   <div className="flex items-start gap-3">
                     <item.Icon className="size-4 text-primary shrink-0 mt-0.5" />
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold uppercase tracking-widest text-primary">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
                         {item.label}
+                        {item.id === "historical" && inboxUnreadCount > 0 && (
+                          <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-chart-2 px-1 text-[9px] font-bold text-background">
+                            {inboxUnreadCount > 9 ? "9+" : inboxUnreadCount}
+                          </span>
+                        )}
                       </p>
                       <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">
                         {item.description}
@@ -193,14 +274,96 @@ export function MessagesPanel({ onClose, onReportPlayer }: MessagesPanelProps) {
           )}
 
           {view === "historical" && (
-            <div className="text-center py-8 space-y-2">
-              <MessageSquare className="size-8 text-primary/40 mx-auto" />
-              <p className="text-xs text-muted-foreground uppercase tracking-widest">
-                No private message history yet.
-              </p>
-              <p className="text-[10px] text-muted-foreground/80 uppercase tracking-widest px-4">
-                Direct messages will appear here once private messaging is enabled.
-              </p>
+            <div className="space-y-3">
+              {inboxLoading && (
+                <div className="flex items-center justify-center py-8 text-primary/70">
+                  <Loader2 className="size-5 animate-spin" />
+                </div>
+              )}
+
+              {!inboxLoading && inboxError && (
+                <p className="text-[10px] text-destructive uppercase tracking-widest text-center py-6">
+                  {inboxError}
+                </p>
+              )}
+
+              {!inboxLoading && !inboxError && inboxMessages.length === 0 && (
+                <div className="text-center py-8 space-y-2">
+                  <MessageSquare className="size-8 text-primary/40 mx-auto" />
+                  <p className="text-xs text-muted-foreground uppercase tracking-widest">
+                    No inbox messages yet.
+                  </p>
+                  <p className="text-[10px] text-muted-foreground/80 uppercase tracking-widest px-4">
+                    Admin grants and moderation notices will appear here.
+                  </p>
+                </div>
+              )}
+
+              {!inboxLoading && !inboxError && inboxMessages.length > 0 && (
+                <div className="space-y-2">
+                  {!selectedMessage && (
+                    <>
+                      {inboxMessages.map((message) => (
+                        <button
+                          key={message.id}
+                          type="button"
+                          onClick={() => void handleSelectInboxMessage(message)}
+                          className={`w-full text-left rounded-lg border px-3 py-2 transition-colors ${
+                            message.readAt
+                              ? "border-primary/10 bg-background/30"
+                              : "border-primary/30 bg-primary/5"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-[10px] text-primary/70 uppercase tracking-widest">
+                                {message.senderLabel}
+                              </p>
+                              <p className="text-xs text-primary font-bold truncate">
+                                {message.subject}
+                              </p>
+                            </div>
+                            <span className="text-[9px] text-muted-foreground shrink-0">
+                              {formatInboxTime(message.createdAt)}
+                            </span>
+                          </div>
+                          {!message.readAt && (
+                            <p className="text-[9px] text-chart-2 uppercase tracking-widest mt-1">
+                              Unread
+                            </p>
+                          )}
+                        </button>
+                      ))}
+                    </>
+                  )}
+
+                  {selectedMessage && (
+                    <div className="rounded-lg border border-primary/20 bg-background/40 p-3 space-y-2">
+                      <div>
+                        <p className="text-[10px] text-primary/70 uppercase tracking-widest">
+                          From: {selectedMessage.senderLabel}
+                        </p>
+                        <p className="text-sm text-primary font-bold">
+                          {selectedMessage.subject}
+                        </p>
+                        <p className="text-[9px] text-muted-foreground mt-1">
+                          {formatInboxTime(selectedMessage.createdAt)}
+                        </p>
+                      </div>
+                      <p className="text-xs text-foreground/90 whitespace-pre-wrap font-mono leading-relaxed">
+                        {selectedMessage.body}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedMessageId(null)}
+                        className="text-[10px] text-primary/70 uppercase tracking-widest hover:text-primary"
+                      >
+                        Back to list
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

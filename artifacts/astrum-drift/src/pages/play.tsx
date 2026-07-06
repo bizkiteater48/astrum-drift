@@ -52,7 +52,11 @@ import { isAdminRole } from "@/lib/admin-api";
 import {
   deleteChatMessage,
   isStaffRole,
+  canShowStaffChatTag,
+  updatePlayerPreferences,
+  getPendingReportCount,
 } from "@/lib/moderation-api";
+import { getInboxUnreadCount } from "@/lib/inbox-api";
 import {
   applyMainGameActionInventory,
   canAffordMainGameAction,
@@ -472,6 +476,11 @@ export default function PlayPage() {
   const [chatSendError, setChatSendError] = useState<string | null>(null);
   const [showModerationPanel, setShowModerationPanel] = useState(false);
   const [showMessagesPanel, setShowMessagesPanel] = useState(false);
+  const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
+  const [pendingReportCount, setPendingReportCount] = useState(0);
+  const [staffTagSaving, setStaffTagSaving] = useState(false);
+  const inboxUnreadBaselineRef = useRef<number | null>(null);
+  const pendingReportBaselineRef = useRef<number | null>(null);
   const [showDriftLounge, setShowDriftLounge] = useState(false);
   const [showPlayerSupportPanel, setShowPlayerSupportPanel] = useState(false);
   const lastProgressVersionRef = useRef<number | null>(null);
@@ -507,6 +516,62 @@ export default function PlayPage() {
   });
 
   const logoutMutation = useLogout();
+
+  const refreshInboxUnreadCount = async () => {
+    try {
+      const result = await getInboxUnreadCount();
+      if (
+        inboxUnreadBaselineRef.current !== null &&
+        result.count > inboxUnreadBaselineRef.current
+      ) {
+        setRecentSystemNotice(
+          result.count === 1
+            ? "You have a new inbox message."
+            : `You have ${result.count} unread inbox messages.`,
+        );
+      }
+      inboxUnreadBaselineRef.current = result.count;
+      setInboxUnreadCount(result.count);
+    } catch {
+      // Ignore inbox polling errors.
+    }
+  };
+
+  const refreshPendingReportCount = async () => {
+    if (!isStaffRole(player?.role)) return;
+
+    try {
+      const result = await getPendingReportCount();
+      if (
+        pendingReportBaselineRef.current !== null &&
+        result.count > pendingReportBaselineRef.current
+      ) {
+        setRecentSystemNotice(
+          result.count === 1
+            ? "A new player report is waiting for review."
+            : `${result.count} player reports are waiting for review.`,
+        );
+      }
+      pendingReportBaselineRef.current = result.count;
+      setPendingReportCount(result.count);
+    } catch {
+      // Ignore report polling errors.
+    }
+  };
+
+  useEffect(() => {
+    if (!player) return;
+
+    void refreshInboxUnreadCount();
+    void refreshPendingReportCount();
+
+    const intervalId = window.setInterval(() => {
+      void refreshInboxUnreadCount();
+      void refreshPendingReportCount();
+    }, 15_000);
+
+    return () => window.clearInterval(intervalId);
+  }, [player?.id, player?.role]);
 
   const {
     data: chatData,
@@ -638,7 +703,12 @@ export default function PlayPage() {
             <span className={`${channelStyle.message} opacity-70`}>
               [{formatUtcChatTime(message.sentAt)}]
             </span>{" "}
-            <span className={channelStyle.author}>{message.author}</span>
+            <span className={channelStyle.author}>
+              {message.authorStaffTag && (
+                <span className="text-chart-2 mr-1">[{message.authorStaffTag}]</span>
+              )}
+              {message.author}
+            </span>
             <span className={`${channelStyle.message} mx-1`}>·</span>
           </span>{" "}
           <span className={`${channelStyle.message} break-words`}>
@@ -2575,6 +2645,40 @@ export default function PlayPage() {
         </div>
       </header>
 
+      {inboxUnreadCount > 0 && !showMessagesPanel && (
+        <button
+          type="button"
+          onClick={() => setShowMessagesPanel(true)}
+          className="z-20 mx-3 mt-2 lg:mx-4 rounded-lg border border-chart-2/40 bg-chart-2/10 px-3 py-2 text-left hover:bg-chart-2/15 transition-colors"
+        >
+          <p className="text-[10px] text-chart-2 uppercase tracking-widest font-bold">
+            Inbox — {inboxUnreadCount} unread message
+            {inboxUnreadCount === 1 ? "" : "s"}
+          </p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            Tap to open Messages and read system notices from Admin or Moderation.
+          </p>
+        </button>
+      )}
+
+      {isStaffRole(player?.role) &&
+        pendingReportCount > 0 &&
+        !showModerationPanel && (
+          <button
+            type="button"
+            onClick={() => setShowModerationPanel(true)}
+            className="z-20 mx-3 mt-2 lg:mx-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-left hover:bg-destructive/15 transition-colors"
+          >
+            <p className="text-[10px] text-destructive uppercase tracking-widest font-bold">
+              Moderation — {pendingReportCount} pending report
+              {pendingReportCount === 1 ? "" : "s"}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              Tap to open Staff Moderation and review player reports.
+            </p>
+          </button>
+        )}
+
       {hasMobileStatusAlert && mobilePanel !== "action" && (
         <div className="lg:hidden z-20 px-3 pt-3">
           <div className="glass-panel border border-chart-2/50 rounded-lg px-3 py-2 shadow-[0_0_18px_rgba(255,190,80,0.35)]">
@@ -2765,6 +2869,11 @@ export default function PlayPage() {
                   className="justify-start font-mono uppercase tracking-widest border-primary/30 text-primary hover:bg-primary/10"
                 >
                   Messages
+                  {inboxUnreadCount > 0 && (
+                    <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-chart-2 px-1.5 text-[10px] font-bold text-background">
+                      {inboxUnreadCount > 99 ? "99+" : inboxUnreadCount}
+                    </span>
+                  )}
                 </Button>
 
                 <Button
@@ -2818,7 +2927,14 @@ export default function PlayPage() {
                     onClick={() => setShowModerationPanel(true)}
                     className="justify-start font-mono uppercase tracking-widest border-primary/30 text-primary hover:bg-primary/10"
                   >
-                    Staff Moderation
+                    <span className="flex items-center gap-2 w-full">
+                      Staff Moderation
+                      {pendingReportCount > 0 && (
+                        <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive/80 px-1.5 text-[10px] font-bold text-background">
+                          {pendingReportCount > 99 ? "99+" : pendingReportCount}
+                        </span>
+                      )}
+                    </span>
                   </Button>
                 )}
 
@@ -4291,6 +4407,52 @@ export default function PlayPage() {
                   </Button>
                 </div>
               </div>
+              {player && canShowStaffChatTag(player.role) && (
+                <div className="rounded-lg border border-primary/10 bg-background/40 p-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm text-primary uppercase tracking-widest">
+                        Show Staff Tag in Chat
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Display your MOD, ADMIN, or GUIDE tag before your name in
+                        live chat.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={staffTagSaving}
+                      onClick={() => {
+                        if (!player) return;
+                        setStaffTagSaving(true);
+                        void updatePlayerPreferences(!player.showStaffChatTag)
+                          .then((updated) => {
+                            queryClient.setQueryData(getGetMeQueryKey(), updated);
+                          })
+                          .catch(() => {
+                            setRecentSystemNotice(
+                              "Failed to update staff chat tag preference.",
+                            );
+                          })
+                          .finally(() => setStaffTagSaving(false));
+                      }}
+                      className={`relative h-6 w-11 rounded-full border transition-colors shrink-0 ${
+                        player.showStaffChatTag
+                          ? "border-chart-2 bg-chart-2/30"
+                          : "border-primary/30 bg-background/60"
+                      }`}
+                      aria-label="Toggle staff chat tag"
+                    >
+                      <span
+                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-primary transition-transform ${
+                          player.showStaffChatTag ? "left-5" : "left-0.5"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -4471,12 +4633,19 @@ export default function PlayPage() {
         <CodexPanel onClose={() => setShowCodexPanel(false)} />
       )}
       {showModerationPanel && (
-        <ModerationPanel onClose={() => setShowModerationPanel(false)} />
+        <ModerationPanel
+          onClose={() => {
+            setShowModerationPanel(false);
+            void refreshPendingReportCount();
+          }}
+        />
       )}
       {showMessagesPanel && (
         <MessagesPanel
           onClose={() => setShowMessagesPanel(false)}
           onReportPlayer={() => setReportDialog({ username: "" })}
+          onUnreadCountChange={setInboxUnreadCount}
+          inboxUnreadCount={inboxUnreadCount}
         />
       )}
       {showDriftLounge && player && (
@@ -4499,6 +4668,10 @@ export default function PlayPage() {
           onNotice={(message) => {
             addMessage(`[ADMIN] ${message}`);
             setRecentSystemNotice(message);
+          }}
+          onGrantApplied={() => {
+            inboxUnreadBaselineRef.current = null;
+            void refreshInboxUnreadCount();
           }}
         />
       )}

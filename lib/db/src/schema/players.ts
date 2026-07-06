@@ -5,6 +5,7 @@ import {
   integer,
   timestamp,
   jsonb,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -35,6 +36,7 @@ export const playersTable = pgTable("players", {
   tutorialProgress: jsonb("tutorial_progress"),
 
   role: text("role").notNull().default("player"),
+  showStaffChatTag: boolean("show_staff_chat_tag").notNull().default(false),
   mutedUntil: timestamp("muted_until", { withTimezone: true }),
 
   progressVersion: integer("progress_version").notNull().default(0),
