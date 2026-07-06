@@ -14,9 +14,23 @@ jobs:
           host: ${{ secrets.REPLIT_SSH_HOST }}
           username: ${{ secrets.REPLIT_SSH_USER }}
           key: ${{ secrets.REPLIT_SSH_PRIVATE_KEY }}
-          command_timeout: 5m
+          command_timeout: 15m
           script: |
+            set -e
+            echo "==> Sync Replit workspace: starting"
             cd /home/runner/workspace
+            echo "==> Fetching origin/main"
             git fetch origin
+            echo "==> Resetting to origin/main"
             git reset --hard origin/main
+            echo "==> Installing dependencies (pnpm install --frozen-lockfile)"
             pnpm install --frozen-lockfile
+            if [ -n "${DATABASE_URL:-}" ]; then
+              echo "==> Syncing database schema (DATABASE_URL is set)"
+              pnpm --filter @workspace/api-server run sync-schema
+            else
+              echo "WARNING: DATABASE_URL is not set in this SSH session."
+              echo "Run manually in Replit Shell:"
+              echo "  cd ~/workspace && pnpm --filter @workspace/api-server run sync-schema"
+            fi
+            echo "==> Sync Replit workspace: complete"
