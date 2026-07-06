@@ -6,9 +6,11 @@ import {
   submitPlayerReport,
   type ReportReason,
 } from "@/lib/moderation-api";
+import { PlayerUsernameSelect } from "@/components/player-username-select";
 
 type ReportPlayerDialogProps = {
   defaultUsername?: string;
+  selfUsername?: string;
   channel?: string;
   messageId?: number;
   onClose: () => void;
@@ -17,6 +19,7 @@ type ReportPlayerDialogProps = {
 
 export function ReportPlayerDialog({
   defaultUsername = "",
+  selfUsername,
   channel,
   messageId,
   onClose,
@@ -83,11 +86,11 @@ export function ReportPlayerDialog({
             <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
               Username
             </span>
-            <input
-              type="text"
+            <PlayerUsernameSelect
               value={reportedUsername}
-              onChange={(event) => setReportedUsername(event.target.value)}
-              className="w-full h-8 bg-background/60 border border-primary/20 rounded-lg px-3 text-xs font-mono outline-none"
+              onChange={setReportedUsername}
+              selfUsername={selfUsername}
+              placeholder="Pilot username"
             />
           </label>
 

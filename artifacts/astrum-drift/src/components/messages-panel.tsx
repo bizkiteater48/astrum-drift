@@ -14,6 +14,7 @@ import {
   markInboxMessageRead,
   type InboxMessage,
 } from "@/lib/inbox-api";
+import { PlayerUsernameSelect } from "@/components/player-username-select";
 
 export type MessagesPanelView =
   | "menu"
@@ -27,6 +28,7 @@ type MessagesPanelProps = {
   onInboxRead?: () => void;
   onUnreadCountChange?: (count: number) => void;
   inboxUnreadCount?: number;
+  selfUsername?: string;
 };
 
 function formatInboxTime(iso: string): string {
@@ -44,6 +46,7 @@ export function MessagesPanel({
   onInboxRead,
   onUnreadCountChange,
   inboxUnreadCount = 0,
+  selfUsername,
 }: MessagesPanelProps) {
   const [view, setView] = useState<MessagesPanelView>("menu");
   const [recipient, setRecipient] = useState("");
@@ -237,12 +240,11 @@ export function MessagesPanel({
                 <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
                   Player Username
                 </span>
-                <input
-                  type="text"
+                <PlayerUsernameSelect
                   value={recipient}
-                  onChange={(event) => setRecipient(event.target.value)}
+                  onChange={setRecipient}
+                  selfUsername={selfUsername}
                   placeholder="Pilot username"
-                  className="w-full h-8 bg-background/60 border border-primary/20 rounded-lg px-3 text-xs font-mono outline-none"
                 />
               </label>
               <label className="block space-y-1">

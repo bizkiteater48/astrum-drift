@@ -32,6 +32,7 @@ import {
 import { ApiError, customFetch, getGetMeQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { PokerCard, PokerCardBack } from "@/components/poker-card";
+import { PlayerUsernameSelect } from "@/components/player-username-select";
 
 type DriftLoungePanelProps = {
   player: Player;
@@ -715,12 +716,11 @@ export function DriftLoungePanel({
                   <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
                     Opponent Username
                   </span>
-                  <input
-                    type="text"
+                  <PlayerUsernameSelect
                     value={pokerOpponent}
-                    onChange={(event) => setPokerOpponent(event.target.value)}
+                    onChange={setPokerOpponent}
+                    selfUsername={player.username}
                     placeholder="Pilot username"
-                    className="w-full h-8 bg-background/60 border border-primary/20 rounded-lg px-3 text-xs font-mono outline-none"
                   />
                 </label>
                 <label className="block space-y-1">
@@ -800,12 +800,11 @@ export function DriftLoungePanel({
               <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
                 Opponent Username
               </span>
-              <input
-                type="text"
+              <PlayerUsernameSelect
                 value={pvpOpponent}
-                onChange={(event) => setPvpOpponent(event.target.value)}
+                onChange={setPvpOpponent}
+                selfUsername={player.username}
                 placeholder="Pilot username"
-                className="w-full h-8 bg-background/60 border border-primary/20 rounded-lg px-3 text-xs font-mono outline-none"
               />
             </label>
             <label className="block space-y-1">

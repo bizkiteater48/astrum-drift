@@ -4869,6 +4869,7 @@ export default function PlayPage() {
           onReportPlayer={() => setReportDialog({ username: "" })}
           onUnreadCountChange={setInboxUnreadCount}
           inboxUnreadCount={inboxUnreadCount}
+          selfUsername={player?.username}
         />
       )}
       {showDriftLounge && player && (
@@ -4901,6 +4902,7 @@ export default function PlayPage() {
       {reportDialog && (
         <ReportPlayerDialog
           defaultUsername={reportDialog.username}
+          selfUsername={player?.username}
           channel={reportDialog.channel}
           messageId={reportDialog.messageId}
           onClose={() => setReportDialog(null)}

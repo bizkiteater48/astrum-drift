@@ -176,6 +176,47 @@
                       schema:
                         $ref: "#/components/schemas/ErrorResponse"
 
+          /players/search:
+            get:
+              operationId: searchPlayers
+              tags: [player]
+              summary: Search players by username
+              description: Case-insensitive partial username search for opponent selection and messaging.
+              parameters:
+                - name: q
+                  in: query
+                  required: false
+                  schema:
+                    type: string
+                  description: Omit or use fewer than 2 characters to list pilots alphabetically.
+                - name: limit
+                  in: query
+                  required: false
+                  schema:
+                    type: integer
+                    minimum: 1
+                    maximum: 20
+                    default: 10
+                - name: excludeSelf
+                  in: query
+                  required: false
+                  schema:
+                    type: boolean
+                    default: true
+              responses:
+                "200":
+                  description: Matching players
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/PlayerSearchResponse"
+                "401":
+                  description: Not authenticated
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
           /inbox/messages:
             get:
               operationId: getInboxMessages
@@ -1038,6 +1079,30 @@
                   type: boolean
               required:
                 - showStaffChatTag
+
+            PlayerSearchResult:
+              type: object
+              properties:
+                id:
+                  type: integer
+                username:
+                  type: string
+              required:
+                - id
+                - username
+
+            PlayerSearchResponse:
+              type: object
+              properties:
+                players:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/PlayerSearchResult"
+                mode:
+                  type: string
+                  enum: [directory, search]
+              required:
+                - players
 
             HealthStatus:
               type: object

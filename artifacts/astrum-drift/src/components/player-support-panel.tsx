@@ -9,6 +9,7 @@ import {
   type PlayerSupportSnapshot,
 } from "@/lib/admin-api";
 import { MATERIAL_INVENTORY_GROUPS } from "@/lib/main-game";
+import { PlayerUsernameSelect } from "@/components/player-username-select";
 
 const COMMON_GRANT_ITEMS = [
   ...MATERIAL_INVENTORY_GROUPS.Ores,
@@ -197,12 +198,12 @@ export function PlayerSupportPanel({
 
         <div className="p-4 overflow-y-auto custom-scrollbar flex-1 min-h-0 space-y-4">
           <div className="flex gap-2">
-            <input
-              type="text"
+            <PlayerUsernameSelect
+              className="flex-1"
               value={username}
-              onChange={(event) => setUsername(event.target.value)}
+              onChange={setUsername}
+              excludeSelf={false}
               placeholder="Pilot username"
-              className="flex-1 h-8 bg-background/60 border border-primary/20 rounded-lg px-3 text-xs font-mono outline-none"
             />
             <button
               type="button"
