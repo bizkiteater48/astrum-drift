@@ -33,5 +33,29 @@ export async function ensureGamblingSchema(): Promise<void> {
       ON gambling_challenges (challenger_id, status, created_at DESC);
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS poker_games (
+      id serial PRIMARY KEY,
+      inviter_id integer NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      opponent_id integer NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      buy_in integer NOT NULL,
+      status text NOT NULL DEFAULT 'invited',
+      state jsonb,
+      winner_id integer REFERENCES players(id) ON DELETE SET NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      resolved_at timestamptz
+    );
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS poker_games_player_status_idx
+      ON poker_games (inviter_id, status, created_at DESC);
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS poker_games_opponent_status_idx
+      ON poker_games (opponent_id, status, created_at DESC);
+  `);
+
   logger.info("Gambling schema ensured");
 }

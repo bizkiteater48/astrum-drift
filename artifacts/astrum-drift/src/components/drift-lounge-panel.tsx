@@ -1,22 +1,32 @@
-import { useCallback, useEffect, useState } from "react";
-import { Coins, Dices, Loader2, Swords, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Coins, Dices, Loader2, Spade, Swords, X } from "lucide-react";
 import type { Player } from "@workspace/api-client-react";
 import {
   HOUSE_MAX_STAKE,
   HOUSE_MIN_STAKE,
+  POKER_MAX_BUY_IN,
+  POKER_MIN_BUY_IN,
+  POKER_ACTION_TIMEOUT_SEC,
   PVP_MAX_STAKE,
   PVP_MIN_STAKE,
   SILVER_ORE_ITEM,
 } from "@/lib/gambling";
 import {
   acceptGamblingChallenge,
+  acceptPokerInvite,
   createGamblingChallenge,
+  createPokerInvite,
   declineGamblingChallenge,
+  declinePokerInvite,
   listGamblingChallenges,
+  listPokerGames,
   mintSilverCoins,
   playHouseGame,
+  submitPokerAction,
   type GamblingChallenge,
   type HousePlayOutcome,
+  type PokerActionType,
+  type PokerGame,
 } from "@/lib/gambling-api";
 import { ApiError } from "@workspace/api-client-react";
 
@@ -45,9 +55,23 @@ export function DriftLoungePanel({
   const [pvpOpponent, setPvpOpponent] = useState("");
   const [pvpStake, setPvpStake] = useState("25");
   const [pvpChoice, setPvpChoice] = useState<"heads" | "tails">("heads");
+  const [pokerOpponent, setPokerOpponent] = useState("");
+  const [pokerBuyIn, setPokerBuyIn] = useState("100");
+  const [pokerRaiseTotal, setPokerRaiseTotal] = useState("0");
   const [challenges, setChallenges] = useState<GamblingChallenge[]>([]);
+  const [pokerGames, setPokerGames] = useState<PokerGame[]>([]);
   const [lastOutcome, setLastOutcome] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [turnClockTick, setTurnClockTick] = useState(0);
+
+  const activePokerGame = useMemo(
+    () => pokerGames.find((game) => game.status === "active") ?? null,
+    [pokerGames],
+  );
+  const pokerInvites = useMemo(
+    () => pokerGames.filter((game) => game.status === "invited"),
+    [pokerGames],
+  );
 
   const loadChallenges = useCallback(async () => {
     try {
@@ -58,13 +82,42 @@ export function DriftLoungePanel({
     }
   }, []);
 
+  const loadPokerGames = useCallback(async () => {
+    try {
+      const data = await listPokerGames();
+      setPokerGames(data.games);
+    } catch {
+      setPokerGames([]);
+    }
+  }, []);
+
+  const loadLoungeData = useCallback(async () => {
+    await Promise.all([loadChallenges(), loadPokerGames()]);
+  }, [loadChallenges, loadPokerGames]);
+
   useEffect(() => {
-    void loadChallenges();
+    void loadLoungeData();
     const interval = window.setInterval(() => {
-      void loadChallenges();
-    }, 5000);
+      void loadLoungeData();
+    }, 3000);
     return () => window.clearInterval(interval);
-  }, [loadChallenges]);
+  }, [loadLoungeData]);
+
+  useEffect(() => {
+    if (!activePokerGame?.state || activePokerGame.state.phase === "complete") {
+      return;
+    }
+    const interval = window.setInterval(() => {
+      setTurnClockTick((tick) => tick + 1);
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [activePokerGame?.id, activePokerGame?.state?.phase, activePokerGame?.state?.actionDeadlineAt]);
+
+  useEffect(() => {
+    if (activePokerGame?.state?.minRaiseTotal) {
+      setPokerRaiseTotal(String(activePokerGame.state.minRaiseTotal));
+    }
+  }, [activePokerGame?.state?.minRaiseTotal, activePokerGame?.id]);
 
   const getErrorMessage = (error: unknown, fallback: string) => {
     if (error instanceof ApiError) {
@@ -142,9 +195,105 @@ export function DriftLoungePanel({
       });
       onNotice(`Challenge sent to ${opponentUsername} for ${stake} coins.`);
       setPvpOpponent("");
-      await loadChallenges();
+      await loadLoungeData();
     } catch (error) {
       onNotice(getErrorMessage(error, "Failed to send challenge."));
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const handleCreatePokerInvite = async () => {
+    const buyIn = Number(pokerBuyIn);
+    const opponentUsername = pokerOpponent.trim();
+
+    if (!opponentUsername) {
+      onNotice("Enter an opponent username.");
+      return;
+    }
+
+    if (
+      !Number.isInteger(buyIn) ||
+      buyIn < POKER_MIN_BUY_IN ||
+      buyIn > POKER_MAX_BUY_IN
+    ) {
+      onNotice(`Buy-in must be ${POKER_MIN_BUY_IN}–${POKER_MAX_BUY_IN} coins.`);
+      return;
+    }
+
+    setBusyAction("poker-invite");
+    try {
+      await createPokerInvite({ opponentUsername, buyIn });
+      onNotice(`Poker invite sent to ${opponentUsername} (${buyIn} coin buy-in).`);
+      setPokerOpponent("");
+      await loadPokerGames();
+    } catch (error) {
+      onNotice(getErrorMessage(error, "Failed to send poker invite."));
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const handleAcceptPokerInvite = async (game: PokerGame) => {
+    setBusyAction(`poker-accept-${game.id}`);
+    try {
+      const result = await acceptPokerInvite(game.id);
+      onPlayerUpdated(result.player);
+      onNotice("Texas Hold'em hand started.");
+      await loadPokerGames();
+    } catch (error) {
+      onNotice(getErrorMessage(error, "Failed to start poker hand."));
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const handleDeclinePokerInvite = async (gameId: number) => {
+    setBusyAction(`poker-decline-${gameId}`);
+    try {
+      await declinePokerInvite(gameId);
+      onNotice("Poker invite declined.");
+      await loadPokerGames();
+    } catch (error) {
+      onNotice(getErrorMessage(error, "Failed to decline poker invite."));
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const handlePokerAction = async (gameId: number, action: PokerActionType) => {
+    setBusyAction(`poker-${action}-${gameId}`);
+    try {
+      const body: { action: PokerActionType; raiseTotal?: number } = { action };
+      if (action === "raise") {
+        const raiseTotal = Number(pokerRaiseTotal);
+        if (!Number.isInteger(raiseTotal) || raiseTotal <= 0) {
+          onNotice("Enter a valid raise total.");
+          return;
+        }
+        body.raiseTotal = raiseTotal;
+      }
+
+      const result = await submitPokerAction(gameId, body);
+      onPlayerUpdated(result.player);
+
+      if (result.game.status === "complete" && result.game.state) {
+        const winnerName =
+          result.game.winnerId === player.id
+            ? "You"
+            : result.game.inviterId === result.game.winnerId
+              ? result.game.inviterUsername
+              : result.game.opponentUsername;
+        const message = result.game.state.winningHand
+          ? `${winnerName} won — ${result.game.state.winningHand}.`
+          : `${winnerName} won the pot.`;
+        setLastOutcome(message);
+        onNotice(message);
+      }
+
+      await loadPokerGames();
+    } catch (error) {
+      onNotice(getErrorMessage(error, "Poker action failed."));
     } finally {
       setBusyAction(null);
     }
@@ -160,7 +309,7 @@ export function DriftLoungePanel({
         : `${result.result.winnerUsername} won ${result.result.payout} coins (${result.result.flip}).`;
       setLastOutcome(message);
       onNotice(message);
-      await loadChallenges();
+      await loadLoungeData();
     } catch (error) {
       onNotice(getErrorMessage(error, "Failed to accept challenge."));
     } finally {
@@ -173,7 +322,7 @@ export function DriftLoungePanel({
     try {
       await declineGamblingChallenge(challengeId);
       onNotice("Challenge declined.");
-      await loadChallenges();
+      await loadLoungeData();
     } catch (error) {
       onNotice(getErrorMessage(error, "Failed to decline challenge."));
     } finally {
@@ -321,6 +470,230 @@ export function DriftLoungePanel({
 
           <section className="space-y-2 border-t border-primary/10 pt-4">
             <h3 className="text-xs uppercase tracking-widest text-primary/80 flex items-center gap-2">
+              <Spade className="size-3.5" />
+              PvP Texas Hold&apos;em
+            </h3>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+              Heads-up · standard hold&apos;em · {POKER_ACTION_TIMEOUT_SEC}s per action
+            </p>
+
+            {activePokerGame?.state ? (
+              <div className="rounded-lg border border-primary/25 bg-background/40 p-3 space-y-3">
+                <div className="flex items-center justify-between text-[10px] uppercase tracking-widest">
+                  <span className="text-primary">
+                    {formatPokerPhase(activePokerGame.state.phase)}
+                  </span>
+                  <div className="text-right">
+                    <span className="text-chart-3 font-bold block">
+                      Pot {activePokerGame.state.pot}
+                    </span>
+                    {activePokerGame.state.phase !== "complete" && (
+                      <span className="text-muted-foreground">
+                        {formatPokerTurnClock(activePokerGame, player.id, turnClockTick)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="min-h-8 rounded border border-primary/15 bg-background/50 px-2 py-1.5 flex flex-wrap gap-1.5 items-center">
+                  {activePokerGame.state.board.length === 0 ? (
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                      Board pending
+                    </span>
+                  ) : (
+                    activePokerGame.state.board.map((card) => (
+                      <span
+                        key={card}
+                        className="inline-flex h-7 min-w-8 items-center justify-center rounded border border-primary/25 bg-background/80 px-1 text-[10px] font-mono text-primary"
+                      >
+                        {formatPlayingCard(card)}
+                      </span>
+                    ))
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
+                  {[activePokerGame.inviterId, activePokerGame.opponentId].map(
+                    (seatId) => {
+                      const isSelf = seatId === player.id;
+                      const username =
+                        seatId === activePokerGame.inviterId
+                          ? activePokerGame.inviterUsername
+                          : activePokerGame.opponentUsername;
+                      const holeCards =
+                        activePokerGame.state?.holeCards[String(seatId)] ?? null;
+                      const stack =
+                        activePokerGame.state?.stacks[String(seatId)] ?? 0;
+                      const streetBet =
+                        activePokerGame.state?.streetBets[String(seatId)] ?? 0;
+                      const isActionOn =
+                        activePokerGame.state?.actionOn === seatId;
+
+                      return (
+                        <div
+                          key={seatId}
+                          className={`rounded border p-2 ${
+                            isActionOn
+                              ? "border-chart-3/50 bg-chart-3/5"
+                              : "border-primary/15 bg-background/30"
+                          }`}
+                        >
+                          <p className="text-primary uppercase tracking-widest truncate">
+                            {username}
+                            {isSelf ? " (you)" : ""}
+                          </p>
+                          <p className="text-muted-foreground mt-1">
+                            Stack {stack} · Bet {streetBet}
+                          </p>
+                          <div className="mt-1 flex gap-1">
+                            {holeCards ? (
+                              holeCards.map((card) => (
+                                <span
+                                  key={card}
+                                  className="inline-flex h-7 min-w-8 items-center justify-center rounded border border-primary/25 bg-background/80 px-1 text-[10px] font-mono text-primary"
+                                >
+                                  {formatPlayingCard(card)}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-muted-foreground">?? ??</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    },
+                  )}
+                </div>
+
+                {activePokerGame.state.legalActions.length > 0 ? (
+                  <div className="space-y-2 border-t border-primary/10 pt-2">
+                    <p className="text-[10px] text-chart-3 uppercase tracking-widest">
+                      Your turn ·{" "}
+                      {formatPokerSecondsRemaining(activePokerGame.state)} remaining
+                      {activePokerGame.state.callAmount > 0
+                        ? ` · call ${activePokerGame.state.callAmount}`
+                        : ""}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {activePokerGame.state.legalActions.map((action) => (
+                        <button
+                          key={action}
+                          type="button"
+                          disabled={busyAction !== null}
+                          onClick={() =>
+                            void handlePokerAction(activePokerGame.id, action)
+                          }
+                          className="h-7 px-3 rounded border border-primary/30 text-[10px] uppercase tracking-widest text-primary hover:bg-primary/10 disabled:opacity-40"
+                        >
+                          {action}
+                        </button>
+                      ))}
+                    </div>
+                    {activePokerGame.state.legalActions.includes("raise") && (
+                      <label className="block space-y-1">
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                          Raise to (min {activePokerGame.state.minRaiseTotal})
+                        </span>
+                        <input
+                          type="number"
+                          min={activePokerGame.state.minRaiseTotal}
+                          value={pokerRaiseTotal}
+                          onChange={(event) => setPokerRaiseTotal(event.target.value)}
+                          className="w-full h-8 bg-background/60 border border-primary/20 rounded-lg px-3 text-xs font-mono outline-none"
+                        />
+                      </label>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                    Waiting for opponent…
+                  </p>
+                )}
+              </div>
+            ) : (
+              <>
+                <label className="block space-y-1">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                    Opponent Username
+                  </span>
+                  <input
+                    type="text"
+                    value={pokerOpponent}
+                    onChange={(event) => setPokerOpponent(event.target.value)}
+                    placeholder="Pilot username"
+                    className="w-full h-8 bg-background/60 border border-primary/20 rounded-lg px-3 text-xs font-mono outline-none"
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                    Buy-in ({POKER_MIN_BUY_IN}–{POKER_MAX_BUY_IN})
+                  </span>
+                  <input
+                    type="number"
+                    min={POKER_MIN_BUY_IN}
+                    max={POKER_MAX_BUY_IN}
+                    value={pokerBuyIn}
+                    onChange={(event) => setPokerBuyIn(event.target.value)}
+                    className="w-full h-8 bg-background/60 border border-primary/20 rounded-lg px-3 text-xs font-mono outline-none"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => void handleCreatePokerInvite()}
+                  disabled={busyAction !== null}
+                  className="w-full h-9 rounded border border-primary/30 text-primary text-xs uppercase tracking-widest hover:bg-primary/10 disabled:opacity-40"
+                >
+                  Send Poker Invite
+                </button>
+              </>
+            )}
+
+            {pokerInvites.length > 0 && (
+              <div className="space-y-2">
+                {pokerInvites.map((game) => (
+                  <div
+                    key={game.id}
+                    className="rounded-lg border border-primary/15 bg-background/30 p-2 text-[10px] font-mono"
+                  >
+                    <p className="text-primary uppercase tracking-widest">
+                      {game.inviterUsername} vs {game.opponentUsername}
+                    </p>
+                    <p className="text-muted-foreground mt-1">
+                      {game.buyIn} coin buy-in · Texas Hold&apos;em
+                    </p>
+                    {game.isIncoming && (
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          type="button"
+                          onClick={() => void handleAcceptPokerInvite(game)}
+                          disabled={busyAction !== null}
+                          className="flex-1 h-7 rounded border border-primary/30 text-primary hover:bg-primary/10 disabled:opacity-40"
+                        >
+                          Accept
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleDeclinePokerInvite(game.id)}
+                          disabled={busyAction !== null}
+                          className="flex-1 h-7 rounded border border-primary/20 text-muted-foreground hover:bg-primary/5 disabled:opacity-40"
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    )}
+                    {game.isOutgoing && (
+                      <p className="text-muted-foreground mt-1 uppercase tracking-widest">
+                        Awaiting response…
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="space-y-2 border-t border-primary/10 pt-4">
+            <h3 className="text-xs uppercase tracking-widest text-primary/80 flex items-center gap-2">
               <Swords className="size-3.5" />
               PvP Warp Flip
             </h3>
@@ -448,4 +821,72 @@ function formatHouseOutcome(outcome: HousePlayOutcome): string {
   return outcome.won
     ? `${outcome.result} — won ${outcome.payout} coins.`
     : `${outcome.result} — lost ${outcome.stake} coins.`;
+}
+
+const SUIT_SYMBOLS: Record<string, string> = {
+  c: "♣",
+  d: "♦",
+  h: "♥",
+  s: "♠",
+};
+
+function formatPlayingCard(card: string): string {
+  const rank = card[0] === "T" ? "10" : card[0];
+  const suit = SUIT_SYMBOLS[card[1] ?? ""] ?? card[1];
+  return `${rank}${suit}`;
+}
+
+function formatPokerPhase(phase: string): string {
+  switch (phase) {
+    case "preflop":
+      return "Preflop";
+    case "flop":
+      return "Flop";
+    case "turn":
+      return "Turn";
+    case "river":
+      return "River";
+    case "showdown":
+      return "Showdown";
+    case "complete":
+      return "Hand Complete";
+    default:
+      return phase;
+  }
+}
+
+function formatPokerSecondsRemaining(
+  state: NonNullable<PokerGame["state"]>,
+): number {
+  if (state.secondsRemaining != null) {
+    return state.secondsRemaining;
+  }
+  if (!state.actionDeadlineAt) {
+    return POKER_ACTION_TIMEOUT_SEC;
+  }
+  return Math.max(
+    0,
+    Math.ceil((new Date(state.actionDeadlineAt).getTime() - Date.now()) / 1000),
+  );
+}
+
+function formatPokerTurnClock(
+  game: PokerGame,
+  viewerId: number,
+  _tick: number,
+): string {
+  const state = game.state;
+  if (!state || state.phase === "complete" || !state.actionDeadlineAt) {
+    return "";
+  }
+
+  const seconds = formatPokerSecondsRemaining(state);
+  const actorName =
+    state.actionOn === viewerId
+      ? "Your action"
+      : state.actionOn === game.inviterId
+        ? game.inviterUsername
+        : game.opponentUsername;
+
+  return `${actorName} · ${seconds}s`;
 }

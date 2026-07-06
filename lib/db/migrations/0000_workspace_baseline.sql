@@ -41,6 +41,24 @@ CREATE INDEX IF NOT EXISTS "gambling_challenges_opponent_pending_idx"
 CREATE INDEX IF NOT EXISTS "gambling_challenges_challenger_pending_idx"
   ON "gambling_challenges" ("challenger_id", "status", "created_at" DESC);
 --> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "poker_games" (
+  "id" serial PRIMARY KEY,
+  "inviter_id" integer NOT NULL REFERENCES "players"("id") ON DELETE CASCADE,
+  "opponent_id" integer NOT NULL REFERENCES "players"("id") ON DELETE CASCADE,
+  "buy_in" integer NOT NULL,
+  "status" text NOT NULL DEFAULT 'invited',
+  "state" jsonb,
+  "winner_id" integer REFERENCES "players"("id") ON DELETE SET NULL,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "resolved_at" timestamptz
+);
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "poker_games_player_status_idx"
+  ON "poker_games" ("inviter_id", "status", "created_at" DESC);
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "poker_games_opponent_status_idx"
+  ON "poker_games" ("opponent_id", "status", "created_at" DESC);
+--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "admin_grants" (
   "id" serial PRIMARY KEY,
   "admin_id" integer NOT NULL REFERENCES "players"("id") ON DELETE CASCADE,
