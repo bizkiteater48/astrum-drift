@@ -841,6 +841,12 @@ export function isStationStorageLocation(location: MainGameLocation): boolean {
   return location.locationType === "spaceport";
 }
 
+export function isShipCargoLocation(location: MainGameLocation): boolean {
+  return (
+    location.locationType === "spaceport" || location.isMainSettlement === true
+  );
+}
+
 export function isNpcExchangeLocation(location: MainGameLocation): boolean {
   return location.locationType === "spaceport";
 }

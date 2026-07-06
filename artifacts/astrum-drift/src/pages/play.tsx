@@ -77,6 +77,7 @@ import {
   isMainGamePlaceholderImage,
   isProductionAction,
   isStationStorageLocation,
+  isShipCargoLocation,
   MAIN_GAME_DIRECTIVE,
   MAIN_GAME_SKILLS,
   MAIN_GAME_START_LOCATION,
@@ -1073,10 +1074,17 @@ export default function PlayPage() {
 
   const currentMainGameLocation = getMainGameLocation(mainGameLocationId);
   const canAccessStationStorage = isStationStorageLocation(currentMainGameLocation);
+  const canAccessShipCargo = isShipCargoLocation(currentMainGameLocation);
   const stationStorageStackCount = getStationStorageStackCount(stationStorage);
   const locationHubActions = isTutorialComplete
     ? getLocationHubActions(currentMainGameLocation)
     : [];
+
+  useEffect(() => {
+    if (!canAccessShipCargo) {
+      setShowShipCargoManifest(false);
+    }
+  }, [canAccessShipCargo]);
 
   const hasMobileStatusAlert =
     isTutorialActionRunning ||
@@ -3056,6 +3064,24 @@ export default function PlayPage() {
                         {action.label}
                       </Button>
                     ))}
+                    {canAccessShipCargo && (
+                      <Button
+                        onClick={() => setShowShipCargoManifest(true)}
+                        disabled={isMainGameActionRunning}
+                        variant="outline"
+                        className="flex justify-start h-auto min-h-9 whitespace-normal text-left leading-tight text-[11px] font-mono uppercase tracking-wide border-chart-2/50 text-chart-2 hover:bg-chart-2/10 py-1.5 px-3"
+                      >
+                        Ship Cargo
+                      </Button>
+                    )}
+                    <Button
+                      onClick={() => setShowStationStorage(true)}
+                      disabled={isMainGameActionRunning}
+                      variant="outline"
+                      className="flex justify-start h-auto min-h-9 whitespace-normal text-left leading-tight text-[11px] font-mono uppercase tracking-wide border-chart-2/50 text-chart-2 hover:bg-chart-2/10 py-1.5 px-3"
+                    >
+                      Station Storage
+                    </Button>
                   </>
                 ) : (
                   currentTutorialStep.actionLabel && (
@@ -4243,15 +4269,6 @@ export default function PlayPage() {
                             <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
                               Active Ship Cargo
                             </p>
-
-                            <button
-                              type="button"
-                              onClick={() => setShowShipCargoManifest(true)}
-                              className="h-6 w-6 rounded border border-primary/20 text-primary text-xs hover:bg-primary/10"
-                              title="Open Ship Cargo Manifest"
-                            >
-                              ↗
-                            </button>
                           </div>
 
                           <div className="flex justify-between text-xs">
@@ -4264,7 +4281,9 @@ export default function PlayPage() {
                           </div>
 
                           <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-2">
-                            Cargo Empty
+                            {canAccessShipCargo
+                              ? "Cargo Empty"
+                              : "At spaceport or landing site to access"}
                           </p>
                         </div>
 
@@ -4274,15 +4293,6 @@ export default function PlayPage() {
                             <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
                               Station Storage
                             </p>
-
-                            <button
-                              type="button"
-                              onClick={() => setShowStationStorage(true)}
-                              className="h-6 w-6 rounded border border-primary/20 text-primary text-xs hover:bg-primary/10"
-                              title="Open Station Storage"
-                            >
-                              ↗
-                            </button>
                           </div>
 
                           <div className="flex justify-between text-xs">
