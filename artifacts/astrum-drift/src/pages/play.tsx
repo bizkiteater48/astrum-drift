@@ -578,7 +578,7 @@ export default function PlayPage() {
     return (
       <div key={message.id} className="group flex items-start gap-1">
         <div
-          className={`flex-1 min-w-0 text-xs font-mono leading-relaxed border-l-2 pl-2 ${channelStyle.messageBorder}`}
+          className={`flex-1 min-w-0 text-[11px] font-mono leading-snug border-l-2 pl-1.5 ${channelStyle.messageBorder}`}
         >
           <span className={`${channelStyle.message} opacity-70`}>
             [{formatUtcChatTime(message.sentAt)}]
@@ -3345,21 +3345,21 @@ export default function PlayPage() {
             } lg:block mt-auto w-full p-[2px] ${getCommandTourHighlightClass("chat")}`}
           >
             {isChatOpen ? (
-              <div className="glass-panel border border-primary/20 rounded-lg h-[52vh] min-h-[320px] lg:h-56 lg:min-h-0 flex flex-col overflow-hidden">
-                <div className="flex items-center justify-between gap-2 border-b border-primary/20 px-4 py-2">
-                  <h3 className="uppercase tracking-widest text-xs text-primary/70 shrink-0">
+              <div className="glass-panel border border-primary/20 rounded-lg h-[58vh] min-h-[320px] lg:h-80 lg:min-h-0 flex flex-col overflow-hidden">
+                <div className="flex items-center justify-between gap-2 border-b border-primary/20 px-3 py-1">
+                  <h3 className="uppercase tracking-widest text-[10px] text-primary/70 shrink-0">
                     Player Chat
                   </h3>
                   <button
                     type="button"
                     onClick={() => setIsChatOpen(false)}
-                    className="h-6 px-2 rounded border border-primary/20 text-primary text-xs uppercase tracking-widest hover:bg-primary/10 shrink-0"
+                    className="h-5 px-1.5 rounded border border-primary/20 text-primary text-[10px] uppercase tracking-widest hover:bg-primary/10 shrink-0"
                   >
                     Hide
                   </button>
                 </div>
 
-                <div className="flex items-center gap-1 border-b border-primary/20 px-4 py-2 overflow-x-auto custom-scrollbar">
+                <div className="flex items-center gap-1 border-b border-primary/20 px-3 py-1 overflow-x-auto custom-scrollbar">
                   {CHAT_CHANNELS.map((channel) => {
                     const channelStyle = CHAT_CHANNEL_STYLES[channel.id];
                     const isActive = activeChatChannel === channel.id;
@@ -3375,24 +3375,24 @@ export default function PlayPage() {
                           setActiveChatChannel(channel.id);
                           setChatSendError(null);
                         }}
-                        className={`inline-flex items-center gap-1 h-6 px-2 rounded border text-[10px] uppercase tracking-widest whitespace-nowrap shrink-0 ${
+                        className={`inline-flex items-center gap-1 h-5 px-1.5 rounded border text-[9px] uppercase tracking-widest whitespace-nowrap shrink-0 ${
                           isActive ? channelStyle.tabActive : channelStyle.tabInactive
                         }`}
                       >
-                        <ChannelIcon className="size-3 shrink-0" aria-hidden="true" />
+                        <ChannelIcon className="size-2.5 shrink-0" aria-hidden="true" />
                         {channel.label}
                       </button>
                     );
                   })}
                 </div>
 
-                <div className="border-b border-primary/20 px-4 py-2 flex flex-col gap-2 shrink-0">
+                <div className="border-b border-primary/20 px-3 py-1 flex flex-col gap-1 shrink-0">
                   {(muteMessage || chatSendError) && (
-                    <p className="text-[10px] text-destructive uppercase tracking-widest">
+                    <p className="text-[9px] text-destructive uppercase tracking-widest leading-tight">
                       {muteMessage ?? chatSendError}
                     </p>
                   )}
-                  <div className="flex gap-2">
+                  <div className="flex gap-1.5">
                     <input
                       ref={chatInputRef}
                       type="text"
@@ -3409,14 +3409,14 @@ export default function PlayPage() {
                       }}
                       disabled={!isChatInputEnabled}
                       placeholder={CHAT_CHANNEL_PLACEHOLDER[activeChatChannel]}
-                      className="flex-1 h-8 bg-background/60 border border-primary/20 rounded-lg px-3 text-xs text-foreground font-mono outline-none disabled:text-muted-foreground disabled:cursor-not-allowed"
+                      className="flex-1 h-7 bg-background/60 border border-primary/20 rounded-md px-2 text-[11px] text-foreground font-mono outline-none disabled:text-muted-foreground disabled:cursor-not-allowed"
                     />
 
                     <button
                       type="button"
                       onClick={() => void sendChatMessage()}
                       disabled={!isChatSendEnabled}
-                      className="h-8 px-4 rounded border border-primary/20 text-primary text-xs uppercase tracking-widest hover:bg-primary/10 disabled:text-primary/40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                      className="h-7 px-2.5 rounded-md border border-primary/20 text-primary text-[10px] uppercase tracking-widest hover:bg-primary/10 disabled:text-primary/40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
                     >
                       Send
                     </button>
@@ -3425,7 +3425,7 @@ export default function PlayPage() {
 
                 <div
                   ref={chatScrollRef}
-                  className="flex-1 overflow-y-auto custom-scrollbar px-4 py-2"
+                  className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-3 py-1"
                 >
                   {chatLoadErrorMessage ? (
                     <div className="text-xs text-destructive uppercase tracking-widest">
@@ -3436,7 +3436,7 @@ export default function PlayPage() {
                       {CHAT_CHANNEL_EMPTY_TEXT[activeChatChannel]}
                     </div>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                       {liveChatMessages.map((message) =>
                         renderChatMessage(message, activeChatChannel),
                       )}
