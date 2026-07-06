@@ -837,6 +837,10 @@ export function isMarketLocation(location: MainGameLocation): boolean {
   );
 }
 
+export function isStationStorageLocation(location: MainGameLocation): boolean {
+  return location.locationType === "spaceport";
+}
+
 export function isNpcExchangeLocation(location: MainGameLocation): boolean {
   return location.locationType === "spaceport";
 }

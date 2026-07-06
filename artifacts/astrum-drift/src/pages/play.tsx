@@ -50,6 +50,7 @@ import { ModerationPanel } from "@/components/moderation-panel";
 import { MessagesPanel } from "@/components/messages-panel";
 import { DriftLoungePanel } from "@/components/drift-lounge-panel";
 import { PlayerSupportPanel } from "@/components/player-support-panel";
+import { StationStoragePanel } from "@/components/station-storage-panel";
 import { ReportPlayerDialog } from "@/components/report-player-dialog";
 import { isAdminRole } from "@/lib/admin-api";
 import {
@@ -75,6 +76,7 @@ import {
   isInventoryFullForAction,
   isMainGamePlaceholderImage,
   isProductionAction,
+  isStationStorageLocation,
   MAIN_GAME_DIRECTIVE,
   MAIN_GAME_SKILLS,
   MAIN_GAME_START_LOCATION,
@@ -97,6 +99,10 @@ import {
 } from "@/lib/chat-ignores-api";
 import { SILVER_ORE_ITEM } from "@/lib/gambling";
 import { mintSilverCoins } from "@/lib/gambling-api";
+import {
+  getStationStorageStackCount,
+  STATION_STORAGE_SLOT_LIMIT,
+} from "@/lib/station-storage-api";
 
 type TutorialStep = {
   id: string;
@@ -336,6 +342,7 @@ export default function PlayPage() {
     currentTutorialStepIndex: number;
     currentTutorialActionCount: number;
     tutorialInventory: Record<string, number>;
+    stationStorage?: Record<string, number>;
     playerHealth: number;
     enemyHealth: number;
     targetIntel: Record<string, number>;
@@ -350,7 +357,7 @@ export default function PlayPage() {
     lastRewardStepId: string | null;
   };
 
-  const TUTORIAL_SAVE_VERSION = 4;
+  const TUTORIAL_SAVE_VERSION = 5;
   const [currentTutorialActionCount, setCurrentTutorialActionCount] =
     useState(0);
   const [tutorialInventory, setTutorialInventory] = useState<
@@ -362,6 +369,9 @@ export default function PlayPage() {
     "Training Salvage Tool": 1,
     "Training Repair Kit": 1,
   });
+  const [stationStorage, setStationStorage] = useState<Record<string, number>>(
+    {},
+  );
 
   const [recentRewardMessages, setRecentRewardMessages] = useState<string[]>(
     [],
@@ -1062,6 +1072,8 @@ export default function PlayPage() {
     : getActiveSkillFromTutorialStep();
 
   const currentMainGameLocation = getMainGameLocation(mainGameLocationId);
+  const canAccessStationStorage = isStationStorageLocation(currentMainGameLocation);
+  const stationStorageStackCount = getStationStorageStackCount(stationStorage);
   const locationHubActions = isTutorialComplete
     ? getLocationHubActions(currentMainGameLocation)
     : [];
@@ -2252,6 +2264,13 @@ export default function PlayPage() {
           setTutorialInventory(data.tutorialProgress.tutorialInventory);
         }
 
+        if (
+          data.tutorialProgress?.stationStorage &&
+          typeof data.tutorialProgress.stationStorage === "object"
+        ) {
+          setStationStorage(data.tutorialProgress.stationStorage);
+        }
+
         if (typeof data.progressVersion === "number") {
           lastProgressVersionRef.current = data.progressVersion;
         }
@@ -2450,7 +2469,8 @@ export default function PlayPage() {
         saved.version !== 1 &&
         saved.version !== 2 &&
         saved.version !== 3 &&
-        saved.version !== 4
+        saved.version !== 4 &&
+        saved.version !== 5
       ) {
         return;
       }
@@ -2469,6 +2489,10 @@ export default function PlayPage() {
 
       if (saved.tutorialInventory && typeof saved.tutorialInventory === "object") {
         setTutorialInventory(saved.tutorialInventory);
+      }
+
+      if (saved.stationStorage && typeof saved.stationStorage === "object") {
+        setStationStorage(saved.stationStorage);
       }
 
       if (typeof saved.playerHealth === "number") {
@@ -2650,6 +2674,13 @@ export default function PlayPage() {
           setTutorialInventory(data.tutorialProgress.tutorialInventory);
         }
 
+        if (
+          data.tutorialProgress?.stationStorage &&
+          typeof data.tutorialProgress.stationStorage === "object"
+        ) {
+          setStationStorage(data.tutorialProgress.stationStorage);
+        }
+
         if (typeof data.progressVersion === "number") {
           lastProgressVersionRef.current = data.progressVersion;
         }
@@ -2678,6 +2709,7 @@ export default function PlayPage() {
         currentTutorialStepIndex,
         currentTutorialActionCount,
         tutorialInventory,
+        stationStorage,
         playerHealth,
         enemyHealth,
         targetIntel,
@@ -2720,6 +2752,7 @@ export default function PlayPage() {
       recentRewardMessages,
       recentSystemNotice,
       lastRewardStepId,
+      stationStorage,
     ]);
 
   if (meLoading) {
@@ -4257,12 +4290,14 @@ export default function PlayPage() {
                               Universal Access
                             </span>
                             <span className="text-chart-3 font-bold">
-                              0 / 100
+                              {stationStorageStackCount} / {STATION_STORAGE_SLOT_LIMIT}
                             </span>
                           </div>
 
                           <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-2">
-                            Stored Items: Empty
+                            {stationStorageStackCount === 0
+                              ? "Stored Items: Empty"
+                              : `${stationStorageStackCount} item stack${stationStorageStackCount === 1 ? "" : "s"} stored`}
                           </p>
                         </div>
                       </div>
@@ -4904,54 +4939,24 @@ export default function PlayPage() {
         </div>
       )}
       {showStationStorage && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          <div className="glass-panel border border-primary/30 rounded-xl w-full max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between border-b border-primary/20 p-4">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-widest">
-                  Universal Storage
-                </p>
-                <h2 className="text-xl text-primary font-bold uppercase tracking-widest">
-                  Station Storage
-                </h2>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowStationStorage(false)}
-                className="h-8 px-3 rounded border border-destructive/40 text-destructive text-xs uppercase tracking-widest hover:bg-destructive/10"
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="p-4 overflow-y-auto custom-scrollbar space-y-4">
-              <div className="rounded-lg border border-primary/10 bg-background/40 p-3">
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-primary uppercase tracking-widest">
-                    Station Storage
-                  </span>
-                  <span className="text-chart-3 font-bold">0 / 100</span>
-                </div>
-
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Station storage is accessible from any space station location.
-                </p>
-
-                <p className="text-xs text-muted-foreground uppercase tracking-widest mt-3">
-                  Stored Items: Empty
-                </p>
-              </div>
-
-              <div className="rounded-lg border border-primary/10 bg-background/30 p-3">
-                <p className="text-xs text-muted-foreground uppercase tracking-widest">
-                  Materials, consumables, equipment, salvage, and ship parts
-                  will appear here once stored.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <StationStoragePanel
+          onClose={() => setShowStationStorage(false)}
+          locationId={mainGameLocationId}
+          personalInventory={tutorialInventory}
+          stationStorage={stationStorage}
+          getAvailableQuantity={getAvailableInventoryQuantity}
+          canAccessStorage={canAccessStationStorage}
+          onTransferComplete={(result) => {
+            setTutorialInventory(result.tutorialInventory);
+            setStationStorage(result.stationStorage);
+            lastProgressVersionRef.current = result.progressVersion;
+            void queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+          }}
+          onNotice={(message) => {
+            addMessage(`[STORAGE] ${message}`);
+            setRecentSystemNotice(message);
+          }}
+        />
       )}
       {showStarChart && (
         <StarChartPanel

@@ -5,6 +5,7 @@ export const CREDITS_ITEM = "Credits";
 
 export type TutorialProgressBlob = Record<string, unknown> & {
   tutorialInventory?: Record<string, number>;
+  stationStorage?: Record<string, number>;
   progressVersion?: number;
 };
 
@@ -17,6 +18,17 @@ export function getInventoryFromProgress(
   }
 
   return { ...inventory };
+}
+
+export function getStationStorageFromProgress(
+  progress: TutorialProgressBlob | null | undefined,
+): Record<string, number> {
+  const storage = progress?.stationStorage;
+  if (!storage || typeof storage !== "object" || Array.isArray(storage)) {
+    return {};
+  }
+
+  return { ...storage };
 }
 
 export function applyBalanceMirrors(
