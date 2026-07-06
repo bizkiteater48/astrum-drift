@@ -46,7 +46,9 @@ import { StarChartPanel } from "@/components/star-chart-panel";
 import { ModerationPanel } from "@/components/moderation-panel";
 import { MessagesPanel } from "@/components/messages-panel";
 import { DriftLoungePanel } from "@/components/drift-lounge-panel";
+import { PlayerSupportPanel } from "@/components/player-support-panel";
 import { ReportPlayerDialog } from "@/components/report-player-dialog";
+import { isAdminRole } from "@/lib/admin-api";
 import {
   deleteChatMessage,
   isStaffRole,
@@ -304,6 +306,7 @@ export default function PlayPage() {
   const [currentTutorialStepIndex, setCurrentTutorialStepIndex] = useState(0);
   type TutorialSaveData = {
     version: number;
+    progressVersion?: number;
     currentTutorialStepIndex: number;
     currentTutorialActionCount: number;
     tutorialInventory: Record<string, number>;
@@ -470,6 +473,8 @@ export default function PlayPage() {
   const [showModerationPanel, setShowModerationPanel] = useState(false);
   const [showMessagesPanel, setShowMessagesPanel] = useState(false);
   const [showDriftLounge, setShowDriftLounge] = useState(false);
+  const [showPlayerSupportPanel, setShowPlayerSupportPanel] = useState(false);
+  const lastProgressVersionRef = useRef<number | null>(null);
   const [reportDialog, setReportDialog] = useState<{
     username: string;
     channel?: string;
@@ -1936,7 +1941,7 @@ export default function PlayPage() {
     tutorialProgress: TutorialSaveData,
   ) => {
     try {
-      await fetch("/api/players/tutorial-progress", {
+      const response = await fetch("/api/players/tutorial-progress", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -1944,6 +1949,25 @@ export default function PlayPage() {
         credentials: "include",
         body: JSON.stringify({ tutorialProgress }),
       });
+
+      if (response.status === 409) {
+        const data = (await response.json()) as {
+          tutorialProgress?: Partial<TutorialSaveData> | null;
+          progressVersion?: number;
+        };
+
+        if (data.tutorialProgress?.tutorialInventory) {
+          setTutorialInventory(data.tutorialProgress.tutorialInventory);
+        }
+
+        if (typeof data.progressVersion === "number") {
+          lastProgressVersionRef.current = data.progressVersion;
+        }
+
+        await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+        addMessage("[SYSTEM] Server progress refreshed after staff update.");
+        return;
+      }
     } catch {
       // Keep localStorage as fallback if the server save fails.
     }
@@ -2273,6 +2297,65 @@ export default function PlayPage() {
       cancelled = true;
     };
   }, [player?.username]);
+
+  useEffect(() => {
+    if (!player?.username) return;
+
+    const interval = window.setInterval(() => {
+      void queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+    }, 15_000);
+
+    return () => window.clearInterval(interval);
+  }, [player?.username, queryClient]);
+
+  useEffect(() => {
+    if (!player?.username || !isTutorialSaveLoaded) return;
+
+    const version = player.progressVersion ?? 0;
+    if (lastProgressVersionRef.current === null) {
+      lastProgressVersionRef.current = version;
+      return;
+    }
+
+    if (version <= lastProgressVersionRef.current) return;
+
+    lastProgressVersionRef.current = version;
+
+    void (async () => {
+      try {
+        const response = await fetch("/api/players/tutorial-progress", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (!response.ok) return;
+
+        const data = (await response.json()) as {
+          tutorialProgress?: Partial<TutorialSaveData> | null;
+          progressVersion?: number;
+        };
+
+        if (data.tutorialProgress?.tutorialInventory) {
+          setTutorialInventory(data.tutorialProgress.tutorialInventory);
+        }
+
+        if (typeof data.progressVersion === "number") {
+          lastProgressVersionRef.current = data.progressVersion;
+        }
+
+        await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+        addMessage("[SYSTEM] Staff compensation applied — inventory refreshed.");
+        setRecentSystemNotice("Account updated by admin support.");
+      } catch {
+        // Ignore refresh errors; next poll will retry.
+      }
+    })();
+  }, [
+    player?.progressVersion,
+    player?.username,
+    isTutorialSaveLoaded,
+    queryClient,
+  ]);
     useEffect(() => {
       if (!player?.username || !isTutorialSaveLoaded) return;
 
@@ -2280,6 +2363,7 @@ export default function PlayPage() {
 
       const saveData: TutorialSaveData = {
         version: TUTORIAL_SAVE_VERSION,
+        progressVersion: player.progressVersion ?? 0,
         currentTutorialStepIndex,
         currentTutorialActionCount,
         tutorialInventory,
@@ -2308,6 +2392,7 @@ export default function PlayPage() {
       };
     }, [
       player?.username,
+      player?.progressVersion,
       isTutorialSaveLoaded,
       currentTutorialStepIndex,
       currentTutorialActionCount,
@@ -2734,6 +2819,16 @@ export default function PlayPage() {
                     className="justify-start font-mono uppercase tracking-widest border-primary/30 text-primary hover:bg-primary/10"
                   >
                     Staff Moderation
+                  </Button>
+                )}
+
+                {isAdminRole(player?.role) && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowPlayerSupportPanel(true)}
+                    className="justify-start font-mono uppercase tracking-widest border-primary/30 text-primary hover:bg-primary/10"
+                  >
+                    Player Support
                   </Button>
                 )}
               </div>
@@ -4394,6 +4489,15 @@ export default function PlayPage() {
           onRefundOre={refundSilverOre}
           onNotice={(message) => {
             addMessage(`[LOUNGE] ${message}`);
+            setRecentSystemNotice(message);
+          }}
+        />
+      )}
+      {showPlayerSupportPanel && (
+        <PlayerSupportPanel
+          onClose={() => setShowPlayerSupportPanel(false)}
+          onNotice={(message) => {
+            addMessage(`[ADMIN] ${message}`);
             setRecentSystemNotice(message);
           }}
         />

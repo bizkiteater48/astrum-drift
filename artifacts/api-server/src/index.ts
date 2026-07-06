@@ -1,6 +1,7 @@
 import app from "./app";
 import { ensureChatSchema } from "./lib/ensure-chat-schema";
 import { ensureGamblingSchema } from "./lib/ensure-gambling-schema";
+import { ensureAdminSchema } from "./lib/ensure-admin-schema";
 import { ensureModerationSchema } from "./lib/ensure-moderation-schema";
 import { logger } from "./lib/logger";
 
@@ -22,6 +23,7 @@ try {
   await ensureChatSchema();
   await ensureModerationSchema();
   await ensureGamblingSchema();
+  await ensureAdminSchema();
 } catch (err) {
   logger.error({ err }, "Failed to ensure database schema");
   process.exit(1);

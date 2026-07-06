@@ -54,6 +54,7 @@ export interface Player {
   role: PlayerRole;
   credits: number;
   silverCoins: number;
+  progressVersion: number;
   experience: number;
   currentLocation: string;
   miningLevel: number;

@@ -3,6 +3,10 @@ import { eq } from "drizzle-orm";
 import { db, playersTable } from "@workspace/db";
 import { isStaffRole, type PlayerRole } from "../lib/moderation";
 
+export function isAdminRole(role?: string | null): boolean {
+  return role === "admin";
+}
+
 declare module "express-serve-static-core" {
   interface Request {
     staffRole?: PlayerRole;
@@ -35,6 +39,26 @@ export async function requireStaff(
   const role = await loadStaffRole(req);
   if (!role || !isStaffRole(role)) {
     res.status(403).json({ error: "Staff access required" });
+    return;
+  }
+
+  req.staffRole = role;
+  next();
+}
+
+export async function requireAdmin(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  if (!req.session.playerId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  const role = await loadStaffRole(req);
+  if (!role || !isAdminRole(role)) {
+    res.status(403).json({ error: "Admin access required" });
     return;
   }
 

@@ -267,6 +267,7 @@ router.get(
     const [player] = await db
       .select({
         tutorialProgress: playersTable.tutorialProgress,
+        progressVersion: playersTable.progressVersion,
       })
       .from(playersTable)
       .where(eq(playersTable.id, playerId));
@@ -279,6 +280,7 @@ router.get(
 
     res.status(200).json({
       tutorialProgress: player.tutorialProgress ?? null,
+      progressVersion: player.progressVersion ?? 0,
     });
   },
 );
@@ -298,6 +300,40 @@ router.put(
       return;
     }
 
+    const [currentPlayer] = await db
+      .select({
+        id: playersTable.id,
+        progressVersion: playersTable.progressVersion,
+        tutorialProgress: playersTable.tutorialProgress,
+      })
+      .from(playersTable)
+      .where(eq(playersTable.id, playerId));
+
+    if (!currentPlayer) {
+      req.session.destroy(() => {});
+      res.status(401).json({ error: "Not authenticated" });
+      return;
+    }
+
+    const clientVersion =
+      typeof tutorialProgress === "object" &&
+      tutorialProgress !== null &&
+      "progressVersion" in tutorialProgress
+        ? Number((tutorialProgress as { progressVersion?: unknown }).progressVersion)
+        : 0;
+
+    if (
+      Number.isInteger(clientVersion) &&
+      clientVersion < (currentPlayer.progressVersion ?? 0)
+    ) {
+      res.status(409).json({
+        error: "Progress superseded by a newer server save.",
+        tutorialProgress: currentPlayer.tutorialProgress ?? null,
+        progressVersion: currentPlayer.progressVersion ?? 0,
+      });
+      return;
+    }
+
     const [updatedPlayer] = await db
       .update(playersTable)
       .set({
@@ -306,6 +342,7 @@ router.put(
       .where(eq(playersTable.id, playerId))
       .returning({
         tutorialProgress: playersTable.tutorialProgress,
+        progressVersion: playersTable.progressVersion,
       });
 
     if (!updatedPlayer) {
@@ -316,6 +353,7 @@ router.put(
 
     res.status(200).json({
       tutorialProgress: updatedPlayer.tutorialProgress ?? null,
+      progressVersion: updatedPlayer.progressVersion ?? 0,
     });
   },
 );

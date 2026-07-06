@@ -37,6 +37,8 @@ export const playersTable = pgTable("players", {
   role: text("role").notNull().default("player"),
   mutedUntil: timestamp("muted_until", { withTimezone: true }),
 
+  progressVersion: integer("progress_version").notNull().default(0),
+
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

@@ -919,6 +919,8 @@
                   type: integer
                 silverCoins:
                   type: integer
+                progressVersion:
+                  type: integer
                 experience:
                   type: integer
                 currentLocation:
@@ -943,6 +945,7 @@
                 - role
                 - credits
                 - silverCoins
+                - progressVersion
                 - experience
                 - currentLocation
                 - miningLevel
