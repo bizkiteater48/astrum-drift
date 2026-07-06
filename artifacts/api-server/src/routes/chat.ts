@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import rateLimit from "express-rate-limit";
-import { and, asc, desc, eq, gt, gte, isNull, lt } from "drizzle-orm";
+import { and, asc, eq, gt, gte, isNull } from "drizzle-orm";
 import { db, chatMessagesTable, playersTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
 
@@ -10,34 +10,24 @@ export const CHAT_CHANNELS = ["global", "trade", "clan", "help"] as const;
 export type ChatChannel = (typeof CHAT_CHANNELS)[number];
 
 const MAX_MESSAGE_LENGTH = 500;
-const DEFAULT_MESSAGE_LIMIT = 100;
-const HISTORY_DAY_LIMIT = 500;
+const CHAT_ROLLING_HOURS = 24;
+const CHAT_ROLLING_LIMIT = 500;
 
-const HISTORY_DAYS = ["today", "yesterday"] as const;
-type HistoryDay = (typeof HISTORY_DAYS)[number];
-
-function isHistoryDay(value: string): value is HistoryDay {
-  return (HISTORY_DAYS as readonly string[]).includes(value);
+function getRollingWindowStart(hours: number): Date {
+  return new Date(Date.now() - hours * 60 * 60 * 1000);
 }
 
-function getUtcDayRange(day: HistoryDay): { start: Date; end: Date } {
-  const now = new Date();
-  const year = now.getUTCFullYear();
-  const month = now.getUTCMonth();
-  const date = now.getUTCDate();
-  const todayStart = new Date(Date.UTC(year, month, date, 0, 0, 0, 0));
-
-  if (day === "today") {
-    return {
-      start: todayStart,
-      end: new Date(Date.UTC(year, month, date + 1, 0, 0, 0, 0)),
-    };
+function parseRollingHours(raw: unknown): number {
+  if (typeof raw !== "string" || raw.trim() === "") {
+    return CHAT_ROLLING_HOURS;
   }
 
-  return {
-    start: new Date(Date.UTC(year, month, date - 1, 0, 0, 0, 0)),
-    end: todayStart,
-  };
+  const hours = Number(raw);
+  if (!Number.isFinite(hours) || hours <= 0 || hours > 168) {
+    return CHAT_ROLLING_HOURS;
+  }
+
+  return hours;
 }
 
 const chatSendLimiter = rateLimit({
@@ -74,27 +64,12 @@ router.get("/chat/:channel/messages", requireAuth, async (req, res): Promise<voi
     typeof afterRaw === "string" && afterRaw.trim() !== ""
       ? Number(afterRaw)
       : undefined;
-  const dayRaw = req.query.day;
-  const day =
-    typeof dayRaw === "string" && dayRaw.trim() !== ""
-      ? dayRaw.trim()
-      : undefined;
   const limitRaw = req.query.limit;
-  const historyDay = day && isHistoryDay(day) ? day : undefined;
-
-  if (day && !historyDay) {
-    res.status(400).json({ error: "Invalid history day" });
-    return;
-  }
+  const rollingHours = parseRollingHours(req.query.hours);
 
   const limit = Math.min(
-    typeof limitRaw === "string"
-      ? Number(limitRaw) ||
-        (historyDay ? HISTORY_DAY_LIMIT : DEFAULT_MESSAGE_LIMIT)
-      : historyDay
-        ? HISTORY_DAY_LIMIT
-        : DEFAULT_MESSAGE_LIMIT,
-    historyDay ? HISTORY_DAY_LIMIT : DEFAULT_MESSAGE_LIMIT,
+    typeof limitRaw === "string" ? Number(limitRaw) || CHAT_ROLLING_LIMIT : CHAT_ROLLING_LIMIT,
+    CHAT_ROLLING_LIMIT,
   );
 
   if (after !== undefined && (!Number.isInteger(after) || after < 0)) {
@@ -103,25 +78,7 @@ router.get("/chat/:channel/messages", requireAuth, async (req, res): Promise<voi
   }
 
   try {
-    if (historyDay) {
-      const { start, end } = getUtcDayRange(historyDay);
-      const rows = await db
-        .select()
-        .from(chatMessagesTable)
-        .where(
-          and(
-            eq(chatMessagesTable.channel, channel),
-            gte(chatMessagesTable.createdAt, start),
-            lt(chatMessagesTable.createdAt, end),
-            isNull(chatMessagesTable.deletedAt),
-          ),
-        )
-        .orderBy(asc(chatMessagesTable.id))
-        .limit(limit);
-
-      res.status(200).json({ messages: rows.map(serializeChatMessage) });
-      return;
-    }
+    const windowStart = getRollingWindowStart(rollingHours);
 
     if (after !== undefined) {
       const rows = await db
@@ -131,6 +88,7 @@ router.get("/chat/:channel/messages", requireAuth, async (req, res): Promise<voi
           and(
             eq(chatMessagesTable.channel, channel),
             gt(chatMessagesTable.id, after),
+            gte(chatMessagesTable.createdAt, windowStart),
             isNull(chatMessagesTable.deletedAt),
           ),
         )
@@ -147,13 +105,13 @@ router.get("/chat/:channel/messages", requireAuth, async (req, res): Promise<voi
       .where(
         and(
           eq(chatMessagesTable.channel, channel),
+          gte(chatMessagesTable.createdAt, windowStart),
           isNull(chatMessagesTable.deletedAt),
         ),
       )
-      .orderBy(desc(chatMessagesTable.id))
+      .orderBy(asc(chatMessagesTable.id))
       .limit(limit);
 
-    rows.reverse();
     res.status(200).json({ messages: rows.map(serializeChatMessage) });
   } catch (err) {
     req.log.error({ err, channel }, "Failed to load chat messages");

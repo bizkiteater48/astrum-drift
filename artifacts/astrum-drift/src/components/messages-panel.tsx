@@ -65,7 +65,7 @@ export function MessagesPanel({
     {
       id: "chat-history" as const,
       label: "Chat History",
-      description: "Browse Today and Yesterday in channel chat",
+      description: "Browse channel chat from the last 24 hours",
       Icon: History,
     },
     {

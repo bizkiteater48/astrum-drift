@@ -614,8 +614,8 @@ export const getGetChatMessagesUrl = (
     normalizedParams.append("limit", String(params.limit));
   }
 
-  if (params?.day !== undefined) {
-    normalizedParams.append("day", params.day);
+  if (params?.hours !== undefined) {
+    normalizedParams.append("hours", String(params.hours));
   }
 
   const queryString = normalizedParams.toString();
