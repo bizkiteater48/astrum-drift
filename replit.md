@@ -21,7 +21,18 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
+- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only; **never** use on production publish)
+
+### Replit publish / database migrations
+
+**Never approve a publish migration that contains `DROP TABLE`, `DROP COLUMN`, or `CASCADE` on game tables.** Replit may auto-generate destructive Drizzle migrations when its schema snapshot is behind production. Production schema is applied safely at API startup via `ensure*Schema()` (`ADD COLUMN IF NOT EXISTS`, `CREATE TABLE IF NOT EXISTS`).
+
+If the publish preview shows drops for `silver_coins`, `player_inbox_messages`, `admin_grants`, or `gambling_challenges`:
+
+1. **Cancel** — do not click "Approve and publish".
+2. **Pull latest `main`** on the Repl (must include `lib/db/src/schema/*` and `lib/db/migrations/`).
+3. Republish; the migration should only add objects, or show no destructive SQL.
+4. Schema changes belong in Drizzle schema files + idempotent `ensure-*-schema.ts`, not destructive publish diffs.
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
