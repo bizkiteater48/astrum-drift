@@ -121,18 +121,18 @@ const ORE_MATERIALS: MaterialDef[] = [
 ];
 
 const BAR_MATERIALS: MaterialDef[] = [
-  { name: "Bronze Bar", group: "Bars", description: "First normal alloy bar.", tags: ["bar", "fabrication"], recipe: "2 Copper Ore + 1 Tin Ore", stats: { "Stack Limit": 500 } },
-  { name: "Iron Bar", group: "Bars", description: "Refined iron for iron-tier gear.", tags: ["bar", "fabrication"], recipe: "3 Iron Ore", stats: { "Stack Limit": 500 } },
-  { name: "Steel Bar", group: "Bars", description: "Iron-coal alloy for steel equipment.", tags: ["bar", "fabrication"], recipe: "3 Iron Ore + 2 Coal", stats: { "Stack Limit": 500 } },
-  { name: "Nickel Bar", group: "Bars", description: "Mid-tier structural bar.", tags: ["bar", "fabrication"], recipe: "3 Nickel Ore + 2 Iron Ore + 1 Coal" },
-  { name: "Titanium Bar", group: "Bars", description: "Lightweight high-strength bar.", tags: ["bar", "fabrication"], recipe: "3 Titanium Ore + 2 Nickel Ore + 2 Coal" },
-  { name: "Tungsten Bar", group: "Bars", description: "Dense bar for hardened tools and weapons.", tags: ["bar", "fabrication"], recipe: "4 Tungsten Ore + 2 Iron Ore + 2 Coal" },
-  { name: "Cobalt Bar", group: "Bars", description: "Quartz-supported advanced bar.", tags: ["bar", "fabrication"], recipe: "4 Cobalt Ore + 3 Titanium Ore + 2 Nickel Ore + 1 Quartz" },
-  { name: "Platinum Bar", group: "Bars", description: "Precious industrial bar.", tags: ["bar", "fabrication"], recipe: "4 Platinum Ore + 3 Tungsten Ore + 2 Quartz" },
-  { name: "Iridium Bar", group: "Bars", description: "Rare bar for iridium-tier fabrication.", tags: ["bar", "fabrication"], recipe: "4 Iridium Ore + 3 Platinum Ore + 2 Tungsten Ore + 1 Quartz" },
-  { name: "Palladium Bar", group: "Bars", description: "Late-game bar supporting palladium gear.", tags: ["bar", "fabrication"], recipe: "4 Palladium Ore + 3 Iridium Ore + 2 Platinum Ore + 1 Quartz" },
-  { name: "Meteoric Bar", group: "Bars", description: "Exotic bar using obsidian support.", tags: ["bar", "fabrication"], recipe: "5 Meteoric Ore + 3 Iridium Ore + 2 Cobalt Ore + 2 Obsidian Shard" },
-  { name: "Void Bar", group: "Bars", description: "Highest normal fabricated bar tier.", tags: ["bar", "fabrication"], recipe: "5 Void Ore + 3 Meteoric Ore + 2 Palladium Ore + 2 Obsidian Shard" },
+  { name: "Bronze Bar", group: "Bars", description: "First normal alloy bar.", tags: ["bar", "fabrication"], recipe: "2 Copper Ore + 1 Tin Ore", stats: { "Stack Limit": 1000 } },
+  { name: "Iron Bar", group: "Bars", description: "Refined iron for iron-tier gear.", tags: ["bar", "fabrication"], recipe: "3 Iron Ore", stats: { "Stack Limit": 1000 } },
+  { name: "Steel Bar", group: "Bars", description: "Iron-coal alloy for steel equipment.", tags: ["bar", "fabrication"], recipe: "3 Iron Ore + 2 Coal", stats: { "Stack Limit": 1000 } },
+  { name: "Nickel Bar", group: "Bars", description: "Mid-tier structural bar.", tags: ["bar", "fabrication"], recipe: "3 Nickel Ore + 2 Iron Ore + 1 Coal", stats: { "Stack Limit": 1000 } },
+  { name: "Titanium Bar", group: "Bars", description: "Lightweight high-strength bar.", tags: ["bar", "fabrication"], recipe: "3 Titanium Ore + 2 Nickel Ore + 2 Coal", stats: { "Stack Limit": 1000 } },
+  { name: "Tungsten Bar", group: "Bars", description: "Dense bar for hardened tools and weapons.", tags: ["bar", "fabrication"], recipe: "4 Tungsten Ore + 2 Iron Ore + 2 Coal", stats: { "Stack Limit": 1000 } },
+  { name: "Cobalt Bar", group: "Bars", description: "Quartz-supported advanced bar.", tags: ["bar", "fabrication"], recipe: "4 Cobalt Ore + 3 Titanium Ore + 2 Nickel Ore + 1 Quartz", stats: { "Stack Limit": 1000 } },
+  { name: "Platinum Bar", group: "Bars", description: "Precious industrial bar.", tags: ["bar", "fabrication"], recipe: "4 Platinum Ore + 3 Tungsten Ore + 2 Quartz", stats: { "Stack Limit": 1000 } },
+  { name: "Iridium Bar", group: "Bars", description: "Rare bar for iridium-tier fabrication.", tags: ["bar", "fabrication"], recipe: "4 Iridium Ore + 3 Platinum Ore + 2 Tungsten Ore + 1 Quartz", stats: { "Stack Limit": 1000 } },
+  { name: "Palladium Bar", group: "Bars", description: "Late-game bar supporting palladium gear.", tags: ["bar", "fabrication"], recipe: "4 Palladium Ore + 3 Iridium Ore + 2 Platinum Ore + 1 Quartz", stats: { "Stack Limit": 1000 } },
+  { name: "Meteoric Bar", group: "Bars", description: "Exotic bar using obsidian support.", tags: ["bar", "fabrication"], recipe: "5 Meteoric Ore + 3 Iridium Ore + 2 Cobalt Ore + 2 Obsidian Shard", stats: { "Stack Limit": 1000 } },
+  { name: "Void Bar", group: "Bars", description: "Highest normal fabricated bar tier.", tags: ["bar", "fabrication"], recipe: "5 Void Ore + 3 Meteoric Ore + 2 Palladium Ore + 2 Obsidian Shard", stats: { "Stack Limit": 1000 } },
 ];
 
 const SALVAGE_MATERIALS: MaterialDef[] = [
@@ -160,18 +160,18 @@ const HARVEST_MATERIALS: MaterialDef[] = [
 ];
 
 const GEM_MATERIALS: MaterialDef[] = [
-  { name: "Clouded Garnet", group: "Rare Gems", description: "First rare gem tier from silver veins.", tags: ["gem", "mining", "rare"], stats: { "NPC Buy": "2,500 credits", "Drop Rate": "0.02%" }, sourceDoc: HANDOFF },
-  { name: "Pale Sapphire", group: "Rare Gems", description: "Nickel-tier rare gem.", tags: ["gem", "mining", "rare"], stats: { "NPC Buy": "3,500 credits" } },
-  { name: "Bright Emerald", group: "Rare Gems", description: "Quartz outcrop gem.", tags: ["gem", "mining", "rare"], stats: { "NPC Buy": "5,000 credits" } },
-  { name: "Ember Ruby", group: "Rare Gems", description: "Titanium-tier gem.", tags: ["gem", "mining", "rare"], stats: { "NPC Buy": "7,500 credits", "Drop Rate": "0.015%" } },
-  { name: "Star Opal", group: "Rare Gems", description: "Tungsten-tier gem.", tags: ["gem", "mining", "rare"], stats: { "NPC Buy": "10,000 credits" } },
-  { name: "Azure Topaz", group: "Rare Gems", description: "Cobalt-tier gem.", tags: ["gem", "mining", "rare"], stats: { "NPC Buy": "12,500 credits" } },
-  { name: "Royal Amethyst", group: "Rare Gems", description: "Platinum-tier gem.", tags: ["gem", "mining", "rare"], stats: { "NPC Buy": "17,500 credits", "Drop Rate": "0.01%" } },
-  { name: "Astral Diamond", group: "Rare Gems", description: "Iridium-tier gem.", tags: ["gem", "mining", "rare"], stats: { "NPC Buy": "25,000 credits" } },
-  { name: "Luminous Pearl", group: "Rare Gems", description: "Palladium-tier gem.", tags: ["gem", "mining", "rare"], stats: { "NPC Buy": "35,000 credits", "Drop Rate": "0.0075%" } },
-  { name: "Shadow Onyx", group: "Rare Gems", description: "Obsidian field gem.", tags: ["gem", "mining", "rare"], stats: { "NPC Buy": "45,000 credits" } },
-  { name: "Celestial Prism", group: "Rare Gems", description: "Meteoric field gem.", tags: ["gem", "mining", "rare"], stats: { "NPC Buy": "60,000 credits" } },
-  { name: "Void Pearl", group: "Rare Gems", description: "Highest NPC-buy gem. Not used in standard gear progression.", tags: ["gem", "mining", "endgame"], stats: { "NPC Buy": "100,000 credits", "Drop Rate": "0.005%" } },
+  { name: "Clouded Garnet", group: "Rare Gems", description: "First rare gem tier from silver veins.", tags: ["gem", "mining", "rare"], stats: { "NPC Buy": "2,500 credits", "Drop Rate": "0.02%", "Stack Limit": 100 }, sourceDoc: HANDOFF },
+  { name: "Pale Sapphire", group: "Rare Gems", description: "Nickel-tier rare gem.", tags: ["gem", "mining", "rare"], stats: { "NPC Buy": "3,500 credits", "Stack Limit": 100 } },
+  { name: "Bright Emerald", group: "Rare Gems", description: "Quartz outcrop gem.", tags: ["gem", "mining", "rare"], stats: { "NPC Buy": "5,000 credits", "Stack Limit": 100 } },
+  { name: "Ember Ruby", group: "Rare Gems", description: "Titanium-tier gem.", tags: ["gem", "mining", "rare"], stats: { "NPC Buy": "7,500 credits", "Drop Rate": "0.015%", "Stack Limit": 100 } },
+  { name: "Star Opal", group: "Rare Gems", description: "Tungsten-tier gem.", tags: ["gem", "mining", "rare"], stats: { "NPC Buy": "10,000 credits", "Stack Limit": 100 } },
+  { name: "Azure Topaz", group: "Rare Gems", description: "Cobalt-tier gem.", tags: ["gem", "mining", "rare"], stats: { "NPC Buy": "12,500 credits", "Stack Limit": 100 } },
+  { name: "Royal Amethyst", group: "Rare Gems", description: "Platinum-tier gem.", tags: ["gem", "mining", "rare"], stats: { "NPC Buy": "17,500 credits", "Drop Rate": "0.01%", "Stack Limit": 100 } },
+  { name: "Astral Diamond", group: "Rare Gems", description: "Iridium-tier gem.", tags: ["gem", "mining", "rare"], stats: { "NPC Buy": "25,000 credits", "Stack Limit": 100 } },
+  { name: "Luminous Pearl", group: "Rare Gems", description: "Palladium-tier gem.", tags: ["gem", "mining", "rare"], stats: { "NPC Buy": "35,000 credits", "Drop Rate": "0.0075%", "Stack Limit": 100 } },
+  { name: "Shadow Onyx", group: "Rare Gems", description: "Obsidian field gem.", tags: ["gem", "mining", "rare"], stats: { "NPC Buy": "45,000 credits", "Stack Limit": 100 } },
+  { name: "Celestial Prism", group: "Rare Gems", description: "Meteoric field gem.", tags: ["gem", "mining", "rare"], stats: { "NPC Buy": "60,000 credits", "Stack Limit": 100 } },
+  { name: "Void Pearl", group: "Rare Gems", description: "Highest NPC-buy gem. Not used in standard gear progression.", tags: ["gem", "mining", "endgame"], stats: { "NPC Buy": "100,000 credits", "Drop Rate": "0.005%", "Stack Limit": 100 } },
 ];
 
 const SYNTH_CONSUMABLES: MaterialDef[] = [

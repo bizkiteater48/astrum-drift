@@ -1,3 +1,5 @@
+import { getItemStackLimit } from "./inventory-stack-limits";
+
 export type MainGameSystemId = "verdant_rim";
 
 export type MainGameLocationType = "spaceport" | "planet_orbit" | "settlement";
@@ -1054,8 +1056,12 @@ export function getStarChartContextForLocation(
 /** Phase B inventory cap — distinct item stacks (Credits excluded). */
 export const MAIN_GAME_INVENTORY_SLOT_LIMIT = 50;
 
-/** Per-material stack cap for Phase B gathering/production. */
-export const MAIN_GAME_INVENTORY_STACK_LIMIT = 1000;
+export {
+  getItemStackLimit,
+  MAIN_GAME_INVENTORY_STACK_LIMIT,
+  MAIN_GAME_INVENTORY_STACK_LIMIT_DEFAULT,
+  MAIN_GAME_INVENTORY_STACK_LIMIT_RARE_GEM,
+} from "./inventory-stack-limits";
 
 const GATHERING_ACTION_IDS: MainGameActionId[] = [
   "mine_copper_vein",
@@ -1153,7 +1159,7 @@ export function wouldExceedInventoryCapacity(
   for (const [item, qty] of Object.entries(rewardItems)) {
     if (qty <= 0) continue;
     const current = inventory[item] ?? 0;
-    if (current + qty > MAIN_GAME_INVENTORY_STACK_LIMIT) return true;
+    if (current + qty > getItemStackLimit(item)) return true;
   }
 
   const newStackCount = Object.entries(rewardItems).filter(
