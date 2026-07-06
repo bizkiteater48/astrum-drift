@@ -18,6 +18,7 @@ import {
   createPokerInvite,
   declineGamblingChallenge,
   declinePokerInvite,
+  dealNextPokerHand,
   listGamblingChallenges,
   listPokerGames,
   mintSilverCoins,
@@ -295,6 +296,32 @@ export function DriftLoungePanel({
       await loadPokerGames();
     } catch (error) {
       onNotice(getErrorMessage(error, "Failed to decline poker invite."));
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const handleDealNextPokerHand = async (gameId: number) => {
+    setBusyAction(`poker-next-${gameId}`);
+    try {
+      const result = await dealNextPokerHand(gameId);
+      onPlayerUpdated(result.player);
+
+      if (result.game.status === "complete" && result.game.state) {
+        const winnerName = getPokerWinnerName(
+          result.game,
+          result.game.state.winnerId ?? result.game.winnerId ?? 0,
+        );
+        const message = `${winnerName} won the table.`;
+        setLastOutcome(message);
+        onNotice(message);
+      } else {
+        onNotice(`Hand #${result.game.state?.handNumber ?? "?"} dealt.`);
+      }
+
+      await loadPokerGames();
+    } catch (error) {
+      onNotice(getErrorMessage(error, "Could not deal the next hand."));
     } finally {
       setBusyAction(null);
     }
@@ -659,9 +686,20 @@ export function DriftLoungePanel({
                     )}
                   </div>
                 ) : activePokerGame.state.phase === "hand_result" ? (
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest text-center">
-                    Cards revealed · next hand dealing soon…
-                  </p>
+                  <div className="space-y-2 border-t border-primary/10 pt-2 text-center">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                      Cards revealed · auto-deals in{" "}
+                      {formatSecondsUntilNextHand(activePokerGame.state, turnClockTick)}s
+                    </p>
+                    <button
+                      type="button"
+                      disabled={busyAction !== null}
+                      onClick={() => void handleDealNextPokerHand(activePokerGame.id)}
+                      className="w-full h-8 rounded border border-chart-3/40 bg-chart-3/10 text-chart-3 text-[10px] uppercase tracking-widest hover:bg-chart-3/20 disabled:opacity-40"
+                    >
+                      Deal Next Hand
+                    </button>
+                  </div>
                 ) : (
                   <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
                     Waiting for opponent…

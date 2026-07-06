@@ -260,20 +260,28 @@ async function advanceTimedOutPokerGame(gameId: number): Promise<PokerGameRow | 
   }
 }
 
-function isActionDeadlineElapsed(state: PokerGameState | null): boolean {
-  if (!state?.actionDeadlineAt) {
+function shouldSyncPokerGameState(state: PokerGameState | null): boolean {
+  if (!state) {
     return false;
   }
+
+  if (state.phase === "hand_result" && state.nextHandAt) {
+    return Date.parse(state.nextHandAt) <= Date.now();
+  }
+
+  if (!state.actionDeadlineAt) {
+    return false;
+  }
+
   if (
     state.phase !== "preflop" &&
     state.phase !== "flop" &&
     state.phase !== "turn" &&
     state.phase !== "river"
   ) {
-    return state.phase === "hand_result" && state.nextHandAt
-      ? Date.parse(state.nextHandAt) <= Date.now()
-      : false;
+    return false;
   }
+
   return Date.parse(state.actionDeadlineAt) <= Date.now();
 }
 
@@ -312,7 +320,7 @@ router.get("/gambling/poker/games", requireAuth, async (req, res): Promise<void>
 
   const syncedRows = await Promise.all(
     result.rows.map(async (row) => {
-      if (row.status === "active" && isActionDeadlineElapsed(row.state)) {
+      if (row.status === "active" && shouldSyncPokerGameState(row.state)) {
         const synced = await advanceTimedOutPokerGame(row.id);
         return synced ?? row;
       }
@@ -695,7 +703,7 @@ router.get(
     }
 
     const synced =
-      game.status === "active" && isActionDeadlineElapsed(game.state)
+      game.status === "active" && shouldSyncPokerGameState(game.state)
         ? (await advanceTimedOutPokerGame(game.id)) ?? game
         : game;
 
@@ -859,6 +867,128 @@ router.post(
       req.log.error({ error, gameId }, "Failed to process poker action");
       res.status(503).json({ error: "Could not process poker action." });
       return;
+    } finally {
+      client.release();
+    }
+  },
+);
+
+router.post(
+  "/gambling/poker/games/:id/next-hand",
+  requireAuth,
+  pokerLimiter,
+  async (req, res): Promise<void> => {
+    const gameId = Number(req.params.id);
+    const playerId = req.session.playerId!;
+
+    if (!Number.isInteger(gameId) || gameId <= 0) {
+      res.status(400).json({ error: "Invalid game id." });
+      return;
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const gameResult = await client.query<PokerGameRow>(
+        `
+          SELECT
+            pg.id,
+            pg.inviter_id,
+            pg.opponent_id,
+            inviter.username AS inviter_username,
+            opponent.username AS opponent_username,
+            pg.buy_in,
+            pg.status,
+            pg.state,
+            pg.winner_id,
+            pg.created_at,
+            pg.resolved_at
+          FROM poker_games pg
+          INNER JOIN players inviter ON inviter.id = pg.inviter_id
+          INNER JOIN players opponent ON opponent.id = pg.opponent_id
+          WHERE pg.id = $1
+          FOR UPDATE OF pg
+        `,
+        [gameId],
+      );
+
+      const game = gameResult.rows[0];
+      if (!game || game.status !== "active" || !game.state) {
+        await client.query("ROLLBACK");
+        res.status(404).json({ error: "Active poker game not found." });
+        return;
+      }
+
+      if (game.inviter_id !== playerId && game.opponent_id !== playerId) {
+        await client.query("ROLLBACK");
+        res.status(403).json({ error: "You are not seated at this table." });
+        return;
+      }
+
+      if (game.state.phase !== "hand_result") {
+        await client.query("ROLLBACK");
+        res.status(400).json({ error: "No hand is waiting to continue." });
+        return;
+      }
+
+      const interHandResult = processInterHandProgression(game.state, Date.now(), {
+        force: true,
+      });
+
+      if (!interHandResult.changed) {
+        await client.query("ROLLBACK");
+        res.status(400).json({ error: "Could not deal the next hand." });
+        return;
+      }
+
+      const nextState = interHandResult.state;
+
+      if (interHandResult.sessionEnded || nextState.phase === "session_complete") {
+        await endPokerSession(client, gameId, nextState);
+      } else {
+        await client.query(
+          `
+            UPDATE poker_games
+            SET state = $2::jsonb
+            WHERE id = $1
+          `,
+          [gameId, JSON.stringify(nextState)],
+        );
+      }
+
+      await client.query("COMMIT");
+
+      const [viewerPlayer] = await db
+        .select()
+        .from(playersTable)
+        .where(eq(playersTable.id, playerId));
+
+      const finalStatus =
+        nextState.phase === "session_complete" ? "complete" : "active";
+
+      res.status(200).json({
+        player: serializePlayer(viewerPlayer!),
+        game: serializePokerGame(
+          {
+            ...game,
+            status: finalStatus,
+            state: nextState,
+            winner_id:
+              finalStatus === "complete"
+                ? nextState.winnerId ?? null
+                : game.winner_id,
+            resolved_at:
+              finalStatus === "complete" ? new Date() : game.resolved_at,
+          },
+          playerId,
+        ),
+      });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      req.log.error({ error, gameId }, "Failed to deal next poker hand");
+      res.status(503).json({ error: "Could not deal the next hand." });
     } finally {
       client.release();
     }

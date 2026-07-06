@@ -372,12 +372,16 @@ function finalizeHand(state: PokerGameState): PokerGameState {
 export function processInterHandProgression(
   state: PokerGameState,
   nowMs: number = Date.now(),
+  options?: { force?: boolean },
 ): { state: PokerGameState; changed: boolean; sessionEnded: boolean } {
-  if (state.phase !== "hand_result" || !state.nextHandAt) {
+  if (state.phase !== "hand_result") {
     return { state, changed: false, sessionEnded: false };
   }
 
-  if (Date.parse(state.nextHandAt) > nowMs) {
+  if (
+    !options?.force &&
+    (!state.nextHandAt || Date.parse(state.nextHandAt) > nowMs)
+  ) {
     return { state, changed: false, sessionEnded: false };
   }
 

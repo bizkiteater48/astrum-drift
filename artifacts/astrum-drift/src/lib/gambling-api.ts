@@ -202,3 +202,10 @@ export function submitPokerAction(
     },
   );
 }
+
+export function dealNextPokerHand(gameId: number) {
+  return customFetch<{ player: Player; game: PokerGame }>(
+    `/api/gambling/poker/games/${gameId}/next-hand`,
+    { method: "POST" },
+  );
+}
