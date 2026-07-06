@@ -75,6 +75,7 @@ import {
   type MainGameTravelLink,
   type SkillId,
 } from "@/lib/main-game";
+import { formatUtcChatTime, LIVE_CHAT_LIMIT } from "@/lib/chat";
 
 type TutorialStep = {
   id: string;
@@ -165,17 +166,6 @@ const CHAT_CHANNEL_STYLES: Record<
     messageBorder: "border-l-chart-4/50",
   },
 };
-
-function formatUtcChatTime(sentAt: string): string {
-  const date = new Date(sentAt);
-  if (Number.isNaN(date.getTime())) return "—";
-
-  const hours = String(date.getUTCHours()).padStart(2, "0");
-  const minutes = String(date.getUTCMinutes()).padStart(2, "0");
-  return `${hours}:${minutes}`;
-}
-
-const CHAT_ROLLING_HOURS = 24;
 
 const tutorialSteps: TutorialStep[] = [
   {
@@ -513,7 +503,7 @@ export default function PlayPage() {
     error: chatLoadError,
   } = useGetChatMessages(
     activeChatChannel as ChatChannel,
-    { hours: CHAT_ROLLING_HOURS, limit: 500 },
+    { limit: LIVE_CHAT_LIMIT },
     {
       query: {
         enabled: isChatOpen && Boolean(player?.username),
@@ -3335,7 +3325,7 @@ export default function PlayPage() {
                     Player Chat
                   </h3>
                   <span className="text-[10px] text-muted-foreground uppercase tracking-widest shrink-0">
-                    Last 24h
+                    Latest {LIVE_CHAT_LIMIT}
                   </span>
 
                   <div className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto custom-scrollbar">
@@ -4289,11 +4279,6 @@ export default function PlayPage() {
       {showMessagesPanel && (
         <MessagesPanel
           onClose={() => setShowMessagesPanel(false)}
-          onOpenChatHistory={() => {
-            setIsChatOpen(true);
-            setMobilePanel("chat");
-            setChatSendError(null);
-          }}
           onReportPlayer={() => setReportDialog({ username: "" })}
         />
       )}

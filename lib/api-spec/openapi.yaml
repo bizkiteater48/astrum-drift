@@ -217,7 +217,7 @@
                   schema:
                     type: integer
                     maximum: 500
-                    default: 500
+                    default: 100
                 - name: hours
                   in: query
                   required: false
@@ -225,8 +225,7 @@
                     type: integer
                     minimum: 1
                     maximum: 168
-                    default: 24
-                  description: Rolling window of chat history in hours
+                  description: When set, return messages from the last N hours (history view). Omit for latest live messages.
               responses:
                 "200":
                   description: Chat messages

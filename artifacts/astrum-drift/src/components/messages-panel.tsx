@@ -7,25 +7,20 @@ import {
   MessageSquare,
   X,
 } from "lucide-react";
+import { getChatHistoryUrl } from "@/lib/chat";
 
 export type MessagesPanelView =
   | "menu"
   | "compose"
   | "historical"
-  | "chat-history"
   | "report";
 
 type MessagesPanelProps = {
   onClose: () => void;
-  onOpenChatHistory: () => void;
   onReportPlayer: () => void;
 };
 
-export function MessagesPanel({
-  onClose,
-  onOpenChatHistory,
-  onReportPlayer,
-}: MessagesPanelProps) {
+export function MessagesPanel({ onClose, onReportPlayer }: MessagesPanelProps) {
   const [view, setView] = useState<MessagesPanelView>("menu");
   const [recipient, setRecipient] = useState("");
   const [draft, setDraft] = useState("");
@@ -49,49 +44,50 @@ export function MessagesPanel({
     );
   };
 
+  const handleOpenChatHistory = () => {
+    window.open(getChatHistoryUrl(), "_blank", "noopener,noreferrer");
+    onClose();
+  };
+
   const menuItems = [
     {
       id: "compose" as const,
       label: "Message a Player",
       description: "Send a private message to another pilot",
       Icon: Mail,
+      onSelect: () => {
+        setView("compose");
+        setComposeNotice(null);
+      },
     },
     {
       id: "historical" as const,
       label: "Historical Messages",
       description: "View your private message history",
       Icon: Inbox,
+      onSelect: () => {
+        setView("historical");
+        setComposeNotice(null);
+      },
     },
     {
       id: "chat-history" as const,
       label: "Chat History",
-      description: "Browse channel chat from the last 24 hours",
+      description: "Open last 24 hours of channel chat in a new tab",
       Icon: History,
+      onSelect: handleOpenChatHistory,
     },
     {
       id: "report" as const,
       label: "Report a Player",
       description: "Submit a report to staff moderators",
       Icon: Flag,
+      onSelect: () => {
+        onReportPlayer();
+        onClose();
+      },
     },
   ];
-
-  const handleMenuSelect = (id: MessagesPanelView) => {
-    if (id === "chat-history") {
-      onOpenChatHistory();
-      onClose();
-      return;
-    }
-
-    if (id === "report") {
-      onReportPlayer();
-      onClose();
-      return;
-    }
-
-    setView(id);
-    setComposeNotice(null);
-  };
 
   return (
     <div className="fixed inset-0 z-[80] bg-black/70 flex items-center justify-center p-4">
@@ -128,14 +124,14 @@ export function MessagesPanel({
           </button>
         </div>
 
-        <div className="p-4 overflow-y-auto custom-scrollbar">
+        <div className="p-4 overflow-y-auto custom-scrollbar flex-1 min-h-0">
           {view === "menu" && (
             <div className="space-y-2">
               {menuItems.map((item) => (
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => handleMenuSelect(item.id)}
+                  onClick={item.onSelect}
                   className="w-full text-left rounded-lg border border-primary/20 bg-background/40 px-3 py-3 hover:bg-primary/10 transition-colors"
                 >
                   <div className="flex items-start gap-3">

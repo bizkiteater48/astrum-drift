@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import rateLimit from "express-rate-limit";
-import { and, asc, eq, gt, gte, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, isNull } from "drizzle-orm";
 import { db, chatMessagesTable, playersTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
 
@@ -10,8 +10,9 @@ export const CHAT_CHANNELS = ["global", "trade", "clan", "help"] as const;
 export type ChatChannel = (typeof CHAT_CHANNELS)[number];
 
 const MAX_MESSAGE_LENGTH = 500;
-const CHAT_ROLLING_HOURS = 24;
-const CHAT_ROLLING_LIMIT = 500;
+const LIVE_MESSAGE_LIMIT = 100;
+const HISTORY_MESSAGE_LIMIT = 500;
+const HISTORY_HOURS_DEFAULT = 24;
 
 function getRollingWindowStart(hours: number): Date {
   return new Date(Date.now() - hours * 60 * 60 * 1000);
@@ -19,15 +20,19 @@ function getRollingWindowStart(hours: number): Date {
 
 function parseRollingHours(raw: unknown): number {
   if (typeof raw !== "string" || raw.trim() === "") {
-    return CHAT_ROLLING_HOURS;
+    return HISTORY_HOURS_DEFAULT;
   }
 
   const hours = Number(raw);
   if (!Number.isFinite(hours) || hours <= 0 || hours > 168) {
-    return CHAT_ROLLING_HOURS;
+    return HISTORY_HOURS_DEFAULT;
   }
 
   return hours;
+}
+
+function hasRollingHoursQuery(raw: unknown): boolean {
+  return typeof raw === "string" && raw.trim() !== "";
 }
 
 const chatSendLimiter = rateLimit({
@@ -65,11 +70,13 @@ router.get("/chat/:channel/messages", requireAuth, async (req, res): Promise<voi
       ? Number(afterRaw)
       : undefined;
   const limitRaw = req.query.limit;
+  const useRollingWindow = hasRollingHoursQuery(req.query.hours);
   const rollingHours = parseRollingHours(req.query.hours);
 
+  const maxLimit = useRollingWindow ? HISTORY_MESSAGE_LIMIT : LIVE_MESSAGE_LIMIT;
   const limit = Math.min(
-    typeof limitRaw === "string" ? Number(limitRaw) || CHAT_ROLLING_LIMIT : CHAT_ROLLING_LIMIT,
-    CHAT_ROLLING_LIMIT,
+    typeof limitRaw === "string" ? Number(limitRaw) || maxLimit : maxLimit,
+    maxLimit,
   );
 
   if (after !== undefined && (!Number.isInteger(after) || after < 0)) {
@@ -78,8 +85,6 @@ router.get("/chat/:channel/messages", requireAuth, async (req, res): Promise<voi
   }
 
   try {
-    const windowStart = getRollingWindowStart(rollingHours);
-
     if (after !== undefined) {
       const rows = await db
         .select()
@@ -88,6 +93,24 @@ router.get("/chat/:channel/messages", requireAuth, async (req, res): Promise<voi
           and(
             eq(chatMessagesTable.channel, channel),
             gt(chatMessagesTable.id, after),
+            isNull(chatMessagesTable.deletedAt),
+          ),
+        )
+        .orderBy(asc(chatMessagesTable.id))
+        .limit(limit);
+
+      res.status(200).json({ messages: rows.map(serializeChatMessage) });
+      return;
+    }
+
+    if (useRollingWindow) {
+      const windowStart = getRollingWindowStart(rollingHours);
+      const rows = await db
+        .select()
+        .from(chatMessagesTable)
+        .where(
+          and(
+            eq(chatMessagesTable.channel, channel),
             gte(chatMessagesTable.createdAt, windowStart),
             isNull(chatMessagesTable.deletedAt),
           ),
@@ -105,13 +128,13 @@ router.get("/chat/:channel/messages", requireAuth, async (req, res): Promise<voi
       .where(
         and(
           eq(chatMessagesTable.channel, channel),
-          gte(chatMessagesTable.createdAt, windowStart),
           isNull(chatMessagesTable.deletedAt),
         ),
       )
-      .orderBy(asc(chatMessagesTable.id))
+      .orderBy(desc(chatMessagesTable.id))
       .limit(limit);
 
+    rows.reverse();
     res.status(200).json({ messages: rows.map(serializeChatMessage) });
   } catch (err) {
     req.log.error({ err, channel }, "Failed to load chat messages");
