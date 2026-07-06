@@ -701,8 +701,11 @@ export function DriftLoungePanel({
                     </button>
                   </div>
                 ) : (
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                    Waiting for opponent…
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest text-center">
+                    {activePokerGame.state.legalActions.length === 0 &&
+                    activePokerGame.state.actionOn === player.id
+                      ? "All-in — running out the board…"
+                      : "Waiting for opponent…"}
                   </p>
                 )}
               </div>

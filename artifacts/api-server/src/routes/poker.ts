@@ -11,6 +11,7 @@ import {
   POKER_MIN_BUY_IN,
   applyPokerAction,
   createInitialPokerState,
+  needsPokerStateSync,
   processInterHandProgression,
   processPokerTimeouts,
   serializePokerStateForViewer,
@@ -264,25 +265,7 @@ function shouldSyncPokerGameState(state: PokerGameState | null): boolean {
   if (!state) {
     return false;
   }
-
-  if (state.phase === "hand_result" && state.nextHandAt) {
-    return Date.parse(state.nextHandAt) <= Date.now();
-  }
-
-  if (!state.actionDeadlineAt) {
-    return false;
-  }
-
-  if (
-    state.phase !== "preflop" &&
-    state.phase !== "flop" &&
-    state.phase !== "turn" &&
-    state.phase !== "river"
-  ) {
-    return false;
-  }
-
-  return Date.parse(state.actionDeadlineAt) <= Date.now();
+  return needsPokerStateSync(state);
 }
 
 router.get("/gambling/poker/games", requireAuth, async (req, res): Promise<void> => {

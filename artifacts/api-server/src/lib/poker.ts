@@ -415,6 +415,171 @@ function isBettingPhase(phase: PokerPhase): boolean {
   );
 }
 
+function allPlayersAllIn(state: PokerGameState): boolean {
+  return Object.values(state.stacks).every((stack) => stack === 0);
+}
+
+function playerCanAct(state: PokerGameState, playerId: number): boolean {
+  const stack = state.stacks[String(playerId)] ?? 0;
+  if (stack > 0) {
+    return true;
+  }
+  return getCallAmount(state, playerId) === 0;
+}
+
+function getFirstPlayerToAct(state: PokerGameState): number {
+  const preferred = getOtherPlayerId(state, state.buttonPlayerId);
+  if (playerCanAct(state, preferred)) {
+    return preferred;
+  }
+  if (playerCanAct(state, state.buttonPlayerId)) {
+    return state.buttonPlayerId;
+  }
+  return preferred;
+}
+
+function returnUncalledBets(state: PokerGameState): PokerGameState {
+  const next = structuredClone(state);
+  const playerIds = Object.keys(next.stacks).map(Number);
+  const [player1Id, player2Id] = playerIds;
+  const key1 = String(player1Id);
+  const key2 = String(player2Id);
+  const bet1 = next.streetBets[key1] ?? 0;
+  const bet2 = next.streetBets[key2] ?? 0;
+
+  if (bet1 === bet2) {
+    return next;
+  }
+
+  const higherId = bet1 > bet2 ? player1Id! : player2Id!;
+  const lowerId = getOtherPlayerId(next, higherId);
+  const higherKey = String(higherId);
+  const lowerKey = String(lowerId);
+
+  if ((next.stacks[lowerKey] ?? 0) !== 0) {
+    return next;
+  }
+
+  const matched = Math.min(bet1, bet2);
+  const excess = Math.abs(bet1 - bet2);
+  next.streetBets[higherKey]! = matched;
+  next.pot -= excess;
+  next.stacks[higherKey]! += excess;
+  next.currentBet = matched;
+  return next;
+}
+
+function isBettingRoundComplete(state: PokerGameState): boolean {
+  const playerIds = Object.keys(state.stacks).map(Number);
+  const [player1Id, player2Id] = playerIds;
+  const key1 = String(player1Id);
+  const key2 = String(player2Id);
+  const bet1 = state.streetBets[key1] ?? 0;
+  const bet2 = state.streetBets[key2] ?? 0;
+  const stack1 = state.stacks[key1] ?? 0;
+  const stack2 = state.stacks[key2] ?? 0;
+
+  if (stack1 === 0 && stack2 === 0) {
+    return true;
+  }
+
+  if (bet1 === bet2 && state.acted[key1] && state.acted[key2]) {
+    return true;
+  }
+
+  if (stack1 === 0 && bet1 < state.currentBet && state.acted[key2]) {
+    return true;
+  }
+
+  if (stack2 === 0 && bet2 < state.currentBet && state.acted[key1]) {
+    return true;
+  }
+
+  return false;
+}
+
+function closeBettingRound(state: PokerGameState): PokerGameState {
+  return advancePhase(returnUncalledBets(state));
+}
+
+export function needsPokerStateSync(
+  state: PokerGameState,
+  nowMs: number = Date.now(),
+): boolean {
+  if (state.phase === "hand_result" && state.nextHandAt) {
+    return Date.parse(state.nextHandAt) <= nowMs;
+  }
+
+  if (!isBettingPhase(state.phase)) {
+    return false;
+  }
+
+  if (!playerCanAct(state, state.actionOn)) {
+    return true;
+  }
+
+  if (allPlayersAllIn(state)) {
+    return true;
+  }
+
+  if (!state.actionDeadlineAt) {
+    return false;
+  }
+
+  return Date.parse(state.actionDeadlineAt) <= nowMs;
+}
+
+export function repairPokerBettingState(
+  state: PokerGameState,
+): { state: PokerGameState; changed: boolean } {
+  if (!isBettingPhase(state.phase)) {
+    return { state, changed: false };
+  }
+
+  let next = structuredClone(state);
+  let changed = false;
+  let guard = 0;
+
+  while (guard < 8) {
+    guard += 1;
+
+    if (allPlayersAllIn(next)) {
+      if (next.phase === "river") {
+        return { state: resolveShowdown(next), changed: true };
+      }
+      next = advancePhase(next);
+      changed = true;
+      continue;
+    }
+
+    if (!playerCanAct(next, next.actionOn)) {
+      next.acted[String(next.actionOn)] = true;
+      changed = true;
+
+      if (isBettingRoundComplete(next)) {
+        next = closeBettingRound(next);
+        changed = true;
+        continue;
+      }
+
+      const otherId = getOtherPlayerId(next, next.actionOn);
+      if (playerCanAct(next, otherId)) {
+        next.actionOn = otherId;
+        next = startTurnTimer(next);
+        break;
+      }
+
+      next = closeBettingRound(next);
+      changed = true;
+      continue;
+    }
+
+    break;
+  }
+
+  return { state: next, changed };
+}
+
 export function normalizePokerState(state: PokerGameState): PokerGameState {
   const next = structuredClone(state);
   if (!next.lastRaiseSize) {
@@ -470,6 +635,10 @@ export function processPokerTimeouts(
   let changed = false;
   let guard = 0;
 
+  const repairResult = repairPokerBettingState(current);
+  current = repairResult.state;
+  changed = changed || repairResult.changed;
+
   while (
     isBettingPhase(current.phase) &&
     current.actionDeadlineAt &&
@@ -478,6 +647,15 @@ export function processPokerTimeouts(
   ) {
     guard += 1;
     const playerId = current.actionOn;
+    if (!playerCanAct(current, playerId)) {
+      const stuckRepair = repairPokerBettingState(current);
+      if (!stuckRepair.changed) {
+        break;
+      }
+      current = stuckRepair.state;
+      changed = true;
+      continue;
+    }
     const autoAction = getAutoActionOnTimeout(current, playerId);
     try {
       current = applyPokerAction(current, playerId, autoAction, undefined, {
@@ -488,6 +666,10 @@ export function processPokerTimeouts(
       break;
     }
   }
+
+  const finalRepair = repairPokerBettingState(current);
+  current = finalRepair.state;
+  changed = changed || finalRepair.changed;
 
   return { state: current, changed };
 }
@@ -518,6 +700,10 @@ export function getLegalActions(
   playerId: number,
 ): PokerActionType[] {
   if (!isBettingPhase(state.phase) || state.actionOn !== playerId) {
+    return [];
+  }
+
+  if (!playerCanAct(state, playerId)) {
     return [];
   }
 
@@ -605,6 +791,10 @@ export function applyPokerAction(
       (next.streetBets[key] ?? 0) === (next.streetBets[otherKey] ?? 0);
 
     if (!betsEqual) {
+      if (!playerCanAct(next, otherId)) {
+        next.acted[otherKey] = true;
+        return startTurnTimer(advanceAfterAction(next, playerId));
+      }
       next.actionOn = otherId;
       return startTurnTimer(next);
     }
@@ -645,7 +835,12 @@ export function applyPokerAction(
       [String(getOtherPlayerId(next, playerId))]: false,
     };
     logAction({ playerId, action: "raise", amount: next.streetBets[key] });
-    next.actionOn = getOtherPlayerId(next, playerId);
+    const otherId = getOtherPlayerId(next, playerId);
+    if (!playerCanAct(next, otherId)) {
+      next.acted[String(otherId)] = true;
+      return startTurnTimer(advanceAfterAction(next, playerId));
+    }
+    next.actionOn = otherId;
     return startTurnTimer(next);
   }
 
@@ -656,20 +851,17 @@ function advanceAfterAction(
   state: PokerGameState,
   actingPlayerId: number,
 ): PokerGameState {
-  const otherId = getOtherPlayerId(state, actingPlayerId);
-  const otherKey = String(otherId);
-  const actingKey = String(actingPlayerId);
-
-  const betsEqual =
-    (state.streetBets[actingKey] ?? 0) === (state.streetBets[otherKey] ?? 0);
-  const bothActed = state.acted[actingKey] && state.acted[otherKey];
-
-  if (betsEqual && bothActed) {
-    return advancePhase(state);
+  if (isBettingRoundComplete(state)) {
+    return closeBettingRound(state);
   }
 
-  state.actionOn = otherId;
-  return state;
+  const otherId = getOtherPlayerId(state, actingPlayerId);
+  if (playerCanAct(state, otherId)) {
+    state.actionOn = otherId;
+    return state;
+  }
+
+  return closeBettingRound(state);
 }
 
 function burnCard(state: PokerGameState): void {
@@ -700,7 +892,10 @@ function advancePhase(state: PokerGameState): PokerGameState {
     dealBoardCard();
     dealBoardCard();
     dealBoardCard();
-    next.actionOn = getOtherPlayerId(next, next.buttonPlayerId);
+    if (allPlayersAllIn(next)) {
+      return advancePhase(next);
+    }
+    next.actionOn = getFirstPlayerToAct(next);
     return startTurnTimer(next);
   }
 
@@ -708,7 +903,10 @@ function advancePhase(state: PokerGameState): PokerGameState {
     next.phase = "turn";
     burnCard(next);
     dealBoardCard();
-    next.actionOn = getOtherPlayerId(next, next.buttonPlayerId);
+    if (allPlayersAllIn(next)) {
+      return advancePhase(next);
+    }
+    next.actionOn = getFirstPlayerToAct(next);
     return startTurnTimer(next);
   }
 
@@ -716,7 +914,10 @@ function advancePhase(state: PokerGameState): PokerGameState {
     next.phase = "river";
     burnCard(next);
     dealBoardCard();
-    next.actionOn = getOtherPlayerId(next, next.buttonPlayerId);
+    if (allPlayersAllIn(next)) {
+      return resolveShowdown(next);
+    }
+    next.actionOn = getFirstPlayerToAct(next);
     return startTurnTimer(next);
   }
 
