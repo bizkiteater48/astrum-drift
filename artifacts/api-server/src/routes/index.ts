@@ -12,6 +12,7 @@ import inboxRouter from "./inbox";
 import playersRouter from "./players";
 import chatIgnoresRouter from "./chat-ignores";
 import stationStorageRouter from "./station-storage";
+import mainGameActionsRouter from "./main-game-actions";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use(inboxRouter);
 router.use(playersRouter);
 router.use(chatIgnoresRouter);
 router.use(stationStorageRouter);
+router.use(mainGameActionsRouter);
 
 export default router;

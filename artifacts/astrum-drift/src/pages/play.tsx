@@ -64,7 +64,6 @@ import {
 } from "@/lib/moderation-api";
 import { getInboxUnreadCount } from "@/lib/inbox-api";
 import {
-  applyMainGameActionInventory,
   canAffordMainGameAction,
   createDefaultSkillXp,
   getActionSkillXp,
@@ -99,6 +98,7 @@ import {
   type ChatIgnore,
 } from "@/lib/chat-ignores-api";
 import { SILVER_ORE_ITEM } from "@/lib/gambling";
+import { completeMainGameAction } from "@/lib/main-game-actions-api";
 import {
   getInventoryRecord,
   mergeInventoryMonotonic,
@@ -1257,20 +1257,6 @@ export default function PlayPage() {
     }
   };
 
-  const awardSkillXp = (actionId: MainGameAction["id"]) => {
-    const award = getActionSkillXp(actionId);
-    if (!award) return;
-
-    setSkillXp((prev) => ({
-      ...prev,
-      [award.skill]: (prev[award.skill] ?? 0) + award.xp,
-    }));
-
-    addMessage(
-      `[XP] ${award.skill.charAt(0).toUpperCase() + award.skill.slice(1)} +${award.xp} XP.`,
-    );
-  };
-
   const displayLocationName = isTutorialComplete
     ? currentMainGameLocation.name
     : currentTutorialStep.location;
@@ -1301,98 +1287,47 @@ export default function PlayPage() {
     return `Equip ${tool} from inventory before ${verb}.`;
   };
 
-  const executeMainGameAction = (action: MainGameAction): boolean => {
-    if (action.requiredHandItem && equippedGear.Hand !== action.requiredHandItem) {
-      const notice = getRequiredHandItemNotice(action);
-      addMessage(`[ERROR] ${notice}`);
-      setRecentSystemNotice(notice);
-      return false;
-    }
-
-    if (isProductionAction(action.id)) {
-      if (!canAffordMainGameAction(action.id, tutorialInventory)) {
-        const cost = getMainGameActionRecipeCost(action.id);
-        const costText = Object.entries(cost)
-          .map(([item, qty]) => `${item} x${qty}`)
-          .join(", ");
-        addMessage(`[ERROR] Fabrication requires ${costText}.`);
-        return false;
-      }
-    } else if (isInventoryFullForAction(action.id, tutorialInventory)) {
-      addMessage("[ERROR] Inventory full. Cannot collect more items.");
-      setRecentSystemNotice("Inventory full. Clear space to continue.");
-      return false;
-    }
-
-    const inventoryResult = applyMainGameActionInventory(
-      action.id,
-      tutorialInventory,
-    );
-
-    if (inventoryResult === null) {
-      if (isProductionAction(action.id)) {
-        const cost = getMainGameActionRecipeCost(action.id);
-        const costText = Object.entries(cost)
-          .map(([item, qty]) => `${item} x${qty}`)
-          .join(", ");
-        addMessage(`[ERROR] Fabrication requires ${costText}.`);
-      } else {
-        addMessage("[ERROR] Inventory full. Cannot collect more items.");
-        setRecentSystemNotice("Inventory full. Clear space to continue.");
-      }
-      return false;
-    }
-
-    if (inventoryResult !== tutorialInventory) {
-      setTutorialInventory(inventoryResult);
-    }
-
+  const emitMainGameActionSuccess = (action: MainGameAction) => {
     if (action.id === "mine_copper_vein") {
       addMessage("[REWARD] Mining complete: Copper Ore x1.");
       addRewardMessage("Copper Ore x1");
-      awardSkillXp(action.id);
-      return true;
+      return;
     }
 
     if (action.id === "mine_silver_vein") {
       addMessage("[REWARD] Mining complete: Silver Ore x1.");
       addRewardMessage("Silver Ore x1");
-      awardSkillXp(action.id);
-      return true;
+      return;
     }
 
     if (action.id === "mine_nickel_deposit") {
       addMessage("[REWARD] Mining complete: Nickel Ore x1.");
       addRewardMessage("Nickel Ore x1");
-      awardSkillXp(action.id);
-      return true;
+      return;
     }
 
     if (action.id === "fabricate_bronze_bar") {
       addMessage("[REWARD] Fabrication complete: Bronze Bar x1.");
       addRewardMessage("Bronze Bar x1");
-      awardSkillXp(action.id);
-      return true;
+      return;
     }
 
     if (action.id === "fabricate_iron_bar") {
       addMessage("[REWARD] Fabrication complete: Iron Bar x1.");
       addRewardMessage("Iron Bar x1");
-      awardSkillXp(action.id);
-      return true;
+      return;
     }
 
     if (action.id === "fabricate_silver_coins") {
-      void mintSilverCoinsFromOre(1);
-      awardSkillXp(action.id);
-      return true;
+      addMessage("[REWARD] Minted 1 Silver Coin.");
+      addRewardMessage("Silver Coins +1");
+      return;
     }
 
     if (action.id === "harvest_fiberleaf") {
       addMessage("[REWARD] Harvest complete: Fiberleaf x1.");
       addRewardMessage("Fiberleaf x1");
-      awardSkillXp(action.id);
-      return true;
+      return;
     }
 
     if (action.id === "salvage_wreck_flats") {
@@ -1400,8 +1335,7 @@ export default function PlayPage() {
         "[REWARD] Salvage complete: Scrap Metal x1, Wire Bundle x1.",
       );
       addRewardMessage("Scrap Metal x1, Wire Bundle x1");
-      awardSkillXp(action.id);
-      return true;
+      return;
     }
 
     if (action.id === "salvage_hulk_yard") {
@@ -1409,8 +1343,7 @@ export default function PlayPage() {
         "[REWARD] Salvage complete: Armor Plating x1, Circuit x1.",
       );
       addRewardMessage("Armor Plating x1, Circuit x1");
-      awardSkillXp(action.id);
-      return true;
+      return;
     }
 
     if (action.id === "craft_energy_cartridge") {
@@ -1418,8 +1351,7 @@ export default function PlayPage() {
         "[SYSTEM] Energy Cartridge recipe data coming soon. Engineering bay reserved.",
       );
       addRewardMessage("Engineering stub — coming soon");
-      awardSkillXp(action.id);
-      return true;
+      return;
     }
 
     if (action.id === "combat_balanced_enemy") {
@@ -1427,8 +1359,7 @@ export default function PlayPage() {
         "[REWARD] Combat complete: Balanced opponent defeated. Combat data logged.",
       );
       addRewardMessage("Balanced combat victory");
-      awardSkillXp(action.id);
-      return true;
+      return;
     }
 
     if (action.id === "combat_dangerous_enemy") {
@@ -1436,8 +1367,7 @@ export default function PlayPage() {
         "[REWARD] Combat complete: Dangerous hostile neutralized. High-risk engagement logged.",
       );
       addRewardMessage("Dangerous combat victory");
-      awardSkillXp(action.id);
-      return true;
+      return;
     }
 
     if (action.id === "turn_in_beacon_request") {
@@ -1445,11 +1375,45 @@ export default function PlayPage() {
         "[NAV] Navigation request submitted at Beacon Relay. Request board turn-in coming soon.",
       );
       addRewardMessage("Navigation request logged");
-      awardSkillXp(action.id);
-      return true;
+    }
+  };
+
+  const runMainGameActionOnServer = async (
+    action: MainGameAction,
+    locationAtStart: MainGameLocationId,
+  ): Promise<{ success: boolean; inventory: Record<string, number> }> => {
+    if (action.requiredHandItem && equippedGear.Hand !== action.requiredHandItem) {
+      const notice = getRequiredHandItemNotice(action);
+      addMessage(`[ERROR] ${notice}`);
+      setRecentSystemNotice(notice);
+      return { success: false, inventory: tutorialInventory };
     }
 
-    return false;
+    try {
+      const result = await completeMainGameAction(action.id, locationAtStart);
+      setTutorialInventory(result.tutorialInventory);
+      setSkillXp(result.skillXp);
+      lastProgressVersionRef.current = result.progressVersion;
+      await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+      emitMainGameActionSuccess(action);
+
+      const award = getActionSkillXp(action.id);
+      if (award) {
+        addMessage(
+          `[XP] ${award.skill.charAt(0).toUpperCase() + award.skill.slice(1)} +${award.xp} XP.`,
+        );
+      }
+
+      return { success: true, inventory: result.tutorialInventory };
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? (error.data as { error?: string } | null)?.error ?? error.message
+          : "Action failed.";
+      addMessage(`[ERROR] ${message}`);
+      setRecentSystemNotice(message);
+      return { success: false, inventory: tutorialInventory };
+    }
   };
 
   const executeMainGameTravel = (destination: MainGameTravelLink) => {
@@ -1518,6 +1482,7 @@ export default function PlayPage() {
       const destination = pendingMainGameTravel;
       setPendingMainGameTravel(null);
       setIsMainGameAutoLoop(false);
+      setIsMainGameActionRunning(false);
       executeMainGameTravel(destination);
       return;
     }
@@ -1528,19 +1493,25 @@ export default function PlayPage() {
     const locationAtStart = mainGameLocationId;
     setPendingMainGameAction(null);
 
-    const nextInventory =
-      applyMainGameActionInventory(action.id, tutorialInventory) ??
-      tutorialInventory;
-    const success = executeMainGameAction(action);
+    void (async () => {
+      try {
+        const { success, inventory } = await runMainGameActionOnServer(
+          action,
+          locationAtStart,
+        );
 
-    if (!success) {
-      setIsMainGameAutoLoop(false);
-      return;
-    }
+        if (!success) {
+          setIsMainGameAutoLoop(false);
+          return;
+        }
 
-    if (action.timerSec > 0 && isAutoLoopEligibleAction(action.id)) {
-      tryContinueMainGameAutoLoop(action, locationAtStart, nextInventory);
-    }
+        if (action.timerSec > 0 && isAutoLoopEligibleAction(action.id)) {
+          tryContinueMainGameAutoLoop(action, locationAtStart, inventory);
+        }
+      } finally {
+        setIsMainGameActionRunning(false);
+      }
+    })();
   };
 
   const cancelMainGameAction = () => {
@@ -1603,7 +1574,20 @@ export default function PlayPage() {
       return;
     }
 
-    executeMainGameAction(action);
+    setIsMainGameActionRunning(true);
+    void (async () => {
+      try {
+        const { success } = await runMainGameActionOnServer(
+          action,
+          mainGameLocationId,
+        );
+        if (!success) {
+          setIsMainGameAutoLoop(false);
+        }
+      } finally {
+        setIsMainGameActionRunning(false);
+      }
+    })();
   };
 
   const handleMainGameTravel = (destination: MainGameTravelLink) => {
@@ -2406,7 +2390,6 @@ export default function PlayPage() {
     if (!isMainGameActionRunning || mainGameTimerLeft === null) return;
 
     if (mainGameTimerLeft <= 0) {
-      setIsMainGameActionRunning(false);
       setMainGameTimerLeft(null);
       completeMainGameAction();
       return;

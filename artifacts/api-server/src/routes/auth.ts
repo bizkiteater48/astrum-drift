@@ -398,10 +398,11 @@ router.put(
     const clientInventory = getInventoryFromProgress(
       tutorialProgress as TutorialProgressBlob | null,
     );
-    const mergedInventory = mergeInventoryMonotonic(
-      serverInventory,
-      clientInventory,
-    );
+    const tutorialCompleteOnServer =
+      serverProgress?.isTutorialComplete === true;
+    const mergedInventory = tutorialCompleteOnServer
+      ? serverInventory
+      : mergeInventoryMonotonic(serverInventory, clientInventory);
 
     const mergedCredits = Math.max(
       repairedPlayer.credits,
