@@ -52,17 +52,16 @@ const TUTORIAL_MATERIALS: CodexEntry[] = [
     sourceDoc: "main-game.ts",
   },
   {
-    id: "life-support-gel",
+    id: "minor-med-gel",
     category: "materials",
-    name: "Life Support Gel",
-    subtitle: "Tutorial · Consumable",
+    name: "Minor Med Gel",
+    subtitle: "Synthesis · Healing",
     description:
-      "Medical gel that restores health after combat. Required to complete post-drone recovery during training.",
-    tags: ["consumable", "tutorial", "medical"],
-    materialGroup: "Tutorial",
-    stats: { Heal: "Tutorial recovery" },
-    sourceDoc: "main-game.ts",
-    codeNote: "Tutorial name; design ladder uses Micro Med Gel through Recovery Gel.",
+      "Early healing gel that restores 5 HP. Used during tutorial combat recovery and sold to NPC vendors at floor price.",
+    tags: ["consumable", "medical", "synthesis"],
+    materialGroup: "Synthesis",
+    stats: { Heal: "5 HP", "Synth Level": 10 },
+    sourceDoc: "Astrum_Drift_NPC_Economy_Final_Sanity_Check.xlsx",
   },
   {
     id: "damaged-scrap",
@@ -176,7 +175,7 @@ const GEM_MATERIALS: MaterialDef[] = [
 
 const SYNTH_CONSUMABLES: MaterialDef[] = [
   { name: "Micro Med Gel", group: "Synthesis", description: "Entry healing gel. NPC sells for 15 credits.", tags: ["consumable", "healing", "synthesis"], recipe: "1 Fiberleaf", stats: { Heal: "1 HP", "Synth Level": 1, "NPC Price": "15 credits" }, sourceDoc: HARVEST_SOURCE },
-  { name: "Minor Med Gel", group: "Synthesis", description: "Early healing consumable.", tags: ["consumable", "healing"], recipe: "2 Fiberleaf + 1 Spore Pod", stats: { Heal: "5 HP", "Synth Level": 10 } },
+  { name: "Minor Med Gel", group: "Synthesis", description: "Early healing consumable. Restores 5 HP.", tags: ["consumable", "healing"], recipe: "2 Fiberleaf + 1 Spore Pod", stats: { Heal: "5 HP", "Synth Level": 10, "NPC Buy Floor": "1 credit" }, sourceDoc: HARVEST_SOURCE },
   { name: "Med Gel", group: "Synthesis", description: "Mid-low healing gel.", tags: ["consumable", "healing"], stats: { Heal: "10 HP", "Synth Level": 25 } },
   { name: "Field Med Gel", group: "Synthesis", description: "Field-grade healing.", tags: ["consumable", "healing"], stats: { Heal: "25 HP", "Synth Level": 50 } },
   { name: "Trauma Gel", group: "Synthesis", description: "High-tier healing gel.", tags: ["consumable", "healing"], stats: { Heal: "50 HP", "Synth Level": 85 } },

@@ -175,7 +175,7 @@ export const MATERIAL_INVENTORY_GROUPS = {
     "Nickel Ore",
   ],
   Bars: ["Bronze Bar", "Iron Bar", "Refined Iron"],
-  Harvest: ["Fiberleaf", "Bio Fiber", "Basic Chemical"],
+  Harvest: ["Fiberleaf", "Spore Pod", "Medicinal Sap"],
   Salvage: [
     "Scrap Metal",
     "Wire Bundle",

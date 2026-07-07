@@ -1,4 +1,5 @@
 import type { Player } from "@workspace/db";
+import { migrateLegacyInventoryItemNames } from "./npc-economy";
 
 export const SILVER_COINS_ITEM = "Silver Coins";
 export const CREDITS_ITEM = "Credits";
@@ -18,7 +19,7 @@ export function getInventoryFromProgress(
     return {};
   }
 
-  return { ...inventory };
+  return migrateLegacyInventoryItemNames({ ...inventory });
 }
 
 export function getStationStorageFromProgress(

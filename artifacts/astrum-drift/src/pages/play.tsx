@@ -44,6 +44,10 @@ import { Progress } from "@/components/ui/progress";
 import { CodexPanel } from "@/components/codex-panel";
 import { MarketPanel, type MarketPanelView } from "@/components/market-panel";
 import { sellNpcItem } from "@/lib/npc-sell-api";
+import {
+  migrateLegacyInventoryItemNames,
+  MINOR_MED_GEL_ITEM,
+} from "@/lib/npc-economy";
 import { SurveyArtPlaceholder } from "@/components/placeholder-art-overlay";
 import { StarChartPanel } from "@/components/star-chart-panel";
 import { ModerationPanel } from "@/components/moderation-panel";
@@ -252,7 +256,7 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: "harvest_bio_samples",
     location: "Bio Dome",
-    objective: "Harvest materials for Life Support Gel.",
+    objective: "Harvest materials for Minor Med Gel.",
     type: "action",
     actionLabel: "Harvest Bio Samples",
     timerSec: 5,
@@ -261,9 +265,9 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: "synthesize_life_support_gel",
     location: "Bio Dome",
-    objective: "Synthesize Life Support Gel.",
+    objective: "Synthesize Minor Med Gel.",
     type: "action",
-    actionLabel: "Synthesize Life Support Gel",
+    actionLabel: "Synthesize Minor Med Gel",
     timerSec: 5,
     requiredCompletions: 2,
   },
@@ -1112,7 +1116,7 @@ export default function PlayPage() {
     postCombatRecoveryComplete;
 
   const mobileStatusAlertText = requiresPostCombatHeal
-    ? "Recovery required — use Life Support Gel"
+    ? "Recovery required — use Minor Med Gel"
     : postCombatRecoveryComplete
       ? "Recovery complete — return to action"
       : isInCombat || isCombatRoundRunning
@@ -1145,8 +1149,8 @@ export default function PlayPage() {
           : "Run a local action or travel to another area."
     : "Select the current training action to proceed.";
 
-  const shouldHighlightLifeSupportGel =
-    requiresPostCombatHeal && (tutorialInventory["Life Support Gel"] ?? 0) > 0;
+  const shouldHighlightMinorMedGel =
+    requiresPostCombatHeal && (tutorialInventory[MINOR_MED_GEL_ITEM] ?? 0) > 0;
 
   const shouldHighlightTrainingBladeEquip =
     currentTutorialStep.id === "defeat_training_drone" &&
@@ -1770,7 +1774,7 @@ export default function PlayPage() {
     },
     {
       title: "Consumables",
-      items: ["Life Support Gel"],
+      items: [MINOR_MED_GEL_ITEM],
     },
     {
       title: "Equipment",
@@ -1807,32 +1811,32 @@ export default function PlayPage() {
     setIsCombatRoundRunning(false);
     setCombatTimerLeft(null);
   };
-  const useLifeSupportGelFromCombatPanel = () => {
+  const useMinorMedGelFromCombatPanel = () => {
     if (!requiresPostCombatHeal) return;
 
-    const gelCount = tutorialInventory["Life Support Gel"] ?? 0;
+    const gelCount = tutorialInventory[MINOR_MED_GEL_ITEM] ?? 0;
 
     if (gelCount < 1) {
-      setRecentSystemNotice("Life Support Gel required to complete recovery.");
-      addMessage("[ERROR] You need 1 Life Support Gel to recover.");
+      setRecentSystemNotice("Minor Med Gel required to complete recovery.");
+      addMessage("[ERROR] You need 1 Minor Med Gel to recover.");
       return;
     }
 
-    const healAmount = 10;
+    const healAmount = 5;
     const nextHealth = Math.min(playerMaxHealth, playerHealth + healAmount);
     const actualHeal = nextHealth - playerHealth;
     setPlayerHealth(nextHealth);
 
     setTutorialInventory((prev) => ({
       ...prev,
-      "Life Support Gel": Math.max(0, (prev["Life Support Gel"] ?? 0) - 1),
+      [MINOR_MED_GEL_ITEM]: Math.max(0, (prev[MINOR_MED_GEL_ITEM] ?? 0) - 1),
     }));
 
     setRequiresPostCombatHeal(false);
     setPostCombatRecoveryComplete(true);
 
     setCombatMessage(
-      `Life Support Gel applied. Health restored by ${actualHeal}. Recovery complete.`,
+      `Minor Med Gel applied. Health restored by ${actualHeal}. Recovery complete.`,
     );
 
     setRecentSystemNotice(
@@ -1844,7 +1848,7 @@ export default function PlayPage() {
     setIsTutorialActionRunning(false);
 
     addMessage(
-      `[SYSTEM] Life Support Gel used. Health restored by ${actualHeal}.`,
+      `[SYSTEM] Minor Med Gel used. Health restored by ${actualHeal}.`,
     );
     addMessage("[TUTORIAL] Combat recovery complete.");
   };
@@ -1890,7 +1894,7 @@ export default function PlayPage() {
     if (nextEnemyHealth <= 0) {
       setEnemyHealth(0);
       setCombatMessage(
-        `You hit the Training Drone for ${playerDamage}. Target disabled. Use Life Support Gel to complete recovery.`,
+        `You hit the Training Drone for ${playerDamage}. Target disabled. Use Minor Med Gel to complete recovery.`,
       );
 
       addMessage(
@@ -1971,14 +1975,14 @@ export default function PlayPage() {
     if (currentTutorialStep.id === "harvest_bio_samples") {
       setTutorialInventory((prev) => ({
         ...prev,
-        "Bio Fiber": (prev["Bio Fiber"] ?? 0) + 2,
-        "Basic Chemical": (prev["Basic Chemical"] ?? 0) + 1,
+        Fiberleaf: (prev.Fiberleaf ?? 0) + 2,
+        "Spore Pod": (prev["Spore Pod"] ?? 0) + 1,
       }));
 
       addMessage(
-        "[REWARD] Bio Fiber x2 and Basic Chemical x1 added to tutorial inventory.",
+        "[REWARD] Fiberleaf x2 and Spore Pod x1 added to tutorial inventory.",
       );
-      addRewardMessage("Bio Fiber x2 | Basic Chemical x1");
+      addRewardMessage("Fiberleaf x2 | Spore Pod x1");
     }
 
     if (currentTutorialStep.id === "fabricate_training_blade") {
@@ -2002,26 +2006,25 @@ export default function PlayPage() {
     }
 
     if (currentTutorialStep.id === "synthesize_life_support_gel") {
-      const bioFiberCount = tutorialInventory["Bio Fiber"] ?? 0;
-      const basicChemicalCount = tutorialInventory["Basic Chemical"] ?? 0;
+      const fiberleafCount = tutorialInventory.Fiberleaf ?? 0;
+      const sporePodCount = tutorialInventory["Spore Pod"] ?? 0;
 
-      if (bioFiberCount < 2 || basicChemicalCount < 1) {
+      if (fiberleafCount < 2 || sporePodCount < 1) {
         addMessage(
-          "[ERROR] You need 2 Bio Fiber and 1 Basic Chemical to synthesize Life Support Gel.",
+          "[ERROR] You need 2 Fiberleaf and 1 Spore Pod to synthesize Minor Med Gel.",
         );
         return;
       }
 
       setTutorialInventory((prev) => ({
         ...prev,
-        "Bio Fiber": prev["Bio Fiber"] - 2,
-        "Basic Chemical": prev["Basic Chemical"] - 1,
-        // Tutorial bonus: normal production should create only 1 Life Support Gel at a time.
-        "Life Support Gel": (prev["Life Support Gel"] ?? 0) + 1,
+        Fiberleaf: prev.Fiberleaf - 2,
+        "Spore Pod": prev["Spore Pod"] - 1,
+        [MINOR_MED_GEL_ITEM]: (prev[MINOR_MED_GEL_ITEM] ?? 0) + 1,
       }));
 
-      addMessage("[REWARD] Life Support Gel x1 synthesized.");
-      addRewardMessage("Life Support Gel x1");
+      addMessage("[REWARD] Minor Med Gel x1 synthesized.");
+      addRewardMessage("Minor Med Gel x1");
     }
 
     if (currentTutorialStep.id === "defeat_training_drone") {
@@ -2038,7 +2041,7 @@ export default function PlayPage() {
 
       setRequiresPostCombatHeal(true);
       setRecentSystemNotice(
-        "Training Drone disabled. Use Life Support Gel from the combat panel to recover.",
+        "Training Drone disabled. Use Minor Med Gel from the combat panel to recover.",
       );
 
       addMessage(
@@ -2114,7 +2117,7 @@ export default function PlayPage() {
         "Basic Salvage Tool": 1,
         "Starter Shuttle": 1,
         "Basic Rover": 1,
-        "Life Support Gel": 5,
+        [MINOR_MED_GEL_ITEM]: 5,
         "Basic Repair Kit": 1,
         Credits: 500,
       });
@@ -2519,7 +2522,9 @@ export default function PlayPage() {
       }
 
       if (saved.tutorialInventory && typeof saved.tutorialInventory === "object") {
-        const inventory = getInventoryRecord(saved.tutorialInventory);
+        const inventory = migrateLegacyInventoryItemNames(
+          getInventoryRecord(saved.tutorialInventory),
+        );
         if (options?.replaceInventory) {
           setTutorialInventory(inventory);
         } else {
@@ -3432,32 +3437,32 @@ export default function PlayPage() {
                       <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-1">
                         {[
                           {
-                            name: "Life Support Gel",
-                            qty: tutorialInventory["Life Support Gel"] ?? 0,
+                            name: MINOR_MED_GEL_ITEM,
+                            qty: tutorialInventory[MINOR_MED_GEL_ITEM] ?? 0,
                             heal: "+10 HP",
                           },
                           { name: "Med Foam Pack", qty: 0, heal: "+25 HP" },
                           { name: "Trauma Patch", qty: 0, heal: "+40 HP" },
                           { name: "Bio-Stabilizer", qty: 0, heal: "+60 HP" },
                         ].map((item) => {
-                          const isLifeSupportGel =
-                            item.name === "Life Support Gel";
+                          const isMinorMedGel =
+                            item.name === MINOR_MED_GEL_ITEM;
                           const shouldHighlightItem =
-                            isLifeSupportGel && shouldHighlightLifeSupportGel;
+                            isMinorMedGel && shouldHighlightMinorMedGel;
 
                           return (
                             <button
                               key={item.name}
                               type="button"
                               onClick={() => {
-                                if (isLifeSupportGel) {
-                                  useLifeSupportGelFromCombatPanel();
+                                if (isMinorMedGel) {
+                                  useMinorMedGelFromCombatPanel();
                                 }
                               }}
                               disabled={
                                 item.qty <= 0 ||
                                 !requiresPostCombatHeal ||
-                                !isLifeSupportGel
+                                !isMinorMedGel
                               }
                               className={`min-w-28 rounded-lg border px-2 py-2 text-left transition-all duration-200 disabled:opacity-40 ${
                                 shouldHighlightItem

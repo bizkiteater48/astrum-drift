@@ -13,6 +13,7 @@ import {
   type PlayerSupportSnapshot,
 } from "@/lib/admin-api";
 import { MATERIAL_INVENTORY_GROUPS } from "@/lib/main-game";
+import { MINOR_MED_GEL_ITEM } from "@/lib/npc-economy";
 import { PlayerUsernameSelect } from "@/components/player-username-select";
 
 const COMMON_GRANT_ITEMS = [
@@ -20,7 +21,7 @@ const COMMON_GRANT_ITEMS = [
   ...MATERIAL_INVENTORY_GROUPS.Bars,
   ...MATERIAL_INVENTORY_GROUPS.Harvest,
   ...MATERIAL_INVENTORY_GROUPS.Salvage,
-  "Life Support Gel",
+  MINOR_MED_GEL_ITEM,
   "Training Blade",
   "Basic Mining Tool",
   "Basic Harvesting Tool",
