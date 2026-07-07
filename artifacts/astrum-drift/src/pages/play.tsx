@@ -51,6 +51,7 @@ import { MessagesPanel } from "@/components/messages-panel";
 import { DriftLoungePanel } from "@/components/drift-lounge-panel";
 import { PlayerSupportPanel } from "@/components/player-support-panel";
 import { StationStoragePanel } from "@/components/station-storage-panel";
+import { ShipCargoPanel } from "@/components/ship-cargo-panel";
 import { ReportPlayerDialog } from "@/components/report-player-dialog";
 import { isAdminRole } from "@/lib/admin-api";
 import {
@@ -107,6 +108,11 @@ import {
   getStationStorageStackCount,
   STATION_STORAGE_SLOT_LIMIT,
 } from "@/lib/station-storage-api";
+import {
+  getShipCargoStackCount,
+  STARTER_SHUTTLE_CARGO_SLOT_LIMIT,
+  STARTER_SHUTTLE_NAME,
+} from "@/lib/ship-cargo-api";
 
 type TutorialStep = {
   id: string;
@@ -347,6 +353,7 @@ export default function PlayPage() {
     currentTutorialActionCount: number;
     tutorialInventory: Record<string, number>;
     stationStorage?: Record<string, number>;
+    shipCargo?: Record<string, number>;
     playerHealth: number;
     enemyHealth: number;
     targetIntel: Record<string, number>;
@@ -376,6 +383,7 @@ export default function PlayPage() {
   const [stationStorage, setStationStorage] = useState<Record<string, number>>(
     {},
   );
+  const [shipCargo, setShipCargo] = useState<Record<string, number>>({});
 
   const [recentRewardMessages, setRecentRewardMessages] = useState<string[]>(
     [],
@@ -1079,6 +1087,7 @@ export default function PlayPage() {
   const canAccessStationStorage = isStationStorageLocation(currentMainGameLocation);
   const canAccessShipCargo = isShipCargoLocation(currentMainGameLocation);
   const stationStorageStackCount = getStationStorageStackCount(stationStorage);
+  const shipCargoStackCount = getShipCargoStackCount(shipCargo);
   const locationHubActions = isTutorialComplete
     ? getLocationHubActions(currentMainGameLocation)
     : [];
@@ -2266,6 +2275,13 @@ export default function PlayPage() {
           setStationStorage(data.tutorialProgress.stationStorage);
         }
 
+        if (
+          data.tutorialProgress?.shipCargo &&
+          typeof data.tutorialProgress.shipCargo === "object"
+        ) {
+          setShipCargo(data.tutorialProgress.shipCargo);
+        }
+
         if (typeof data.progressVersion === "number") {
           lastProgressVersionRef.current = data.progressVersion;
         }
@@ -2510,6 +2526,10 @@ export default function PlayPage() {
         setStationStorage(saved.stationStorage);
       }
 
+      if (saved.shipCargo && typeof saved.shipCargo === "object") {
+        setShipCargo(saved.shipCargo);
+      }
+
       if (typeof saved.playerHealth === "number") {
         setPlayerHealth(saved.playerHealth);
       }
@@ -2631,12 +2651,20 @@ export default function PlayPage() {
             ? localSave.stationStorage
             : undefined;
 
+      const mergedShipCargo =
+        serverSave?.shipCargo && typeof serverSave.shipCargo === "object"
+          ? serverSave.shipCargo
+          : localSave?.shipCargo && typeof localSave.shipCargo === "object"
+            ? localSave.shipCargo
+            : undefined;
+
       if (!cancelled && metadataBase) {
         applySavedProgress(
           {
             ...metadataBase,
             tutorialInventory: mergedInventory,
             stationStorage: mergedStationStorage,
+            shipCargo: mergedShipCargo,
           },
           { replaceInventory: true },
         );
@@ -2644,6 +2672,9 @@ export default function PlayPage() {
         setTutorialInventory(mergedInventory);
         if (mergedStationStorage) {
           setStationStorage(mergedStationStorage);
+        }
+        if (mergedShipCargo) {
+          setShipCargo(mergedShipCargo);
         }
       }
 
@@ -2707,6 +2738,13 @@ export default function PlayPage() {
           setStationStorage(data.tutorialProgress.stationStorage);
         }
 
+        if (
+          data.tutorialProgress?.shipCargo &&
+          typeof data.tutorialProgress.shipCargo === "object"
+        ) {
+          setShipCargo(data.tutorialProgress.shipCargo);
+        }
+
         if (typeof data.progressVersion === "number") {
           lastProgressVersionRef.current = data.progressVersion;
         }
@@ -2736,6 +2774,7 @@ export default function PlayPage() {
         currentTutorialActionCount,
         tutorialInventory,
         stationStorage,
+        shipCargo,
         playerHealth,
         enemyHealth,
         targetIntel,
@@ -2779,6 +2818,7 @@ export default function PlayPage() {
       recentSystemNotice,
       lastRewardStepId,
       stationStorage,
+      shipCargo,
     ]);
 
   if (meLoading) {
@@ -4291,17 +4331,19 @@ export default function PlayPage() {
 
                           <div className="flex justify-between text-xs">
                             <span className="text-primary">
-                              Starter Shuttle
+                              {STARTER_SHUTTLE_NAME}
                             </span>
                             <span className="text-chart-3 font-bold">
-                              0 / 25
+                              {shipCargoStackCount} / {STARTER_SHUTTLE_CARGO_SLOT_LIMIT}
                             </span>
                           </div>
 
                           <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-2">
-                            {canAccessShipCargo
-                              ? "Cargo Empty"
-                              : "At spaceport or landing site to access"}
+                            {!canAccessShipCargo
+                              ? "At spaceport or landing site to access"
+                              : shipCargoStackCount === 0
+                                ? "Cargo Empty"
+                                : `${shipCargoStackCount} item stack${shipCargoStackCount === 1 ? "" : "s"} loaded`}
                           </p>
                         </div>
 
@@ -4918,53 +4960,24 @@ export default function PlayPage() {
         </div>
       )}
       {showShipCargoManifest && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          <div className="glass-panel border border-primary/30 rounded-xl w-full max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between border-b border-primary/20 p-4">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-widest">
-                  Cargo Manifest
-                </p>
-                <h2 className="text-xl text-primary font-bold uppercase tracking-widest">
-                  Ship Cargo
-                </h2>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowShipCargoManifest(false)}
-                className="h-8 px-3 rounded border border-destructive/40 text-destructive text-xs uppercase tracking-widest hover:bg-destructive/10"
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="p-4 overflow-y-auto custom-scrollbar space-y-4">
-              <div className="rounded-lg border border-primary/10 bg-background/40 p-3">
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-primary uppercase tracking-widest">
-                    Starter Shuttle
-                  </span>
-                  <span className="text-chart-3 font-bold">0 / 25</span>
-                </div>
-
-                <p className="text-xs text-muted-foreground uppercase tracking-widest">
-                  Status: Active Ship
-                </p>
-
-                <p className="text-xs text-muted-foreground uppercase tracking-widest mt-2">
-                  Cargo Empty
-                </p>
-              </div>
-
-              <div className="rounded-lg border border-primary/10 bg-background/30 p-3">
-                <p className="text-xs text-muted-foreground uppercase tracking-widest">
-                  Additional owned ships will appear here once acquired.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ShipCargoPanel
+          onClose={() => setShowShipCargoManifest(false)}
+          locationId={mainGameLocationId}
+          personalInventory={tutorialInventory}
+          shipCargo={shipCargo}
+          getAvailableQuantity={getAvailableInventoryQuantity}
+          canAccessCargo={canAccessShipCargo}
+          onTransferComplete={(result) => {
+            setTutorialInventory(result.tutorialInventory);
+            setShipCargo(result.shipCargo);
+            lastProgressVersionRef.current = result.progressVersion;
+            void queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+          }}
+          onNotice={(message) => {
+            addMessage(`[CARGO] ${message}`);
+            setRecentSystemNotice(message);
+          }}
+        />
       )}
       {showStationStorage && (
         <StationStoragePanel

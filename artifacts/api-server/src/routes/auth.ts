@@ -17,6 +17,7 @@ import {
   CREDITS_ITEM,
   getInventoryFromProgress,
   getStationStorageFromProgress,
+  getShipCargoFromProgress,
   mergeInventoryMonotonic,
   type TutorialProgressBlob,
   withEconomySnapshot,
@@ -416,6 +417,7 @@ router.put(
       ...((tutorialProgress as TutorialProgressBlob | null) ?? {}),
       progressVersion: currentPlayer.progressVersion ?? 0,
       stationStorage: getStationStorageFromProgress(serverProgress),
+      shipCargo: getShipCargoFromProgress(serverProgress),
       tutorialInventory: withEconomySnapshot(mergedInventory, {
         credits: mergedCredits,
         silverCoins: mergedSilver,
