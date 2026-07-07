@@ -114,3 +114,22 @@ Replit Agent git remotes (`subrepl-*` / `git@ssh.riker.replit.dev`) do **not** a
 3. **SSH key:** Public key at [replit.com/account#ssh-keys](https://replit.com/account#ssh-keys) (Desktop key: `~/.ssh/replit_astrum.pub`).
 4. **Config:** Copy `.replit-deploy.json.example` → `.replit-deploy.json`. Set `replSshHost` from Repl → + → SSH → Connect manually (the `user@….replit.dev` string).
 5. **Deploy:** `pwsh scripts/deploy-to-replit.ps1` — pushes to GitHub, SSHes into the Repl, runs `git pull`, then republish in Replit if needed.
+
+### Deploy + backup (Replit Shell — recommended)
+
+Run in **Replit Shell** (`~/workspace`) before every republish:
+
+```bash
+# 1) Backup production DB first
+bash scripts/backup-database.sh
+
+# 2) Pull latest code + install + schema sync
+bash scripts/replit-sync-deploy.sh
+```
+
+Then **Deploy → Republish** in Replit. Cancel if the migration preview shows `DROP` statements.
+
+Backups land in `~/backups/` on the Repl. Download copies off-Repl (Google Drive, PC) before major changes.
+
+**After deploy:** players should hard refresh (`Ctrl+Shift+R`) to load the latest `version.json`.
+
