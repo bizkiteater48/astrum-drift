@@ -411,6 +411,7 @@ router.put(
     const mergedSilver = repairedPlayer.silverCoins;
 
     const mergedProgress: TutorialProgressBlob = {
+      ...(serverProgress ?? {}),
       ...((tutorialProgress as TutorialProgressBlob | null) ?? {}),
       progressVersion: currentPlayer.progressVersion ?? 0,
       stationStorage: getStationStorageFromProgress(serverProgress),

@@ -99,7 +99,10 @@ import {
   type ChatIgnore,
 } from "@/lib/chat-ignores-api";
 import { SILVER_ORE_ITEM } from "@/lib/gambling";
-import { mintSilverCoins } from "@/lib/gambling-api";
+import {
+  getInventoryRecord,
+  mergeInventoryMonotonic,
+} from "@/lib/player-inventory-merge";
 import {
   getStationStorageStackCount,
   STATION_STORAGE_SLOT_LIMIT,
@@ -2472,14 +2475,30 @@ export default function PlayPage() {
 
     let cancelled = false;
 
-    const applySavedProgress = (saved: Partial<TutorialSaveData>) => {
+    const applySavedProgress = (
+      saved: Partial<TutorialSaveData>,
+      options?: { replaceInventory?: boolean },
+    ) => {
+      const hasRecognizedVersion =
+        saved.version === 1 ||
+        saved.version === 2 ||
+        saved.version === 3 ||
+        saved.version === 4 ||
+        saved.version === 5;
+      const hasServerStyleProgress =
+        Boolean(saved.tutorialInventory) ||
+        typeof saved.isTutorialComplete === "boolean" ||
+        Boolean(saved.mainGameLocationId) ||
+        typeof saved.currentTutorialStepIndex === "number";
+
       if (
-        saved.version !== 1 &&
-        saved.version !== 2 &&
-        saved.version !== 3 &&
-        saved.version !== 4 &&
-        saved.version !== 5
+        saved.version !== undefined &&
+        !hasRecognizedVersion
       ) {
+        return;
+      }
+
+      if (!hasRecognizedVersion && !hasServerStyleProgress) {
         return;
       }
 
@@ -2496,7 +2515,12 @@ export default function PlayPage() {
       }
 
       if (saved.tutorialInventory && typeof saved.tutorialInventory === "object") {
-        setTutorialInventory(saved.tutorialInventory);
+        const inventory = getInventoryRecord(saved.tutorialInventory);
+        if (options?.replaceInventory) {
+          setTutorialInventory(inventory);
+        } else {
+          setTutorialInventory((prev) => mergeInventoryMonotonic(prev, inventory));
+        }
       }
 
       if (saved.stationStorage && typeof saved.stationStorage === "object") {
@@ -2570,6 +2594,22 @@ export default function PlayPage() {
 
       const saveKey = `astrumTutorialProgress_${player.username}`;
 
+      const parseLocalSave = (): Partial<TutorialSaveData> | null => {
+        const rawSave = localStorage.getItem(saveKey);
+        if (!rawSave) return null;
+
+        try {
+          return JSON.parse(rawSave) as Partial<TutorialSaveData>;
+        } catch {
+          localStorage.removeItem(saveKey);
+          return null;
+        }
+      };
+
+      const localSave = parseLocalSave();
+      let serverSave: Partial<TutorialSaveData> | null = null;
+      let serverVersion = 0;
+
       try {
         const response = await fetch("/api/players/tutorial-progress", {
           method: "GET",
@@ -2582,55 +2622,50 @@ export default function PlayPage() {
             progressVersion?: number;
           };
 
-          const serverVersion = data.progressVersion ?? 0;
-          let localVersion = 0;
-          const rawLocalSave = localStorage.getItem(saveKey);
-          if (rawLocalSave) {
-            try {
-              localVersion =
-                (JSON.parse(rawLocalSave) as Partial<TutorialSaveData>)
-                  .progressVersion ?? 0;
-            } catch {
-              localVersion = 0;
-            }
-          }
-
-          if (!cancelled && data.tutorialProgress) {
-            applySavedProgress(data.tutorialProgress);
-            setIsTutorialSaveLoaded(true);
-            return;
-          }
-
-          if (!cancelled && serverVersion >= localVersion) {
-            setIsTutorialSaveLoaded(true);
-            return;
-          }
+          serverSave = data.tutorialProgress ?? null;
+          serverVersion = data.progressVersion ?? 0;
         }
       } catch {
-        // Fall back to localStorage below.
+        // Fall back to local-only save below.
       }
 
-      const rawSave = localStorage.getItem(saveKey);
+      const localVersion = localSave?.progressVersion ?? 0;
+      const mergedInventory = mergeInventoryMonotonic(
+        getInventoryRecord(serverSave?.tutorialInventory),
+        getInventoryRecord(localSave?.tutorialInventory),
+      );
 
-      if (!rawSave) {
-        if (!cancelled) {
-          setIsTutorialSaveLoaded(true);
+      const preferServerMetadata = serverVersion >= localVersion;
+      const metadataBase =
+        (preferServerMetadata ? serverSave : localSave) ?? serverSave ?? localSave;
+
+      const mergedStationStorage =
+        serverSave?.stationStorage &&
+        typeof serverSave.stationStorage === "object"
+          ? serverSave.stationStorage
+          : localSave?.stationStorage &&
+              typeof localSave.stationStorage === "object"
+            ? localSave.stationStorage
+            : undefined;
+
+      if (!cancelled && metadataBase) {
+        applySavedProgress(
+          {
+            ...metadataBase,
+            tutorialInventory: mergedInventory,
+            stationStorage: mergedStationStorage,
+          },
+          { replaceInventory: true },
+        );
+      } else if (!cancelled && Object.keys(mergedInventory).length > 0) {
+        setTutorialInventory(mergedInventory);
+        if (mergedStationStorage) {
+          setStationStorage(mergedStationStorage);
         }
-        return;
       }
 
-      try {
-        const saved = JSON.parse(rawSave) as Partial<TutorialSaveData>;
-
-        if (!cancelled) {
-          applySavedProgress(saved);
-        }
-      } catch {
-        localStorage.removeItem(saveKey);
-      } finally {
-        if (!cancelled) {
-          setIsTutorialSaveLoaded(true);
-        }
+      if (!cancelled) {
+        setIsTutorialSaveLoaded(true);
       }
     };
 
