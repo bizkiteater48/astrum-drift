@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import {
   formatMarketTaxRate,
   getMainGameLocation,
@@ -17,7 +19,7 @@ type MarketPanelProps = {
   view: MarketPanelView;
   inventory: Record<string, number>;
   getAvailableQuantity: (itemName: string) => number;
-  onNpcSell: (itemName: string, quantity: number) => void;
+  onNpcSell: (itemName: string, quantity: number) => Promise<void>;
   onClose: () => void;
 };
 
@@ -26,8 +28,20 @@ function NpcExchangeSection({
   onSell,
 }: {
   listings: NpcExchangeListing[];
-  onSell: (itemName: string, quantity: number) => void;
+  onSell: (itemName: string, quantity: number) => Promise<void>;
 }) {
+  const [sellingKey, setSellingKey] = useState<string | null>(null);
+
+  const handleSell = async (itemName: string, quantity: number) => {
+    const key = `${itemName}:${quantity}`;
+    setSellingKey(key);
+    try {
+      await onSell(itemName, quantity);
+    } finally {
+      setSellingKey(null);
+    }
+  };
+
   if (listings.length === 0) {
     return (
       <p className="text-xs text-muted-foreground uppercase tracking-widest text-center py-6">
@@ -38,7 +52,14 @@ function NpcExchangeSection({
 
   return (
     <div className="space-y-2 max-h-[50vh] overflow-y-auto custom-scrollbar pr-1">
-      {listings.map((listing) => (
+      {listings.map((listing) => {
+        const sellOneKey = `${listing.itemName}:1`;
+        const sellAllKey = `${listing.itemName}:${listing.quantity}`;
+        const isSellingOne = sellingKey === sellOneKey;
+        const isSellingAll = sellingKey === sellAllKey;
+        const isBusy = sellingKey !== null;
+
+        return (
         <div
           key={listing.itemName}
           className="rounded-lg border border-primary/15 bg-background/40 px-3 py-2"
@@ -59,21 +80,30 @@ function NpcExchangeSection({
           <div className="flex gap-2 mt-2">
             <button
               type="button"
-              onClick={() => onSell(listing.itemName, 1)}
-              className="flex-1 rounded border border-primary/25 px-2 py-1 text-[10px] uppercase tracking-widest text-primary hover:bg-primary/10"
+              disabled={isBusy}
+              onClick={() => void handleSell(listing.itemName, 1)}
+              className="flex-1 rounded border border-primary/25 px-2 py-1 text-[10px] uppercase tracking-widest text-primary hover:bg-primary/10 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1"
             >
+              {isSellingOne ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : null}
               Sell 1
             </button>
             <button
               type="button"
-              onClick={() => onSell(listing.itemName, listing.quantity)}
-              className="flex-1 rounded border border-chart-2/30 px-2 py-1 text-[10px] uppercase tracking-widest text-chart-2 hover:bg-chart-2/10"
+              disabled={isBusy}
+              onClick={() => void handleSell(listing.itemName, listing.quantity)}
+              className="flex-1 rounded border border-chart-2/30 px-2 py-1 text-[10px] uppercase tracking-widest text-chart-2 hover:bg-chart-2/10 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1"
             >
+              {isSellingAll ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : null}
               Sell All
             </button>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

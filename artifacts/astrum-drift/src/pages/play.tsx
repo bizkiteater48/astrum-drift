@@ -43,7 +43,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { CodexPanel } from "@/components/codex-panel";
 import { MarketPanel, type MarketPanelView } from "@/components/market-panel";
-import { applyNpcSell } from "@/lib/npc-economy";
+import { sellNpcItem } from "@/lib/npc-sell-api";
 import { SurveyArtPlaceholder } from "@/components/placeholder-art-overlay";
 import { StarChartPanel } from "@/components/star-chart-panel";
 import { ModerationPanel } from "@/components/moderation-panel";
@@ -426,7 +426,7 @@ export default function PlayPage() {
     return Math.max(0, ownedQuantity - equippedQuantity);
   };
 
-  const handleNpcSell = (itemName: string, quantity: number) => {
+  const handleNpcSell = async (itemName: string, quantity: number) => {
     const available = getAvailableInventoryQuantity(itemName);
     const sellQty = Math.min(quantity, available);
     if (sellQty <= 0) {
@@ -435,21 +435,26 @@ export default function PlayPage() {
       return;
     }
 
-    const result = applyNpcSell(tutorialInventory, itemName, sellQty);
-    if (!result) {
-      addMessage(`[ERROR] ${itemName} cannot be sold to the NPC vendor.`);
-      setRecentSystemNotice(`${itemName} is not accepted by the vendor.`);
-      return;
+    try {
+      const result = await sellNpcItem(itemName, sellQty, mainGameLocationId);
+      setTutorialInventory(result.tutorialInventory);
+      lastProgressVersionRef.current = result.progressVersion;
+      void queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+      addMessage(
+        `[MARKET] Sold ${result.item} ×${result.quantitySold} for ${result.creditsEarned} credits.`,
+      );
+      setRecentRewardMessages([`Credits +${result.creditsEarned}`]);
+      setRecentSystemNotice(
+        `Sold ${result.item} ×${result.quantitySold} for ${result.creditsEarned} credits.`,
+      );
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? ((err.data as { error?: string } | null)?.error ?? err.message)
+          : "NPC sell failed.";
+      addMessage(`[ERROR] ${message}`);
+      setRecentSystemNotice(message);
     }
-
-    setTutorialInventory(result.inventory);
-    addMessage(
-      `[MARKET] Sold ${itemName} ×${sellQty} for ${result.creditsEarned} credits.`,
-    );
-    setRecentRewardMessages([`Credits +${result.creditsEarned}`]);
-    setRecentSystemNotice(
-      `Sold ${itemName} ×${sellQty} for ${result.creditsEarned} credits.`,
-    );
   };
   const [enemyHealth, setEnemyHealth] = useState(60);
   const [targetIntel, setTargetIntel] = useState<Record<string, number>>({

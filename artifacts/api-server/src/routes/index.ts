@@ -14,6 +14,7 @@ import chatIgnoresRouter from "./chat-ignores";
 import stationStorageRouter from "./station-storage";
 import mainGameActionsRouter from "./main-game-actions";
 import shipCargoRouter from "./ship-cargo";
+import npcSellRouter from "./npc-sell";
 
 const router: IRouter = Router();
 
@@ -46,5 +47,6 @@ router.use(chatIgnoresRouter);
 router.use(stationStorageRouter);
 router.use(mainGameActionsRouter);
 router.use(shipCargoRouter);
+router.use(npcSellRouter);
 
 export default router;
